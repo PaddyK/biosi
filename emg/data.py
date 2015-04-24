@@ -4,9 +4,16 @@ import math
 
 def jjmdata_from_file(fn):
     with open(fn) as fp:
+        # deserialize data
         unpickled = cPickle.load(fp)
-
+    # deserialization returns a tuple containing two lists. Each list contains
+    # one ndarray.
+    # ndarray at unpickled[0][0]: 12 221 x 160 = 1 955 360 elements
+    # reshape the first list s.t. it has 16 columns 122 210 x 16
     emg = unpickled[0][0].reshape((-1, 16))
+
+    # Pos is a 12 221 x 7 array, do these values describe positions
+    # in an euclidean space?
     pos = unpickled[1][0]
 
     return emg, pos
@@ -19,6 +26,9 @@ def train_valid_test(devl_emg, devl_pos, test_emg, test_pos,
                      emg_frequency=1000,
                      pos_frequency=100):
     # Validate arguments.
+    # Further down we reshape emg data. Here we check if it is possible given
+    # the elements/dimensions.
+    # Fit is calculated using frequencies of pos and emg
     freq_ratio, rest = divmod(emg_frequency, pos_frequency)
     if rest:
         raise ValueError('Frequency if emg is not a multiple of pos frequency')
@@ -34,6 +44,9 @@ def train_valid_test(devl_emg, devl_pos, test_emg, test_pos,
         raise ValueError('At least one of rot and loc has to be set to True.')
 
     # Reshape emg to align with position.
+    # Get the number of rows of pos array and reshape the devl_emg and test_emg
+    # array s.t. they have the same number of rows and a respective number of
+    # columns
     devl_emg = devl_emg.reshape((devl_pos.shape[0], -1))
     test_emg = test_emg.reshape((test_pos.shape[0], -1))
 
