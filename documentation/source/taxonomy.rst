@@ -70,9 +70,9 @@ etc) or the conductions are even consecutive, then it is still one session. If
 hours, days or even weeks are between two conductions then it is a new session.
 This is not well defined and might differ for different occassions.
 
-========
+=========
 Recording
-=======
+=========
 A stream of continuous data produced during one session. A recording may contain
 multiple trials.
 
@@ -90,4 +90,4 @@ Sample
 ======
 Smallest measurable fraction of one modality. In case of an EMG this would be
 one electrode.
-    
+ 
