@@ -48,9 +48,22 @@
 
 import numpy as np
 import pandas as pd
+import sys
+
+# TODO: Order keys were added
 
 class Experiment:
-    """
+    """ Representation of an EMG experiment. This class pools all information to reject
+        or accept a hypothesis.
+
+        Attributes:
+            setups (Dictionary): Dictionary of Setup objects. Contains all technical
+                specification with which EMG measurements were undertaken
+            sessions (Dictionary): Dictionary of Session objects. Contains all sessions
+                conducted during the course of this experiment.
+            subjects (Dictionary): Dictionary of Subject objects. Contains all subjects
+                having participated in this experiment.
+            session_order (List): List of strings. Storing order sessions were added
     """
 
     def __init__(self):
@@ -58,69 +71,112 @@ class Experiment:
         self._sessions = {}
         self._subjects = {}
 
-    def createFromConfig(self, configFile):
-        parser = ConfigParser.ConfigParser()
-        parser._interpolate = configparser.ExtendedInterpolation()
-        parser.read(configFile)
+        self._session_order = []
 
     @property
     def Setups(self):
-        # TODO: implement method stub
         return self._setups
 
     @property
     def Sessions(self):
-        # TODO: implement method stub
         return self._sessions
 
     @property
     def Subjects(self):
-        # TODO: implement method stub
         return self._subjects
 
-    def getSession(self, identifier):
-        # TODO: implement method stub
-        return None
+    @property
+    def Data(self):
+        """ Returns all data over all sessions and recordings.
+            
+            Note:
+                The order in which data will be returned is:
+                * session1
+                    * recording1
+                        * trial1
+                        * trial2
+                    * recording 2
+                        * trial1
+                        * trial2
+                and so forth.
 
-    def getSubject(self, identifier):
-        # TODO: implement method stub
-        return None
+            Returns:
+                Dataframe
+        """
 
-    def getSetup(self, identifier):
-        # TODO: implement method stub
-        return None
+    def getRecording(self, identifier, session):
+        """ Returns specified recording if it exists
+            
+            Args:
+                identifier (string): Identifier of the recording (name it was given)
+                session (string, optional): Identifier of the session recording belongs
+                    to. If not specified, all sessions will be searched
+            
+            Returns:
+                If successful return Recording
 
-    def getTrialsBySession(self, session):
-        # TODO: impelment method sutb
-        return None
+            Raises:
+                IndexError: If no *recording* with ``Identifier`` or no *session*
+                with identifier ``session`` exists
+        """
+        recording = None
+        if session is None:
+            for s in self.Sessions.iteritems():
+                try:
+                    recording = s.getRecording(identifier)
+                except IndexError:
+                    pass
+                except:
+                    print 'Unexpected Error:', sys.exec_info()[0]
+            if recording is None:
+                raise IndexError((
+                    'Recording with identifier ' + identifier + ' is not part ' +
+                    'of any session' % (identifier)
+                ))
+        else:
+            if session not in self.Sessions:
+                raise IndexError('Experiment has no session %s', (session))
+            else:
+                recording = self.Sessions[session].getRecording(identifier)
+        return recording
+    
+    def getTrial(self, identifier, session, recording = None):
+        """ Retrieves a trial
 
-    def getTrialsByRecording(self, recording):
-        # TODO: impelment method sutb
-        return None
+            Args:
+                identifier (string): Identifier of the trial (name given)
+                session (string): Identifier of the session trial belongs to
+                recording (string, optional): Identifier of recording trial belongs to
 
-    def getRecordings(self, session):
-        # TODO: impelment method sutb
-        return None
+            Note:
+                Session is mandatory, since trials might have duplicate names across
+                sessions.
+            
+            Returns:
+                Trial object if successful
+            
+            Raises:
+                IndexError: If there does not exist a Session, Recording or Trial with
+                Identifier ``session``, ``recording`` or ``trial``
+        """
+        trial = None
+        if session not in self.Sessions:
+            raise IndexError('Experiment has no session with identifier %s' % (session))
+        elif recoding is None:
+            for rc in self.Sessions[session].Recordings.iteritems():
+                if identifier in rc.Trials:
+                    trial = rc.getTrial(identifier)
+            if trial is None:
+                raise IndexError((
+                    'No trial with identifier %s exists in any recording of ' +
+                    'session %s' % (identifier, session)
+                ))
+        else:
+            rc = self.getRecording(recording, session) 
+                # throws error if recording does not exist.
+            trial = rc.getTrial(identifier)
 
-    def getModalities(self, setup):
-        # TODO: impelment method sutb
-        return None
-
-    def getSampleByModality(self, modality):
-        # TODO: impelment method sutb
-        return None
-
-    @Setups.setter
-    def Setups(self, setups):
-        self._setups = setups
-
-    @Sessions.setter
-    def Sessions(self, sessions):
-        self._sessions = sessions
-
-    @Subjects.setter
-    def Subjects(self, subjects):
-        self._subjects = subjects
+        return trial
 
     def putSetup(self, setup):
         if setup.Identifier not in self.Setups:
@@ -134,6 +190,7 @@ class Experiment:
     def putSession(self, session):
         if session.Identifier not in self.Sessions:
             self.Sessions[session.Identifier] = session 
+            self._session_order.append(session.Identifier)
         else:
             raise IndexError((
                 'Session with identifier ' + session.Identifier + ' already exists in ' +
@@ -171,7 +228,10 @@ class Experiment:
         return string
 
 class Subject:
-    """
+    """ Represents subjects having paricipated in the course of an EMG experiment.
+
+        Attributes:
+            identifier (string): Identifier of a subject
     """
     def __init__(self, identifier):
         self._identifier = identifier
@@ -352,6 +412,9 @@ class Session:
                 a generic one will be used (session0, session1, ...).
             recordings (Dictionary): Dictionary of all recordings produced durint the
                 session.
+            recording_order (List): Stores order in which recordings were added
+            samples (int): Count of samples of all recordings and trials part of
+                a session
     """
 
     def __init__(self, experiment, setup, subject, identifier = None):
@@ -360,7 +423,9 @@ class Session:
         self._setup = setup
         self._experiment = experiment
         self._recordings = {}
-        
+        self._recording_order = []
+        self._samples = 0 # If a trial is added to a recording this count is alsoc incremented
+
         if self._identifier is None:
             self._identifier = 'session' + str(len(self._experiment.Sessions))
 
@@ -386,17 +451,67 @@ class Session:
     def Identifier(self):
         return self._identifier
 
-    @Subject.setter
-    def Subject(self, subject):
-        self._subject = subject
+    @property
+    def Data(self):
+        """ Returns the data of all recordings and trials associated with one Session.
+            Only the concatenated data of the trials is returned. Samples not contained
+            in trials are skipped.
 
-    @Setup.setter
-    def Setup(self, setup):
-        self._setup = setup
+            Returns:
+                pandas.DataFrame
+        """
+        df = None
+        for id in self._recording_order:
+            if df is None:
+                df = self.Recordings[id].Data
+            else:
+                df = np.concate([df, self.Recordings[id].Data])
+        return df
+    
+    @property
+    def Samples(self):
+        return self._samples
 
-    @Recordings.setter
-    def Recordings(self, recordings):
-        self._recordings = recordings
+    @Data.setter
+    def Data(self, data):
+        """ Sets the data of all trials in all recordings belonging to this session.
+            
+            Args:
+                data (pandas.DataFrame): New data for session
+
+            Raises:
+                ValueError: Raised if number of samples/features does not match
+        """
+
+        if (data.shape[0] != self.Samples) or (data.shape[1] != self.Setup.Features):
+            raise ValueError((
+                'Input has wrong dimensions for session %s. Expected data of ' +
+                'dimensionality (%s,%s), instead got (%s, %s)' %
+                (
+                    self.Identifier,
+                    self.Samples,
+                    self.Setup.Features,
+                    data.shape[0],
+                    data.shape[1]
+                )
+            ))
+        else:
+            offset = 0
+            for id in self._recording_order:
+                self.Recordings[id].Data = data[offset : self.Recordings[id].Samples]
+
+    @Samples.setter
+    def Samples(self, samples):
+        self._samples = samples
+
+    def getRecording(self, identifier):
+        if identifier not in self.Recordings:
+            raise IndexError(
+                'No recording with identifier %s in session %s' %
+                (identifier, self.Identifier)
+            )
+        else:
+            return self.Recordings[identifier]
 
     def putRecording(self, recording):
         """ Appends one recording to object attribute *recordings*
@@ -406,6 +521,7 @@ class Session:
         """
         if recording.Identifier not in self.Recordings:
             self.Recordings[recording.Identifier] = recording
+            self._recording_order.append(recording.Identifier)
         else:
             raise IndexError((
                 'Recording with identifier ' + recording.Identifier + ' already exists' +
@@ -468,10 +584,12 @@ class Recording:
             stopIdx (int): Stop index of recording in data
             startIdx (int): Start index of recording in data
             duration (int): Duration of recording in data in seconds
-            samples (int): Number of samples in this recording.
+            samples (int): Number of samples in this recording. The sum of all sample
+                counts of trials being part of this recording
             trials (Dictionary): Trials included in this recording.
             identifier (string): Identifier of one specific instance
             features (int): Number of features in data set
+            trial_order (List): Stores order in which trials were added
 
         Raises:
             ValueError: Raised if both, location and data are not set or if data is set,
@@ -483,7 +601,7 @@ class Recording:
         self._session = session
         self._location = location
         self._data = data
-        self._samples = 0 # TODO: calculate samples
+        self._samples = 0
         self._features = self.Session.Setup.Features
         self._startIdx = 0
         self._stopIdx = 0
@@ -491,6 +609,7 @@ class Recording:
         self._identifier = identifier
         self._start = start
         self._duration = duration
+        self._trial_order = []
 
         if self._identifier is None:
             self._identifier = 'recording' + str(len(self._session.Recordings))
@@ -507,7 +626,6 @@ class Recording:
         else:
             self._startIdx = self._start * self._session.Setup.Frequency
             self._stopIdx = self._startIdx + self._session.Setup.Frequency
-            self._samples = self._stopIdx - self._startIdx
         
         self._session.putRecording(self)
     @property
@@ -532,9 +650,27 @@ class Recording:
 
     @property
     def Data(self):
-        if (self.Start is not None) and (self.Stop is not None):
-            return self.Data.iloc[self.StartIdx : self.StopIdx]
-        return self._data
+        """ Returns the **relevant** data of a recording object. In especially, this
+            property yields only the data specified in the trials belonging to the
+            recording.
+            
+            Example:
+                Sampling rate of 4000Hz, recording is 60s long. Trial one goes from
+                second 10 to second 30, and trial02 from second 35 to second 50.
+                Then this function only yields the samples in the intervals 10..30 and
+                35..50. So a total of (20 + 15) * 4000 samples instead of 60 * 4000 samples
+            
+            Returns:
+                DataFrame
+        """
+
+        df = None
+        for id in self._trial_order:
+            if df is None:
+                df = self.Trials[id].Data
+            else:
+                df = pd.concat([df, self.Trials[id].Data])
+        return df
 
     @property
     def Duration(self):
@@ -559,9 +695,42 @@ class Recording:
     @property
     def Stop(self):
         return self._stop
-
+    
     @Data.setter
     def Data(self, data):
+        """ Sets only the **relevant** data of the recording, i.e. the data specified
+            by the subsequent trials.
+
+            Args:
+                data (pandas.DataFrame): Data to update trials with
+        """
+        if (data.shape[0] != self.Samples) or (data.shape[1] != self.Features):
+            raise ValueError((
+                'Dimension missmatch while trying to set data for recording %s. ' +
+                'Expected data of form (%d,%d), instead got (%d,%d)' %
+                (self.Identifier, self.Samples, self.Features, data.shape[0], data.shape[1])
+            ))
+        else:
+            samples = 0 # Use it as soffset
+            for id in self._trial_order:
+                self.Trials[id].Data = data[samples : self.Trials[id].Samples]
+                samples = samples + self.Trials[id].Samples
+    @Samples.setter
+    def Samples(self, samples):
+        self._samples = samples
+
+    def getAllData(self):
+        """ In contrast to the Data propery, this function will return the whole DataFrame
+            having been passed to a Recording object (or read from file).
+            The data therein might not represent the original state if operations on the
+            data have been performed.
+
+            Returns:
+                DataFrame
+        """
+        return self._data
+
+    def setAllData(self, data):
         if (data.shape[0] == self.Samples) and (data.shape[1] == self.Features):
             self.Data[self.StartIdx : self.StopIdx] = data
         else:
@@ -571,17 +740,25 @@ class Recording:
                 'shape' + str(data.shape)
             ))
 
-    @Session.setter
-    def Session(self, session):
-        self._session = session
-
-    @Location.setter
-    def Location(self, location):
-        self._location = location
-
-    @Trials.setter
-    def Trials(self, trials):
-        self._trials = trials
+    def getTrial(self, identifier):
+        """ Returns the trial specified by identifier.
+            
+            Args:
+                identifier (string): Identifier of trial
+            
+            Returns:
+                If successful, trial object
+            
+            Raises:
+                IndexError: If not trial specified by index exists in recording
+        """
+        if identifier in self.Trials:
+            return self.Trials[identifier]
+        else:
+            raise IndexError((
+                'Recording %s has no trial with identifier %s' %
+                (self.Identifier, identifier)
+            ))
 
     def putTrial(self, trial):
         """ Adds a trial to the *trials* object. This method is intended to build up
@@ -596,6 +773,9 @@ class Recording:
         """
         if trial.Identifier not in self.Trials:
             self.Trials[trial.Identifier] = trial
+            self._trial_order.append(trial.Identifier)
+            self.Samples = self.Samples + trial.Samples
+            self.Session.Samples = self.Session.Samples + trial.Samples
         else:
             raise IndexError('Trial with name ' + name + ' already member of recording')
 

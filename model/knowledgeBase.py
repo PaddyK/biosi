@@ -67,3 +67,8 @@ def createKb():
     model.Trial(recording, 70, 20, 'leg_lever')
     
     return experiment
+
+if __name__ == '__main__':
+    e = createKb()
+    print e.recursiveToString()
+
