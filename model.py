@@ -46,19 +46,17 @@
         set of pointers pointing to the start and end of the trial in one large recording.
 """
 
-from abc import ABCMeta
-import ConfigParser
-import configparser
+import numpy as np
+import pandas as pd
 
 class Experiment:
     """
     """
 
     def __init__(self):
-        #  TODO: implement this for real
-        self._setups = None
-        self._sessions = None
-        self._subjects = None
+        self._setups = {}
+        self._sessions = {}
+        self._subjects = {}
 
     def createFromConfig(self, configFile):
         parser = ConfigParser.ConfigParser()
@@ -134,7 +132,7 @@ class Experiment:
             ))
 
     def putSession(self, session):
-        if session.Identifier not in self.Session:
+        if session.Identifier not in self.Sessions:
             self.Sessions[session.Identifier] = session 
         else:
             raise IndexError((
@@ -144,21 +142,46 @@ class Experiment:
 
     def putSubject(self, subject):
         if subject.Identifier not in self.Subjects:
-            self.Setups[subject.Identifier] = subject
+            self.Subjects[subject.Identifier] = subject
         else:
             raise IndexError((
                 'Subject with identifier ' + subject.Identifier + ' already exists in ' +
                 ' experiment'
             ))
+    
+    def toString(self):
+        return (
+            'Experiment: %d Setups, %d Sessions, %d Subjects' %
+            (len(self.Setups), len(self.Sessions), len(self.Subjects))
+        )
+
+    def recursiveToString(self):
+        string = self.toString() + '\n'
+        string =  string + 'Subjects:\n'
+        for s in self.Subjects.itervalues():
+            string = string + '\t' + s.toString() + '\n'
+        string = string + 'Setups:\n'
+        for s in self.Setups.itervalues():
+            tmp = s.recursiveToString()
+            string = string + '\t' + tmp.replace('\n','\n\t') + '\n'
+        string = string + 'Sessions:\n'
+        for s in self.Sessions.itervalues():
+            tmp = s.recursiveToString()
+            string = string + '\t' + tmp.replace('\n', '\n\t') + '\n'
+        return string
 
 class Subject:
-
+    """
+    """
     def __init__(self, identifier):
         self._identifier = identifier
 
     @property
     def Identifier(self):
         return self._identifier
+
+    def toString(self):
+        return self.Identifier
 
 class Setup:
     """ Represents a setup for an session. Specifies the used frequency, amount and
@@ -170,15 +193,16 @@ class Setup:
         self._identifier = identifier
         self._modalities = {}
         self._experiment = experiment
+        self._features = 0
 
         if self._identifier is None:
-            self._identifier = 'setup' + str(len(self._experiment.sessions))
+            self._identifier = 'setup' + str(len(self._experiment.Setups))
 
-        self._experiment.addSetup(self)
+        self._experiment.putSetup(self)
 
     @property
     def Frequency(self):
-        return __frequency
+        return self._frequency
 
     @property
     def Identifier(self):
@@ -188,6 +212,14 @@ class Setup:
     def Modalities(self):
         return self._modalities
 
+    @property
+    def Features(self):
+        return self._features
+
+    @Features.setter
+    def Features(self, features):
+        self._features = features
+
     def putModality(self, modality):
         if modality.Identifier not in self.Modalities:
             self.Modalities[modality.Identifier] = modality
@@ -196,6 +228,20 @@ class Setup:
                 'Modality with identifier ' + modality.Identifier + ' already exists ' +
                 'in Setup ' + self.Identifier
             ))
+    
+    def toString(self):
+        return ( 
+            'Setup %s: %d Modalities, %d samples/second' %
+            (self.Identifier, len(self.Modalities), self.Frequency)
+        )
+        return string
+
+    def recursiveToString(self):
+        string = self.toString() +'\n'
+        for m in self.Modalities.itervalues():
+            tmp = m.recursiveToString().replace('\n', '\n\t')
+            string = string + '\t' + tmp + '\n'
+        return string
 
 class Modality:
     """ Represents a modality. A modality in the context of EMG is a group of sensors, for
@@ -220,23 +266,42 @@ class Modality:
 
         if self._identifier is None:
             self._identifier = 'modality' + str(len(self._setup.modalities))
+        
+        self._setup.putModality(self)
 
-        @property
-        def Identifier(self):
-            return self._identifier
+    @property
+    def Identifier(self):
+        return self._identifier
 
-        @property
-        def Samples(self):
-            return self._samples
+    @property
+    def Samples(self):
+        return self._samples
 
-        def putSample(self, sample):
-            if sample.Identifier not in self.Samples:
-                self.Samples[sample.Identifier] = sample
-            else:
-                raise IndexError((
-                    'Sample with identifier ' + sample.Identifier + ' already exists ' +
-                    'in Modality ' + self.Identifier
-                ))
+    @property
+    def Setup(self):
+        return self._setup
+
+    def putSample(self, sample):
+        if sample.Identifier not in self.Samples:
+            self.Samples[sample.Identifier] = sample
+            self.Setup.Features = self.Setup.Features + 1
+        else:
+            raise IndexError((
+                'Sample with identifier ' + sample.Identifier + ' already exists ' +
+                'in Modality ' + self.Identifier
+            ))
+
+    def toString(self):
+        string = (
+            'Modality %s: %d Samples' % (self.Identifier, len(self.Samples))
+        )
+        return string
+
+    def recursiveToString(self):
+        string = self.toString() + '\n'
+        for s in self.Samples.itervalues():
+            tmp = '\t' + s.toString() + '\n'
+        return string
 
 class Sample:
     """ Represents a sample i.e. sensor.
@@ -265,6 +330,9 @@ class Sample:
     def Identifier(self):
         return self._identifier
 
+    def toString(self):
+        return 'Sample: ' + self.Identifier
+
 class Session:
     """ Implements a session of an experiment. A session is defined by the subject
         participating, the used setup and the time it takes place.
@@ -286,7 +354,7 @@ class Session:
                 session.
     """
 
-    def __init__(self, experiment, setup, subject, identifier):
+    def __init__(self, experiment, setup, subject, identifier = None):
         self._identifier = identifier
         self._subject = subject
         self._setup = setup
@@ -313,6 +381,10 @@ class Session:
     @property
     def Recordings(self):
         return self._recordings
+
+    @property
+    def Identifier(self):
+        return self._identifier
 
     @Subject.setter
     def Subject(self, subject):
@@ -349,6 +421,25 @@ class Session:
         for rc in recordings:
             self.putRecording(rc)
 
+    def toString(self):
+        string = (
+            'Session %s: Subject %s, Setting %s, %d recordings' %
+            (
+                self.Identifier,
+                self.Subject.Identifier,
+                self.Setup.Identifier,
+                len(self.Recordings)
+            )
+        )
+        return string
+
+    def recursiveToString(self):
+        string = self.toString() + '\n'
+        for r in self.Recordings.itervalues():
+            tmp = r.recursiveToString().replace('\n','\n\t')
+            string = string + '\t' + tmp + '\n'
+        return string
+
 class Recording:
     """ Represents one recording of a session. May contain multiply trials, i.e. performed
         tasks.
@@ -360,8 +451,8 @@ class Recording:
             data (pandas.DataFrame, optional): DataFrame with samples of this recording.
                 If this attribute is set, ``start`` and ``stop`` attributes need also
                 be set.
-            start (int): Start Index of recording in data
-            stop (int): Stop index of recording in data
+            start (int): Start of recording in data in seconds
+            duration (int): Duration of recording in data in seconds
             identifier (string, optional): Identifier of one instance
 
         Note:
@@ -373,10 +464,10 @@ class Recording:
             location (string, optional): Path to a file containing the record. If this
                 parameter is set and no data is given, data will be retrieved from file.
             data (pandas.DataFrame, optional): DataFrame with samples of this recording.
-            start (int): Start Index of recording in data
-            stop (int): Stop index of recording in data
-            duration (float): Duration of the recording in seconds. Calculated using
-                frequency specified in the for the session used setup.
+            start (int): Start of recording in data in seconds
+            stopIdx (int): Stop index of recording in data
+            startIdx (int): Start index of recording in data
+            duration (int): Duration of recording in data in seconds
             samples (int): Number of samples in this recording.
             trials (Dictionary): Trials included in this recording.
             identifier (string): Identifier of one specific instance
@@ -387,18 +478,19 @@ class Recording:
                 but either start or stop (or both) are not
     """
 
-    def __init__(self, session, location = None, data = None, start = None, stop = None,
+    def __init__(self, session, location = None, data = None, start = None, duration = None,
             identifier = None):
         self._session = session
         self._location = location
         self._data = data
-        self._duration = 0 # TODO: calculate duration
         self._samples = 0 # TODO: calculate samples
-        self._features = 0
+        self._features = self.Session.Setup.Features
+        self._startIdx = 0
+        self._stopIdx = 0
         self._trials = {}
         self._identifier = identifier
         self._start = start
-        self._stop = stop
+        self._duration = duration
 
         if self._identifier is None:
             self._identifier = 'recording' + str(len(self._session.Recordings))
@@ -406,15 +498,16 @@ class Recording:
         if (data is None) and (location is None):
             raise ValueError('Neither location nor data set in Recording')
         
-        if (data is not None) and ((start is None) or (stop is None)):
-            raise ValueError('Data specified but stop and/or start were not')
+        if (data is not None) and ((start is None) or (duration is None)):
+            raise ValueError('Data specified but duration and/or start were not')
 
         if data is None:
             # TODO: read from file
             print 'Todo, read data from file'
         else:
-            self._samples = self._data.shape[0]
-            self._duration = self._samples / self._session.Setup.Frequency
+            self._startIdx = self._start * self._session.Setup.Frequency
+            self._stopIdx = self._startIdx + self._session.Setup.Frequency
+            self._samples = self._stopIdx - self._startIdx
         
         self._session.putRecording(self)
     @property
@@ -440,7 +533,7 @@ class Recording:
     @property
     def Data(self):
         if (self.Start is not None) and (self.Stop is not None):
-            return self.Data.iloc[self.Start : self.Stop]
+            return self.Data.iloc[self.StartIdx : self.StopIdx]
         return self._data
 
     @property
@@ -449,11 +542,19 @@ class Recording:
 
     @property
     def Samples(self):
-        return self.Samples
+        return self._samples
     
     @property
     def Start(self):
         return self._start
+
+    @property
+    def StartIdx(self):
+        return self._startIdx
+
+    @property
+    def StopIdx(self):
+        return self.StopIdx
 
     @property
     def Stop(self):
@@ -462,7 +563,7 @@ class Recording:
     @Data.setter
     def Data(self, data):
         if (data.shape[0] == self.Samples) and (data.shape[1] == self.Features):
-            self.Data[self.Start : self.Stop] = data
+            self.Data[self.StartIdx : self.StopIdx] = data
         else:
             raise ValueError((
                 'Shape missmatch replacing data in recording ' + self.Identifier + '. ' +
@@ -498,6 +599,24 @@ class Recording:
         else:
             raise IndexError('Trial with name ' + name + ' already member of recording')
 
+    def toString(self):
+        string = (
+            'Recording %s: %ds duration, %d samples, %d Trials' %
+            (
+                self.Identifier,
+                self.Duration,
+                self.Samples,
+                len(self.Trials)
+            )
+        )
+        return string
+
+    def recursiveToString(self):
+        string = self.toString() + '\n'
+        for t in self.Trials.itervalues():
+            string = string + '\t' + t.toString() + '\n'
+        return string
+
 class Trial:
     """ Implements one trial of an EMG experiment. A trial is the smallest amount of data
         to accept or reject a hypothesis.
@@ -510,9 +629,9 @@ class Trial:
             recording (Recording): The recording this trial belongs to. Necessary to
                 retrieve informations about the setting.
             start (float): Start point of trial in seconds relative to the start point of
-                the recording.
-            stop (float): Stop point of trial in seconds relative to the stop point of
-                the recording.
+                the recording (format: ``seconds.miliseconds``).
+            duration (float): Stop point of trial in seconds relative to the stop point of
+                the recording (format: ``seconds.miliseconds``).
             identifier (string): Identifier of the trial. For example *bizeps_curl*
 
         Attributes:
@@ -523,39 +642,32 @@ class Trial:
             startIdx (int): Offset relative to beginning of recording of trial. Index
                 to DataFrame
             stopIdx (int): End of trial relative to recording. Index to DataFrame
-            stop (float): Stop point of trial in miliseconds relative to the stop point of
+            duration (float): Stop point of trial in miliseconds relative to the stop point of
                 the recording.
             identifier (string): Identifier of the trial. For example *bizeps_curl*
     """
 
-    def __init__(self, recording, start, stop, identifier):
+    def __init__(self, recording, start, duration, identifier):
         self._recording = recording
         self._start = start
-        self._stop = stop
+        self._duration = duration # Convert to miliseconds
         self._startIdx = 0
         self._stopIdx = 0
         self._identifier = identifier
         self._samples = 0
         
-        if self._name is None:
+        if self._identifier is None:
             self._name = 'trial' + str(len(self._recording.Trials))
         
-        if self._start > self._stop:
-            raise ValueError((
-                'Start point of trial ' + self._identifier + ' bigger than ' +
-                'stoppoing point'
-            ))
-
-        # Convert frequency to samples/milisecondsy
-        f = recording.Setting.Setup.Frequency / 1000
+        f = self._recording.Session.Setup.Frequency
         self._startIdx = self._start * f
-        self._stopIdx = self._stop * f
+        self._stopIdx = self._startIdx + self._duration * f
         self._samples = self._stopIdx - self._startIdx
         
         self._recording.putTrial(self)
 
     @property
-    def Name(identifier):
+    def Identifier(self):
         return self._identifier
 
     @property
@@ -571,8 +683,8 @@ class Trial:
         return self._startIdx
 
     @property
-    def Stop(self):
-        return self._stop
+    def Duration(self):
+        return self._duration
 
     @property
     def StopIdx(self):
@@ -581,22 +693,7 @@ class Trial:
     @property
     def Samples(self):
         return self._samples
-
-    @Identifier.setter
-    def name(self, identifier):
-        self._identifier = identifier
-    @Recording.setter
-    def Recording(self, recording):
-        self._recording = recording
-
-    @Start.setter
-    def Start(self, start):
-        self._start = start
-
-    @Stop.setter
-    def Stop(self, stop):
-        self._stop = stop
-
+    
     def getData(self):
         offset = self.Recording.Start
         return self.Recording.Data.iloc[self.StartIdx + offset : self.StopIdx + offset]
@@ -610,3 +707,11 @@ class Trial:
                 '\nExpected shape(' + self.Samples + ',' + self.Features + ', got ' +
                 'shape' + str(data.shape)
             ))
+
+    def toString(self):
+        string = (
+            'Trial %s: %fs duration, %d samples' %
+            (self.Identifier, self.Duration, self.Samples)
+        )
+        return string
+
