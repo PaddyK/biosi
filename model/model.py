@@ -44,6 +44,60 @@
         A part of a recording or a whole recording. A trial could either be a recording
         in its own right, i.e. referencing measurement values or it could simply be a
         set of pointers pointing to the start and end of the trial in one large recording.
+
+    Note:
+        When working with data be aware that everything is by reference. A DataFrame object
+        retrieved from trial is not a copy of a part of the data of the recording the 
+        trial belongs to, but a view.
+        If the trial's data is changed so is the data of the recording (and with that I
+        mean the original data you may have passed to the recording during instantiation.
+        
+        Example:
+            Took the freedome to add lines to the printout of DataFrame to make it more
+            comprehensible:
+
+            >>> arr = np.ndarray(
+                    [1,2,3],
+                    [4,5,6],
+                    [7,8,9],
+                    [10,11,12],
+                    [13,14,15]
+                )
+            >>> recording = model.Recording(..., data = arr, ...)
+            >>> trial = model.Trial(recording, 3, 3)
+            >>> trial.Data
+             | 0  1  2
+            ----------
+            2| 7  8  9
+            3|10 11 12
+            4|13 14 15
+            >>> trial.Data = trial.Data * 10
+            >>> trial.Data
+             |  0   1   2
+            -------------
+            2| 70  80  90
+            3|100 110 120
+            4|130 140 150
+            >>> recording.Data
+             |  0   1   2
+            -------------
+            2| 70  80  90
+            3|100 110 120
+            4|130 140 150
+            >>> recording.getAllData()
+             |  0   1   2
+            -------------
+            0|  1   2   3
+            1|  4   5   6
+            2| 70  80  90
+            3|100 110 120
+            4|130 140 150
+            >>> arr
+            array([[  0,   1    2],
+                   [  4,   5    6],
+                   [ 70,  80,  90],
+                   [100, 110, 120],
+                   [130, 140, 150])
 """
 
 import numpy as np
@@ -465,7 +519,7 @@ class Session:
             if df is None:
                 df = self.Recordings[id].Data
             else:
-                df = np.concate([df, self.Recordings[id].Data])
+                df = pd.concat([df, self.Recordings[id].Data])
         return df
     
     @property
@@ -601,6 +655,8 @@ class Recording:
         self._session = session
         self._location = location
         self._data = data
+        print 'Recording.__init__ original data %s' % str(id(data))
+        print 'Recording.__init__ class object %s' % str(id(self._data))
         self._samples = 0
         self._features = self.Session.Setup.Features
         self._startIdx = 0
@@ -661,9 +717,9 @@ class Recording:
                 35..50. So a total of (20 + 15) * 4000 samples instead of 60 * 4000 samples
             
             Returns:
-                DataFrame
+                pandas.DataFrame
         """
-
+        # New data frame is created
         df = None
         for id in self._trial_order:
             if df is None:
@@ -714,7 +770,8 @@ class Recording:
             samples = 0 # Use it as soffset
             for id in self._trial_order:
                 self.Trials[id].Data = data[samples : self.Trials[id].Samples]
-                samples = samples + self.Trials[id].Samples
+
+    
     @Samples.setter
     def Samples(self, samples):
         self._samples = samples
@@ -874,13 +931,19 @@ class Trial:
     def Samples(self):
         return self._samples
     
-    def getData(self):
-        offset = self.Recording.Start
-        return self.Recording.Data.iloc[self.StartIdx + offset : self.StopIdx + offset]
+    @property
+    def Data(self):
+        offset = self.Recording.StartIdx
+        print 'Trial.Data (prop) %s' % str(id(self.Recording.getAllData()))
+        return self.Recording.getAllData().iloc[self.StartIdx + offset : self.StopIdx + offset]
 
-    def setData(self, data):
+    @Data.setter
+    def Data(self, data):
+        print 'Trial.Data.setter'
         if (data.shape[0] == self.Samples) and (data.shape[1] == self.Recording.Features):
-            self.Recording.Data[self.StartIdx + offset : self.StopIdx + offset] = data
+            print 'Trial.Data.setter before assignment: %s' % str(id(self.Recording.getAllData()))
+            self.Recording.getAllData().iloc[self.StartIdx + offset : self.StopIdx + offset] = data
+            print 'Trial.Data.setter after assignment: %s' % str(id(self.Recording.getAllData()))
         else:
             raise ValueError((
                 'Shape missmatch replacing data in trial ' + self.Identifier + '. ' +
