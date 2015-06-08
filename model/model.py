@@ -505,8 +505,7 @@ class Session:
     def Identifier(self):
         return self._identifier
 
-    @property
-    def Data(self):
+    def getData(self):
         """ Returns the data of all recordings and trials associated with one Session.
             Only the concatenated data of the trials is returned. Samples not contained
             in trials are skipped.
@@ -515,19 +514,23 @@ class Session:
                 pandas.DataFrame
         """
         df = None
-        for id in self._recording_order:
+        for idx in self._recording_order:
             if df is None:
-                df = self.Recordings[id].Data
+                df = self.Recordings[idx].getData()
             else:
-                df = pd.concat([df, self.Recordings[id].Data])
+                df = pd.concat([df, self.Recordings[idx].getData()])
+        
+        df['sessions'] = self.Identifier
+        df.set_index('sessions', inplace = True, append = True)
+        df = df.reorder_levels(['sessions', 'recordings', 'trials', 'samples'])
+        
         return df
     
     @property
     def Samples(self):
         return self._samples
 
-    @Data.setter
-    def Data(self, data):
+    def setData(self, data):
         """ Sets the data of all trials in all recordings belonging to this session.
             
             Args:
@@ -551,8 +554,10 @@ class Session:
             ))
         else:
             offset = 0
-            for id in self._recording_order:
-                self.Recordings[id].Data = data[offset : self.Recordings[id].Samples]
+            for idx in self._recording_order:
+                end = self.Recordings[idx].Samples + offset
+                self.Recordings[idx].setData(data[offset : end])
+                offset = end
 
     @Samples.setter
     def Samples(self, samples):
@@ -655,8 +660,6 @@ class Recording:
         self._session = session
         self._location = location
         self._data = data
-        print 'Recording.__init__ original data %s' % str(id(data))
-        print 'Recording.__init__ class object %s' % str(id(self._data))
         self._samples = 0
         self._features = self.Session.Setup.Features
         self._startIdx = 0
@@ -681,7 +684,7 @@ class Recording:
             print 'Todo, read data from file'
         else:
             self._startIdx = self._start * self._session.Setup.Frequency
-            self._stopIdx = self._startIdx + self._session.Setup.Frequency
+            self._stopIdx = self._startIdx + self._session.Setup.Frequency * self._duration
         
         self._session.putRecording(self)
     @property
@@ -704,8 +707,7 @@ class Recording:
     def Identifier(self):
         return self._identifier
 
-    @property
-    def Data(self):
+    def getData(self):
         """ Returns the **relevant** data of a recording object. In especially, this
             property yields only the data specified in the trials belonging to the
             recording.
@@ -723,9 +725,15 @@ class Recording:
         df = None
         for id in self._trial_order:
             if df is None:
-                df = self.Trials[id].Data
+                df = self.Trials[id].getData()
             else:
-                df = pd.concat([df, self.Trials[id].Data])
+                df = pd.concat([df, self.Trials[id].getData()])
+        
+        df['recordings'] = self.Identifier
+        df.set_index('recordings', append = True, inplace = True)
+        # Returns a new object and there is no inplace option
+        df = df.reorder_levels(['recordings', 'trials', 'samples'])
+        
         return df
 
     @property
@@ -746,31 +754,44 @@ class Recording:
 
     @property
     def StopIdx(self):
-        return self.StopIdx
+        return self._stopIdx
 
     @property
     def Stop(self):
         return self._stop
     
-    @Data.setter
-    def Data(self, data):
+    def setData(self, data):
         """ Sets only the **relevant** data of the recording, i.e. the data specified
             by the subsequent trials.
 
             Args:
                 data (pandas.DataFrame): Data to update trials with
+            
+            Note:
+                This is not a setter be design. If data is set using setter it seems like
+                a separate object is created.
+                Trials referencing the updated data do net return the new values. When
+                accessing data though this classes properties, the updated data is
+                returned, though.
         """
+
         if (data.shape[0] != self.Samples) or (data.shape[1] != self.Features):
             raise ValueError((
                 'Dimension missmatch while trying to set data for recording %s. ' +
-                'Expected data of form (%d,%d), instead got (%d,%d)' %
-                (self.Identifier, self.Samples, self.Features, data.shape[0], data.shape[1])
+                'Expected data of form (%s,%s), instead got %s' %
+                (
+                    str(self.Identifier), 
+                    str(self.Samples), 
+                    str(self.Features)#,
+                    #str(data.shape) 
+                )
             ))
         else:
             samples = 0 # Use it as soffset
-            for id in self._trial_order:
-                self.Trials[id].Data = data[samples : self.Trials[id].Samples]
-
+            for idnt in self._trial_order:
+                end = samples + self.Trials[idnt].Samples
+                self.Trials[idnt].setData(data[samples : end])
+                samples = end
     
     @Samples.setter
     def Samples(self, samples):
@@ -931,19 +952,40 @@ class Trial:
     def Samples(self):
         return self._samples
     
-    @property
-    def Data(self):
+    def getData(self):
         offset = self.Recording.StartIdx
-        print 'Trial.Data (prop) %s' % str(id(self.Recording.getAllData()))
-        return self.Recording.getAllData().iloc[self.StartIdx + offset : self.StopIdx + offset]
+        start = self.StartIdx + offset
+        end = self.StopIdx + offset
 
-    @Data.setter
-    def Data(self, data):
-        print 'Trial.Data.setter'
+        #idx = pd.MultiIndex.from_product(
+        #    [[self.Identifier], np.arange(0, self.Samples)],
+        #    names = ['trials', 'samples']
+        #)
+        tmp = self.Recording.getAllData().iloc[start : end]
+        tmp['samples'] = np.arange(self.Samples)
+        tmp['trials'] = self.Identifier
+        tmp.set_index('trials', inplace = True, append = False)
+        tmp.set_index('samples', inplace = True, append = True)
+        
+        return tmp
+
+    def setData(self, data):
+        """ Sets the samples in reference.data this trial is referencing.
+            
+            Args:
+                data (pandas.DataFrame): New data
+
+            Note:
+                This is not a property by purpose. When using a property here, Python seems
+                to create a new object behind the scenes and the data object in Record
+                class is not changed!
+        """
         if (data.shape[0] == self.Samples) and (data.shape[1] == self.Recording.Features):
-            print 'Trial.Data.setter before assignment: %s' % str(id(self.Recording.getAllData()))
-            self.Recording.getAllData().iloc[self.StartIdx + offset : self.StopIdx + offset] = data
-            print 'Trial.Data.setter after assignment: %s' % str(id(self.Recording.getAllData()))
+            offset = self.Recording.StartIdx
+            offset = 0
+            begin = self.StartIdx + offset
+            end = self.StopIdx + offset
+            self.Recording.getAllData().iloc[begin : end] = data.get_values()
         else:
             raise ValueError((
                 'Shape missmatch replacing data in trial ' + self.Identifier + '. ' +
