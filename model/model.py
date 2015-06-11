@@ -315,7 +315,8 @@ class Setup:
         self._modalities = {}
         self._experiment = experiment
         self._features = 0
-
+        self._modalityOrder = []
+ 
         if self._identifier is None:
             self._identifier = 'setup' + str(len(self._experiment.Setups))
 
@@ -340,10 +341,17 @@ class Setup:
     @Features.setter
     def Features(self, features):
         self._features = features
+ 
+    def getSampleOrder(self):
+        order = []
+        for idx in self._modalityOrder:
+            order.extend(self.Modalities[idx].SampleOrder)
+        return order
 
     def putModality(self, modality):
         if modality.Identifier not in self.Modalities:
             self.Modalities[modality.Identifier] = modality
+            self._modalityOrder.append(modality.Identifier)
         else:
             raise IndexError((
                 'Modality with identifier ' + modality.Identifier + ' already exists ' +
@@ -384,6 +392,7 @@ class Modality:
         self._setup = setup
         self._identifier = identifier
         self._samples = {}
+        self._sampleOrder = []
 
         if self._identifier is None:
             self._identifier = 'modality' + str(len(self._setup.modalities))
@@ -402,10 +411,20 @@ class Modality:
     def Setup(self):
         return self._setup
 
+    @property
+    def SampleOrder(self):
+        """ Returns List of identifiers in order in which they were added
+            
+            returns:
+                List of Strings
+        """
+        return self._sampleOrder
+
     def putSample(self, sample):
         if sample.Identifier not in self.Samples:
             self.Samples[sample.Identifier] = sample
             self.Setup.Features = self.Setup.Features + 1
+            self._sampleOrder.append(sample.Identifier)
         else:
             raise IndexError((
                 'Sample with identifier ' + sample.Identifier + ' already exists ' +
@@ -950,7 +969,7 @@ class Trial:
         tmp['trials'] = self.Identifier
         tmp.set_index('trials', inplace = True, append = False)
         tmp.set_index('samples', inplace = True, append = True)
-        
+        tmp.columns = self.Recording.Session.Setup.getSampleOrder()        
         return tmp
 
     def setData(self, data):
