@@ -103,6 +103,8 @@
 import numpy as np
 import pandas as pd
 import sys
+import cPickle as pkl
+import re
 
 # TODO: Order keys were added
 
@@ -999,3 +1001,87 @@ class Trial:
         )
         return string
 
+class DataController:
+    """ Handles reading and writing EMG data from file
+    """
+
+    def readDataFromText(self, path, delimiter = '\t', asNumpy = False):
+        """ Reads EMG data from a textfile
+            
+            Args:
+                path (String): Path to the text file which should be read
+                delimiter (String, optional): Delimiter of columns
+                asNumpy (Boolean, optional): If set to true numpy array is returned
+                    instead of Pandas DataFrame
+            
+            Returns:
+                pandas.core.DataFrame
+                numpy.ndarray
+        """
+
+        with open(path, 'r') as f:
+            count = 0
+            start = 0
+            arr = None
+            for line in f:
+                count = count + 1
+
+                if count < 7:
+                    continue
+
+                line = line.strip()
+                if re.match('[a-zA-Z]', line) is not None:
+                    print 'Warning - skipped line %d:%s' % (count, line)
+                    continue
+
+                start = line.index('\t')
+                line = line.replace(',', '.')
+
+                values = line[start + 1: len(line)].split('\t')
+                if arr is None:
+                    arr = np.array(values, dtype = 'float').reshape(1, len(values))
+                else:
+                    try:
+                        arr = np.row_stack((
+                            arr,
+                            np.array(values, dtype = 'float').reshape(1, len(values))
+                        ))
+                    except ValueError as e:
+                        print (
+                                'Error reading line %i in file %s. Line was %s' %
+                                (count, path, line)
+                              )
+                if (count % 10000) == 0:
+                    print '%d lines already read' % count
+        if asNumpy:
+            ret = arr
+        else:
+            ret = pd.DataFrame(arr)
+        
+        return ret
+
+    def readFromFileAndPickle(self, source, target):
+        """ Reads EMG data from file and creates a numpy array and pickles it to target
+            
+            Args:
+                source (String): Path to data file
+                target (String): Path to pickle file
+        """
+        arr = self.readDataFromText(source, True)
+
+        with open(target, 'wb') as f:
+            pkl.dump(arr, f)
+    
+    def readPickledData(self, source):
+        """ Reads EMG data from a pickled numpy ndarray
+
+            Args
+                source (String): Path to pickled numpy.ndarray
+
+            Returns:
+                pandas.core.DataFrame
+        """
+        with open(source, 'rb') as f:
+            arr = pkl.load(f)
+
+        return pd.DataFrame(arr)
