@@ -45,7 +45,7 @@ def createKb(data = None):
     # Session1
     #---------
     session = model.Session(experiment, setup, so1)
-    recording = model.Recording(session = session, data = df, start = 0, duration = 100)
+    recording = model.Recording(session = session, data = df)
     model.Trial(recording, 10, 10, 'curl_simple')
     model.Trial(recording, 30, 11, 'squat')
     model.Trial(recording, 50, 12, 'curl_difficult')
@@ -55,14 +55,14 @@ def createKb(data = None):
     # ----------
     df = pd.DataFrame(np.copy(data), dtype = 'float')
     session = model.Session(experiment, setup, so2)
-    recording = model.Recording(session = session, data = df, start = 100, duration = 200)
+    recording = model.Recording(session = session, data = df)
     model.Trial(recording, 10, 10, 'curl_simple')
     model.Trial(recording, 30, 11, 'squat')
     model.Trial(recording, 50, 12, 'curl_difficult')
     model.Trial(recording, 70, 20, 'leg_lever')
 
     df = pd.DataFrame(np.copy(data), dtype = 'float')
-    recording = model.Recording(session=session, data=df, start=100,duration=200)
+    recording = model.Recording(session=session, data=df)
     model.Trial(recording, 10, 10, 'curl_simple2')
     model.Trial(recording, 30, 11, 'squat2')
     model.Trial(recording, 50, 12, 'curl_difficult2')
@@ -73,7 +73,7 @@ def createKb(data = None):
     # ----------
     df = pd.DataFrame(np.copy(data), dtype = 'float')
     session = model.Session(experiment, setup, so3)
-    recording = model.Recording(session = session, data = df, start = 200, duration = 300)
+    recording = model.Recording(session = session, data = df)
     model.Trial(recording, 10, 10, 'curl_simple')
     model.Trial(recording, 30, 11, 'squat')
     model.Trial(recording, 50, 12, 'curl_difficult')

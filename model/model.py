@@ -139,8 +139,7 @@ class Experiment:
     def Subjects(self):
         return self._subjects
 
-    @property
-    def Data(self):
+    def getData(self):
         """ Returns all data over all sessions and recordings.
             
             Note:
@@ -157,6 +156,14 @@ class Experiment:
             Returns:
                 Dataframe
         """
+        df = None
+        for s in self.Sessions:
+            if df is None:
+                df = self.Sessions[s].getData()
+            else:
+                df = pd.concat([df, self.Sessions[s].getData()])
+       
+        return df
 
     def getRecording(self, identifier, session):
         """ Returns specified recording if it exists
@@ -505,6 +512,20 @@ class Session:
     def Identifier(self):
         return self._identifier
 
+    def getAllData(self):
+        """ Returns all data from all recordings belonging to session
+            
+            Returns:
+                pandas.core.DataFrame
+        """
+        df = None
+        for idx in self._recording_order:
+            if df is None:
+                df = self.Recordings[idx].getAllData()
+            else:
+                df = pd.concat([df, self.Recordings[idx].getAllData()])
+        return df
+
     def getData(self):
         """ Returns the data of all recordings and trials associated with one Session.
             Only the concatenated data of the trials is returned. Samples not contained
@@ -624,10 +645,6 @@ class Recording:
             location (string, optional): Path to a file containing the record. If this
                 parameter is set and no data is given, data will be retrieved from file.
             data (pandas.DataFrame, optional): DataFrame with samples of this recording.
-                If this attribute is set, ``start`` and ``stop`` attributes need also
-                be set.
-            start (int): Start of recording in data in seconds
-            duration (int): Duration of recording in data in seconds
             identifier (string, optional): Identifier of one instance
 
         Note:
@@ -639,9 +656,6 @@ class Recording:
             location (string, optional): Path to a file containing the record. If this
                 parameter is set and no data is given, data will be retrieved from file.
             data (pandas.DataFrame, optional): DataFrame with samples of this recording.
-            start (int): Start of recording in data in seconds
-            stopIdx (int): Stop index of recording in data
-            startIdx (int): Start index of recording in data
             duration (int): Duration of recording in data in seconds
             samples (int): Number of samples in this recording. The sum of all sample
                 counts of trials being part of this recording
@@ -651,23 +665,17 @@ class Recording:
             trial_order (List): Stores order in which trials were added
 
         Raises:
-            ValueError: Raised if both, location and data are not set or if data is set,
-                but either start or stop (or both) are not
+            ValueError: Raised if both, location and data are not set
     """
 
-    def __init__(self, session, location = None, data = None, start = None, duration = None,
-            identifier = None):
+    def __init__(self, session, location = None, data = None, identifier = None):
         self._session = session
         self._location = location
         self._data = data
         self._samples = 0
         self._features = self.Session.Setup.Features
-        self._startIdx = 0
-        self._stopIdx = 0
         self._trials = {}
         self._identifier = identifier
-        self._start = start
-        self._duration = duration
         self._trial_order = []
 
         if self._identifier is None:
@@ -676,17 +684,12 @@ class Recording:
         if (data is None) and (location is None):
             raise ValueError('Neither location nor data set in Recording')
         
-        if (data is not None) and ((start is None) or (duration is None)):
-            raise ValueError('Data specified but duration and/or start were not')
-
         if data is None:
             # TODO: read from file
             print 'Todo, read data from file'
-        else:
-            self._startIdx = self._start * self._session.Setup.Frequency
-            self._stopIdx = self._startIdx + self._session.Setup.Frequency * self._duration
-        
+        self._duration = self._data.shape[0] / self.Session.Setup.Frequency
         self._session.putRecording(self)
+    
     @property
     def Session(self):
         return self._session
@@ -744,25 +747,10 @@ class Recording:
     def Samples(self):
         return self._samples
     
-    @property
-    def Start(self):
-        return self._start
-
-    @property
-    def StartIdx(self):
-        return self._startIdx
-
-    @property
-    def StopIdx(self):
-        return self._stopIdx
-
-    @property
-    def Stop(self):
-        return self._stop
-    
     def setData(self, data):
         """ Sets only the **relevant** data of the recording, i.e. the data specified
-            by the subsequent trials.
+            by the subsequent trials. ''data'' argument is therefore required to have
+            the respective dimensionality.
 
             Args:
                 data (pandas.DataFrame): Data to update trials with
@@ -810,7 +798,7 @@ class Recording:
 
     def setAllData(self, data):
         if (data.shape[0] == self.Samples) and (data.shape[1] == self.Features):
-            self.Data[self.StartIdx : self.StopIdx] = data
+            self.Data = data
         else:
             raise ValueError((
                 'Shape missmatch replacing data in recording ' + self.Identifier + '. ' +
@@ -953,15 +941,11 @@ class Trial:
         return self._samples
     
     def getData(self):
-        offset = self.Recording.StartIdx
-        start = self.StartIdx + offset
-        end = self.StopIdx + offset
-
         #idx = pd.MultiIndex.from_product(
         #    [[self.Identifier], np.arange(0, self.Samples)],
         #    names = ['trials', 'samples']
         #)
-        tmp = self.Recording.getAllData().iloc[start : end]
+        tmp = self.Recording.getAllData().iloc[self.StartIdx : self.StopIdx]
         tmp['samples'] = np.arange(self.Samples)
         tmp['trials'] = self.Identifier
         tmp.set_index('trials', inplace = True, append = False)
@@ -981,11 +965,7 @@ class Trial:
                 class is not changed!
         """
         if (data.shape[0] == self.Samples) and (data.shape[1] == self.Recording.Features):
-            offset = self.Recording.StartIdx
-            offset = 0
-            begin = self.StartIdx + offset
-            end = self.StopIdx + offset
-            self.Recording.getAllData().iloc[begin : end] = data.get_values()
+            self.Recording.getAllData().iloc[self.StartIdx : self.StopIdx] = data.get_values()
         else:
             raise ValueError((
                 'Shape missmatch replacing data in trial ' + self.Identifier + '. ' +
