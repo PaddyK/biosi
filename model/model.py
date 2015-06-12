@@ -167,6 +167,62 @@ class Experiment:
 
         return df
 
+    def getDataByLabels(self, labels):
+        """ Returns data of all trials with the labels specified in ''labels''.
+            Returned DataFrame does not have an MultiIndex
+            
+            Args:
+                labels (list): List with class labels
+
+            Returns:
+                data (pandas.core.frame.DataFrame)
+                labels (List): List with one label per sample in data
+        """
+        df = None
+        retLbls = []
+        for idx in self._session_order:
+            d, l = self.Sessions[idx].getDataByLabels(labels)
+            if df is None:
+                df = d
+            else:
+                df = pd.concat([df, d])
+            retLbls.extend(l)
+
+        return df, retLbls
+
+    def getIntLabels(self):
+        """ Returns a list of labels for all relevant data points.
+
+            Returns:
+                labels (List): List of integers
+                mapping (Dictionary): Mapping label (string) to integer
+        """
+        labels = self.getLabels()
+        ilabels = [] 
+        mapping = {}
+        count = 0
+        for lbl in labels:
+            if lbl in mapping:
+                ilabels.append(mapping[lbl])
+            else:
+                mapping[lbl] = count
+                count = count + 1
+                ilabels.append(count)
+        return ilabels, mapping
+                
+
+    def getLabels(self):
+        """ Returns a list of labels for all relevant data points.
+
+            Returns:
+                List of Strings
+        """
+        labels = []
+        for t in self._session_order:
+            labels.extend(self.Sessions[t].getLabels())
+
+        return labels
+
     def getRecording(self, identifier, session):
         """ Returns specified recording if it exists
 
@@ -547,6 +603,29 @@ class Session:
                 df = pd.concat([df, self.Recordings[idx].getAllData()])
         return df
 
+    def getDataByLabels(self, labels):
+        """ Returns data of all trials with the labels specified in ''labels''.
+            Returned DataFrame does not have an MultiIndex
+            
+            Args:
+                labels (list): List with class labels
+
+            Returns:
+                data (pandas.core.frame.DataFrame)
+                labels (List): List with one label per sample in data
+        """
+        df = None
+        retLbls = []
+        for idx in self._recording_order:
+            d, l = self.Recordings[idx].getDataByLabels(labels)
+            if df is None:
+                df = d
+            else:
+                df = pd.concat([df, d])
+            retLbls.extend(l)
+
+        return df, retLbls
+
     def getData(self):
         """ Returns the data of all recordings and trials associated with one Session.
             Only the concatenated data of the trials is returned. Samples not contained
@@ -567,6 +646,18 @@ class Session:
         df = df.reorder_levels(['sessions', 'recordings', 'trials', 'samples'])
 
         return df
+
+    def getLabels(self):
+        """ Returns a list of labels for all relevant data points.
+
+            Returns:
+                List of Strings
+        """
+        labels = []
+        for t in self._recording_order:
+            labels.extend(self.Recordings[t].getLabels())
+
+        return labels
 
     @property
     def Samples(self):
@@ -709,9 +800,6 @@ class Recording:
         if data is None:
             datactrl = DataController()
             self._data = datactrl.readDataFromFile(location)
-        print 'Recording.__init__ ---->'
-        print type(self._data)
-        print '<------- END Recording.__init__'
         self._duration = self._data.shape[0] / self.Session.Setup.Frequency
         self._session.putRecording(self)
 
@@ -763,6 +851,41 @@ class Recording:
         df = df.reorder_levels(['recordings', 'trials', 'samples'])
 
         return df
+
+    def getDataByLabels(self, labels):
+        """ Returns data of all trials with the labels specified in ''labels''.
+            Returned DataFrame does not have an MultiIndex
+            
+            Args:
+                labels (list): List with class labels
+
+            Returns:
+                data (pandas.core.frame.DataFrame)
+                labels (List): List with one label per sample in data
+        """
+        df = None
+        retLbls = []
+        for id in self._trial_order:
+            if self.Trials[id].Label in labels: 
+                if df is None:
+                    df = self.Trials[id].getData()
+                else:
+                    df = pd.concat([df, self.Trials[id].getData()])
+                retLbls.extend(self.Trials[id].getLabels())
+        return df, retLbls
+
+    def getLabels(self):
+        """ Returns a list of labels for all relevant data points.
+
+            Returns:
+                List of Strings
+        """
+        labels = []
+        for t in self._trial_order:
+            labels.extend(self.Trials[t].getLabels())
+
+        return labels
+
 
     @property
     def Duration(self):
@@ -904,6 +1027,7 @@ class Trial:
             duration (float): Stop point of trial in seconds relative to the stop point of
                 the recording (format: ``seconds.miliseconds``).
             identifier (string): Identifier of the trial. For example *bizeps_curl*
+            label (String, optional): Class label if existing
 
         Attributes:
             recording (Recording): The recording this trial belongs to. Necessary to
@@ -918,7 +1042,7 @@ class Trial:
             identifier (string): Identifier of the trial. For example *bizeps_curl*
     """
 
-    def __init__(self, recording, start, duration, identifier):
+    def __init__(self, recording, start, duration, identifier, label = None):
         self._recording = recording
         self._start = start
         self._duration = duration # Convert to miliseconds
@@ -926,6 +1050,7 @@ class Trial:
         self._stopIdx = 0
         self._identifier = identifier
         self._samples = 0
+        self._label = label
 
         if self._identifier is None:
             self._name = 'trial' + str(len(self._recording.Trials))
@@ -958,12 +1083,20 @@ class Trial:
         return self._duration
 
     @property
+    def Label(self):
+        return self._label
+
+    @property
     def StopIdx(self):
         return self._stopIdx
 
     @property
     def Samples(self):
         return self._samples
+
+    @Label.setter
+    def Label(self, label):
+        self._label = label
 
     def getData(self):
         #idx = pd.MultiIndex.from_product(
@@ -977,6 +1110,18 @@ class Trial:
         tmp.set_index('samples', inplace = True, append = True)
         tmp.columns = self.Recording.Session.Setup.getSampleOrder()
         return tmp
+
+    def getLabels(self):
+        """ Returns Identifier as list where identifier is repeated as often as trial
+            has samples.
+
+            Returns:
+                List of Strings
+        """
+        labels = []
+        for i in range(0, self.Samples):
+            labels.append(self.Label)
+        return labels
 
     def setData(self, data):
         """ Sets the samples in reference.data this trial is referencing.
