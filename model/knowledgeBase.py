@@ -109,15 +109,15 @@ def sportKb():
         location = 'data/recording_sport.pkl',
     )
     model.Trial(rec, 0, 4, 'calm')
-    model.Trial(rec, 4, 4, 'reverse_kettle1')
-    model.Trial(rec, 8, 4, 'reverse_kettle2')
-    model.Trial(rec, 12, 4, 'reverse_kettle3')
-    model.Trial(rec, 16, 4, 'hantel1')
-    model.Trial(rec, 20, 4, 'hantel2')
-    model.Trial(rec, 24, 4, 'hantel3')
-    model.Trial(rec, 28, 4, 'stomach_kettle1')
-    model.Trial(rec, 32, 4, 'stomach_kettle2')
-    model.Trial(rec, 36, 4, 'stomach_kettle3')
+    model.Trial(rec, 4, 4, 'reverse_kettle1', label = 'reverse_kettle')
+    model.Trial(rec, 8, 4, 'reverse_kettle2', label = 'reverse_kettle')
+    model.Trial(rec, 12, 4, 'reverse_kettle3', label = 'reverse_kettle')
+    model.Trial(rec, 16, 4, 'hantel1', label = 'hantel')
+    model.Trial(rec, 20, 4, 'hantel2', label = 'hantel')
+    model.Trial(rec, 24, 4, 'hantel3', label = 'hantel')
+    model.Trial(rec, 28, 4, 'stomach_kettle1', label = 'stomach_kettle')
+    model.Trial(rec, 32, 4, 'stomach_kettle2', label = 'stomach_kettle')
+    model.Trial(rec, 36, 4, 'stomach_kettle3', label = 'stomach_kettle')
     model.Trial(rec, 44, 4, 'max_triceps')
     model.Trial(rec, 48, 4, 'max_flexor')
     model.Trial(rec, 52, 4, 'max_bizeps')
@@ -127,4 +127,6 @@ def sportKb():
 if __name__ == '__main__':
     e = sportKb()
     print e.recursiveToString()
+    print e.getData().shape
+    print len(e.getLabels())
 
