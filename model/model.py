@@ -47,11 +47,11 @@
 
     Note:
         When working with data be aware that everything is by reference. A DataFrame object
-        retrieved from trial is not a copy of a part of the data of the recording the 
+        retrieved from trial is not a copy of a part of the data of the recording the
         trial belongs to, but a view.
         If the trial's data is changed so is the data of the recording (and with that I
         mean the original data you may have passed to the recording during instantiation.
-        
+
         Example:
             Took the freedome to add lines to the printout of DataFrame to make it more
             comprehensible:
@@ -143,7 +143,7 @@ class Experiment:
 
     def getData(self):
         """ Returns all data over all sessions and recordings.
-            
+
             Note:
                 The order in which data will be returned is:
                 * session1
@@ -164,17 +164,17 @@ class Experiment:
                 df = self.Sessions[s].getData()
             else:
                 df = pd.concat([df, self.Sessions[s].getData()])
-       
+
         return df
 
     def getRecording(self, identifier, session):
         """ Returns specified recording if it exists
-            
+
             Args:
                 identifier (string): Identifier of the recording (name it was given)
                 session (string, optional): Identifier of the session recording belongs
                     to. If not specified, all sessions will be searched
-            
+
             Returns:
                 If successful return Recording
 
@@ -202,7 +202,7 @@ class Experiment:
             else:
                 recording = self.Sessions[session].getRecording(identifier)
         return recording
-    
+
     def getTrial(self, identifier, session, recording = None):
         """ Retrieves a trial
 
@@ -214,10 +214,10 @@ class Experiment:
             Note:
                 Session is mandatory, since trials might have duplicate names across
                 sessions.
-            
+
             Returns:
                 Trial object if successful
-            
+
             Raises:
                 IndexError: If there does not exist a Session, Recording or Trial with
                 Identifier ``session``, ``recording`` or ``trial``
@@ -235,7 +235,7 @@ class Experiment:
                     'session %s' % (identifier, session)
                 ))
         else:
-            rc = self.getRecording(recording, session) 
+            rc = self.getRecording(recording, session)
                 # throws error if recording does not exist.
             trial = rc.getTrial(identifier)
 
@@ -252,7 +252,7 @@ class Experiment:
 
     def putSession(self, session):
         if session.Identifier not in self.Sessions:
-            self.Sessions[session.Identifier] = session 
+            self.Sessions[session.Identifier] = session
             self._session_order.append(session.Identifier)
         else:
             raise IndexError((
@@ -268,7 +268,7 @@ class Experiment:
                 'Subject with identifier ' + subject.Identifier + ' already exists in ' +
                 ' experiment'
             ))
-    
+
     def toString(self):
         return (
             'Experiment: %d Setups, %d Sessions, %d Subjects' %
@@ -318,7 +318,7 @@ class Setup:
         self._experiment = experiment
         self._features = 0
         self._modalityOrder = []
- 
+
         if self._identifier is None:
             self._identifier = 'setup' + str(len(self._experiment.Setups))
 
@@ -343,7 +343,7 @@ class Setup:
     @Features.setter
     def Features(self, features):
         self._features = features
- 
+
     def getSampleOrder(self):
         order = []
         for idx in self._modalityOrder:
@@ -359,9 +359,9 @@ class Setup:
                 'Modality with identifier ' + modality.Identifier + ' already exists ' +
                 'in Setup ' + self.Identifier
             ))
-    
+
     def toString(self):
-        return ( 
+        return (
             'Setup %s: %d Modalities, %d samples/second' %
             (self.Identifier, len(self.Modalities), self.Frequency)
         )
@@ -377,7 +377,7 @@ class Setup:
 class Modality:
     """ Represents a modality. A modality in the context of EMG is a group of sensors, for
         example on the hand. Another modality would be a second set of sensors on the breast.
-        
+
         Args:
             setup (Setup): Setup this modality is specified in
             identifier (string, optional): Identifier for this modality. Later usable to
@@ -398,7 +398,7 @@ class Modality:
 
         if self._identifier is None:
             self._identifier = 'modality' + str(len(self._setup.modalities))
-        
+
         self._setup.putModality(self)
 
     @property
@@ -416,7 +416,7 @@ class Modality:
     @property
     def SampleOrder(self):
         """ Returns List of identifiers in order in which they were added
-            
+
             returns:
                 List of Strings
         """
@@ -442,7 +442,7 @@ class Modality:
     def recursiveToString(self):
         string = self.toString() + '\n'
         for s in self.Samples.itervalues():
-            tmp = '\t' + s.toString() + '\n'
+            string = string + '\t' + s.toString() + '\n'
         return string
 
 class Sample:
@@ -465,7 +465,7 @@ class Sample:
 
         if self._identifier is None:
             self._identifier = 'sample' + str(len(self._modality.Samples))
-        
+
         self._modality.putSample(self)
 
     @property
@@ -535,7 +535,7 @@ class Session:
 
     def getAllData(self):
         """ Returns all data from all recordings belonging to session
-            
+
             Returns:
                 pandas.core.DataFrame
         """
@@ -561,20 +561,20 @@ class Session:
                 df = self.Recordings[idx].getData()
             else:
                 df = pd.concat([df, self.Recordings[idx].getData()])
-        
+
         df['sessions'] = self.Identifier
         df.set_index('sessions', inplace = True, append = True)
         df = df.reorder_levels(['sessions', 'recordings', 'trials', 'samples'])
-        
+
         return df
-    
+
     @property
     def Samples(self):
         return self._samples
 
     def setData(self, data):
         """ Sets the data of all trials in all recordings belonging to this session.
-            
+
             Args:
                 data (pandas.DataFrame): New data for session
 
@@ -690,6 +690,7 @@ class Recording:
     """
 
     def __init__(self, session, location = None, data = None, identifier = None):
+
         self._session = session
         self._location = location
         self._data = data
@@ -704,13 +705,16 @@ class Recording:
 
         if (data is None) and (location is None):
             raise ValueError('Neither location nor data set in Recording')
-        
+
         if data is None:
-            # TODO: read from file
-            print 'Todo, read data from file'
+            datactrl = DataController()
+            self._data = datactrl.readDataFromFile(location)
+        print 'Recording.__init__ ---->'
+        print type(self._data)
+        print '<------- END Recording.__init__'
         self._duration = self._data.shape[0] / self.Session.Setup.Frequency
         self._session.putRecording(self)
-    
+
     @property
     def Session(self):
         return self._session
@@ -722,7 +726,7 @@ class Recording:
     @property
     def Trials(self):
         return self._trials
-    
+
     @property
     def Features(self):
         return self._features
@@ -735,13 +739,13 @@ class Recording:
         """ Returns the **relevant** data of a recording object. In especially, this
             property yields only the data specified in the trials belonging to the
             recording.
-            
+
             Example:
                 Sampling rate of 4000Hz, recording is 60s long. Trial one goes from
                 second 10 to second 30, and trial02 from second 35 to second 50.
                 Then this function only yields the samples in the intervals 10..30 and
                 35..50. So a total of (20 + 15) * 4000 samples instead of 60 * 4000 samples
-            
+
             Returns:
                 pandas.DataFrame
         """
@@ -752,12 +756,12 @@ class Recording:
                 df = self.Trials[id].getData()
             else:
                 df = pd.concat([df, self.Trials[id].getData()])
-        
+
         df['recordings'] = self.Identifier
         df.set_index('recordings', append = True, inplace = True)
         # Returns a new object and there is no inplace option
         df = df.reorder_levels(['recordings', 'trials', 'samples'])
-        
+
         return df
 
     @property
@@ -767,7 +771,7 @@ class Recording:
     @property
     def Samples(self):
         return self._samples
-    
+
     def setData(self, data):
         """ Sets only the **relevant** data of the recording, i.e. the data specified
             by the subsequent trials. ''data'' argument is therefore required to have
@@ -775,7 +779,7 @@ class Recording:
 
             Args:
                 data (pandas.DataFrame): Data to update trials with
-            
+
             Note:
                 This is not a setter be design. If data is set using setter it seems like
                 a separate object is created.
@@ -789,10 +793,10 @@ class Recording:
                 'Dimension missmatch while trying to set data for recording %s. ' +
                 'Expected data of form (%s,%s), instead got %s' %
                 (
-                    str(self.Identifier), 
-                    str(self.Samples), 
+                    str(self.Identifier),
+                    str(self.Samples),
                     str(self.Features)#,
-                    #str(data.shape) 
+                    #str(data.shape)
                 )
             ))
         else:
@@ -801,7 +805,7 @@ class Recording:
                 end = samples + self.Trials[idnt].Samples
                 self.Trials[idnt].setData(data[samples : end])
                 samples = end
-    
+
     @Samples.setter
     def Samples(self, samples):
         self._samples = samples
@@ -829,13 +833,13 @@ class Recording:
 
     def getTrial(self, identifier):
         """ Returns the trial specified by identifier.
-            
+
             Args:
                 identifier (string): Identifier of trial
-            
+
             Returns:
                 If successful, trial object
-            
+
             Raises:
                 IndexError: If not trial specified by index exists in recording
         """
@@ -922,15 +926,15 @@ class Trial:
         self._stopIdx = 0
         self._identifier = identifier
         self._samples = 0
-        
+
         if self._identifier is None:
             self._name = 'trial' + str(len(self._recording.Trials))
-        
+
         f = self._recording.Session.Setup.Frequency
         self._startIdx = self._start * f
         self._stopIdx = self._startIdx + self._duration * f
         self._samples = self._stopIdx - self._startIdx
-        
+
         self._recording.putTrial(self)
 
     @property
@@ -955,12 +959,12 @@ class Trial:
 
     @property
     def StopIdx(self):
-        return self._stopIdx 
-    
+        return self._stopIdx
+
     @property
     def Samples(self):
         return self._samples
-    
+
     def getData(self):
         #idx = pd.MultiIndex.from_product(
         #    [[self.Identifier], np.arange(0, self.Samples)],
@@ -971,12 +975,12 @@ class Trial:
         tmp['trials'] = self.Identifier
         tmp.set_index('trials', inplace = True, append = False)
         tmp.set_index('samples', inplace = True, append = True)
-        tmp.columns = self.Recording.Session.Setup.getSampleOrder()        
+        tmp.columns = self.Recording.Session.Setup.getSampleOrder()
         return tmp
 
     def setData(self, data):
         """ Sets the samples in reference.data this trial is referencing.
-            
+
             Args:
                 data (pandas.DataFrame): New data
 
@@ -1005,15 +1009,34 @@ class DataController:
     """ Handles reading and writing EMG data from file
     """
 
+    def readDataFromFile(self, path):
+        """ Given path identifies file type and calls respective method
+
+            Args:
+                path (String): Path to file from which data should be retrieved
+
+            Raises:
+                IOError if file specified in path does not exist
+                NotImplementedError if file type not recognized
+        """
+        if path.endswith('.txt'):
+            return self.readDataFromFile(path)
+        elif path.endswith('.pkl'):
+            return self.readPickledData(path)
+        else:
+            raise NotImplementedError(
+                'File type of file  %s not supported' % path
+            )
+
     def readDataFromText(self, path, delimiter = '\t', asNumpy = False):
         """ Reads EMG data from a textfile
-            
+
             Args:
                 path (String): Path to the text file which should be read
                 delimiter (String, optional): Delimiter of columns
                 asNumpy (Boolean, optional): If set to true numpy array is returned
                     instead of Pandas DataFrame
-            
+
             Returns:
                 pandas.core.DataFrame
                 numpy.ndarray
@@ -1057,12 +1080,12 @@ class DataController:
             ret = arr
         else:
             ret = pd.DataFrame(arr)
-        
+
         return ret
 
     def readFromFileAndPickle(self, source, target):
         """ Reads EMG data from file and creates a numpy array and pickles it to target
-            
+
             Args:
                 source (String): Path to data file
                 target (String): Path to pickle file
@@ -1071,7 +1094,7 @@ class DataController:
 
         with open(target, 'wb') as f:
             pkl.dump(arr, f)
-    
+
     def readPickledData(self, source):
         """ Reads EMG data from a pickled numpy ndarray
 
