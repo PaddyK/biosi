@@ -105,6 +105,7 @@ import pandas as pd
 import sys
 import cPickle as pkl
 import re
+import warnings
 
 # TODO: Order keys were added
 
@@ -170,7 +171,7 @@ class Experiment:
     def getDataByLabels(self, labels):
         """ Returns data of all trials with the labels specified in ''labels''.
             Returned DataFrame does not have an MultiIndex
-            
+
             Args:
                 labels (list): List with class labels
 
@@ -179,14 +180,15 @@ class Experiment:
                 labels (List): List with one label per sample in data
         """
         df = None
-        retLbls = []
+        retLbls = None
         for idx in self._session_order:
             d, l = self.Sessions[idx].getDataByLabels(labels)
             if df is None:
                 df = d
+                retLbls = l
             else:
                 df = pd.concat([df, d])
-            retLbls.extend(l)
+                retLbls = np.concatenate((retLbls, l))
 
         return df, retLbls
 
@@ -198,7 +200,7 @@ class Experiment:
                 mapping (Dictionary): Mapping label (string) to integer
         """
         labels = self.getLabels()
-        ilabels = [] 
+        ilabels = []
         mapping = {}
         count = 0
         for lbl in labels:
@@ -209,7 +211,7 @@ class Experiment:
                 count = count + 1
                 ilabels.append(count)
         return ilabels, mapping
-                
+
 
     def getLabels(self):
         """ Returns a list of labels for all relevant data points.
@@ -606,23 +608,24 @@ class Session:
     def getDataByLabels(self, labels):
         """ Returns data of all trials with the labels specified in ''labels''.
             Returned DataFrame does not have an MultiIndex
-            
+
             Args:
                 labels (list): List with class labels
 
             Returns:
                 data (pandas.core.frame.DataFrame)
-                labels (List): List with one label per sample in data
+                labels (numpyp.ndarray): Array with one label per sample in data
         """
         df = None
-        retLbls = []
+        retLbls = None
         for idx in self._recording_order:
             d, l = self.Recordings[idx].getDataByLabels(labels)
             if df is None:
                 df = d
+                retLbls = l
             else:
                 df = pd.concat([df, d])
-            retLbls.extend(l)
+                retLbls = np.concatenate((retLbls, l))
 
         return df, retLbls
 
@@ -855,23 +858,35 @@ class Recording:
     def getDataByLabels(self, labels):
         """ Returns data of all trials with the labels specified in ''labels''.
             Returned DataFrame does not have an MultiIndex
-            
+
             Args:
                 labels (list): List with class labels
 
             Returns:
                 data (pandas.core.frame.DataFrame)
-                labels (List): List with one label per sample in data
+                labels (numpy.ndarray): Array  with one label per sample in data
         """
         df = None
-        retLbls = []
-        for id in self._trial_order:
-            if self.Trials[id].Label in labels: 
+        retLbls = None
+        for idx in self._trial_order:
+            if self.Trials[idx].Label in labels:
                 if df is None:
-                    df = self.Trials[id].getData()
+                    df = self.Trials[idx].getData()
+                    retLbls = np.repeat(self.Trials[idx].Label, df.shape[0])
                 else:
-                    df = pd.concat([df, self.Trials[id].getData()])
-                retLbls.extend(self.Trials[id].getLabels())
+                    tmp = self.Trials[idx].getData()
+                    df = pd.concat([df, tmp])
+                    retLbls = np.concatenate((
+                        retLbls,
+                        np.repeat(self.Trials[idx].Label, tmp.shape[0])
+                    ))
+
+        for lbl in labels:
+            if lbl not in retLbls:
+                warnings.warn(
+                    'Label %s was not found in any trial of recording %s' %
+                    (str(lbl), str(self.Identifier))
+                )
         return df, retLbls
 
     def getLabels(self):
@@ -1111,18 +1126,6 @@ class Trial:
         tmp.columns = self.Recording.Session.Setup.getSampleOrder()
         return tmp
 
-    def getLabels(self):
-        """ Returns Identifier as list where identifier is repeated as often as trial
-            has samples.
-
-            Returns:
-                List of Strings
-        """
-        labels = []
-        for i in range(0, self.Samples):
-            labels.append(self.Label)
-        return labels
-
     def setData(self, data):
         """ Sets the samples in reference.data this trial is referencing.
 
@@ -1173,7 +1176,7 @@ class DataController:
                 'File type of file  %s not supported' % path
             )
 
-    def readDataFromText(self, path, delimiter = '\t', asNumpy = False):
+    def readDataFromText(self, path, delimiter = '\t', asNumpy = False, debug = False):
         """ Reads EMG data from a textfile
 
             Args:
@@ -1181,6 +1184,7 @@ class DataController:
                 delimiter (String, optional): Delimiter of columns
                 asNumpy (Boolean, optional): If set to true numpy array is returned
                     instead of Pandas DataFrame
+                debug (boolean): If set to true only first 100 Lines are considered
 
             Returns:
                 pandas.core.DataFrame
@@ -1194,15 +1198,16 @@ class DataController:
             for line in f:
                 count = count + 1
 
-                if count < 7:
-                    continue
-
                 line = line.strip()
+                
                 if re.match('[a-zA-Z]', line) is not None:
+                    # Skip all lines containing text characters
                     print 'Warning - skipped line %d:%s' % (count, line)
                     continue
 
                 start = line.index('\t')
+                    # Skip the first column. Contains only time values (in case of PowerLab
+                    # export
                 line = line.replace(',', '.')
 
                 values = line[start + 1: len(line)].split('\t')
@@ -1221,6 +1226,9 @@ class DataController:
                               )
                 if (count % 10000) == 0:
                     print '%d lines already read' % count
+                if debug:
+                    if count > 99:
+                        break
         if asNumpy:
             ret = arr
         else:
@@ -1228,14 +1236,14 @@ class DataController:
 
         return ret
 
-    def readFromFileAndPickle(self, source, target):
+    def readFromFileAndPickle(self, source, target, debug = False):
         """ Reads EMG data from file and creates a numpy array and pickles it to target
 
             Args:
                 source (String): Path to data file
                 target (String): Path to pickle file
         """
-        arr = self.readDataFromText(source, True)
+        arr = self.readDataFromText(path = source, asNumpy = True, debug = debug)
 
         with open(target, 'wb') as f:
             pkl.dump(arr, f)

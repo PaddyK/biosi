@@ -1,6 +1,6 @@
 import cPickle
 import math
-
+import numpy as np
 
 def jjmdata_from_file(fn):
     with open(fn) as fp:
@@ -68,3 +68,26 @@ def train_valid_test(devl_emg, devl_pos, test_emg, test_pos,
     return (train_emg, train_pos[:, target_indices],
             val_emg, val_pos[:, target_indices],
             test_emg, test_pos[:, target_indices])
+
+def toIntLabels(labels, arr):
+    """ Takes a list of labels as strings and returns a list of integer labels and
+        mapping.
+
+        Args:
+            labels (List): List of string labels
+            arr (np.ndarray): Array with alphanumeric labels
+        
+        Returns:
+            iLbls (numpy.ndarray)
+            mapping (Dictionary)
+    """
+    mapping = {}
+    iLbls = np.empty(arr.shape)
+    index = 0
+
+    for lbl in labels:
+        iLbls[arr == lbl] = index
+        mapping[index] = lbl
+        index = index + 1
+
+    return iLbls, mapping
