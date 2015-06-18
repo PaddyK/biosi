@@ -192,6 +192,24 @@ class Experiment:
 
         return df, retLbls
 
+    def getFrequency(self):
+        """ Returns frequency if one frequency was used with all setups. Else raises
+            an exception.
+
+            Returns:
+                frequency (int)
+            Raises:
+                ValueError if different frequencies are present
+        """
+        f = 0
+        for setup in self.Setups.itervalues():
+            if f == 0:
+                f = setup.Frequency
+            if f != setup.Frequency:
+                raise ValueError('Different frequencies used during Experiment')
+
+        return f
+
     def getIntLabels(self):
         """ Returns a list of labels for all relevant data points.
 
@@ -650,6 +668,11 @@ class Session:
 
         return df
 
+    def getFrequency(self):
+        """ Returns Frequency of setup
+        """
+        return self.Setup.Frequency
+
     def getLabels(self):
         """ Returns a list of labels for all relevant data points.
 
@@ -901,6 +924,10 @@ class Recording:
 
         return labels
 
+    def getFrequency(self):
+        """ Returns frequency of setup used for session this recording was recorded in
+        """
+        return self.Session.getFrequency()
 
     @property
     def Duration(self):
@@ -1126,6 +1153,11 @@ class Trial:
         tmp.columns = self.Recording.Session.Setup.getSampleOrder()
         return tmp
 
+    def getFrequency(self):
+        """ Returns frequency of recording trial belongs to
+        """
+        return self.Recording.getFrequency()
+
     def setData(self, data):
         """ Sets the samples in reference.data this trial is referencing.
 
@@ -1199,7 +1231,7 @@ class DataController:
                 count = count + 1
 
                 line = line.strip()
-                
+
                 if re.match('[a-zA-Z]', line) is not None:
                     # Skip all lines containing text characters
                     print 'Warning - skipped line %d:%s' % (count, line)

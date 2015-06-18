@@ -1,4 +1,7 @@
 from matplotlib import pyplot as plt
+from matplotlib.ticker import ScalarFormatter
+import numpy as np
+import warnings
 
 
 def predict_report(inpt, output, target):
@@ -18,3 +21,52 @@ def predict_report(inpt, output, target):
         axs[i][0].set_ylim([bottom, top])
 
     axs[0][0].legend()
+
+def visualizeEmg(model, start, stop):
+    data = model.getData()
+
+    fig, axes = plt.subplots(nrows = data.shape[1], figsize = (16,9))
+    fig.tight_layout()
+    f = model.getFrequency()
+
+    fontdict = {
+        'fontsize': 16,
+        'fontweight' : 'bold',
+        'verticalalignment': 'baseline',
+        'horizontalalignment': 'center'
+    }
+
+    if f * start > data.shape[0]:
+        warnings.warn(
+            'Start point to large. Recording is %fs long, but wanted to view from %f' %
+            (data.shape[0] / f, start)
+        )
+        return
+
+    if f * stop > data.shape[0]:
+        warnings.warn(
+            (
+                'Specified time longer than series. Series is %s long, wanted to' +
+                'view til %f. Set stop to end of recording'
+            ) %
+            (data.shape[0]/f, stop)
+        )
+        stop = data.shape[0] / f
+
+    minimum = data.iloc[start * f : stop * f, :].values.min()
+    maximum = data.iloc[start * f : stop * f, :].values.max()
+
+    for i in range(data.shape[1]):
+        axes[i].plot(
+            np.arange(start * f, stop * f, dtype = 'float') / f, 
+            data.iloc[start * f : stop * f, i]
+        )
+        axes[i].set_title(data.columns.values[i], fontdict = fontdict)
+        axes[i].set_ylim([minimum, maximum])
+
+#        axes[i].set_xticks(np.arange(0, (stop - start) * f, 4000))
+#        axes[i].xaxis.set_major_formatter(ScalarFormatter(useOffset = -start * f))
+#        axes[i].xaxis.set_ticks(np.arange(start * f, stop * f, (stop - start) / 50 * f))
+    plt.subplots_adjust(hspace = 0.5)
+
+
