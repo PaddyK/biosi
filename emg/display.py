@@ -23,6 +23,24 @@ def predict_report(inpt, output, target):
     axs[0][0].legend()
 
 def visualizeEmg(model, start, stop):
+    """ Creates a visualization of the emg signals contained in model
+        
+        Args:
+            model (model.Experiment, model.Session, model.Recording, model.Trial): A data
+                carrying entity from module model.model.
+            start (float): Start time in seconds
+            stop (float): Stop time in seconds
+
+        Note:
+            Works for model.Experiment only in the case of all setups specifying the same
+            frequency.
+
+        Raises:
+            ValueError: If start is larger than duration
+
+        Warnings:
+            If stop is larger than duration of recording
+    """
     data = model.getData()
 
     fig, axes = plt.subplots(nrows = data.shape[1], figsize = (16,9))
@@ -64,9 +82,6 @@ def visualizeEmg(model, start, stop):
         axes[i].set_title(data.columns.values[i], fontdict = fontdict)
         axes[i].set_ylim([minimum, maximum])
 
-#        axes[i].set_xticks(np.arange(0, (stop - start) * f, 4000))
-#        axes[i].xaxis.set_major_formatter(ScalarFormatter(useOffset = -start * f))
-#        axes[i].xaxis.set_ticks(np.arange(start * f, stop * f, (stop - start) / 50 * f))
     plt.subplots_adjust(hspace = 0.5)
 
 
