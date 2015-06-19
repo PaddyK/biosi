@@ -191,20 +191,27 @@ class Experiment:
 
         return df, retLbls
 
-    def get_data_for_breeze(self):
+    def get_data_for_breeze(self, labels=None):
         """ Returns data in format to directly feed it to
             .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
             That is a list of two dimensional arrays where each array represents a trial.
 
+            Args:
+                labels (List): List of strings containing labels of trials (not class labels
+                    but identifiers!)
             Returns:
                 data (List): List of two dimensional numpy.ndarrays
+                lbls (List): List with one dimenional arrays containing class labels
         """
 
         data = []
+        classLabels = []
         for idx in self._session_order:
-            data.extend(self.Sessions[idx].get_data_for_breeze())
+            dat, clbl = self.Sessions[idx].get_data_for_breeze(labels=labels)
+            data.extend(dat)
+            classLabels.extend(clbl)
 
-        return data
+        return data, classLabels
 
     def get_frequency(self):
         """ Returns frequency if one frequency was used with all setups. Else raises
@@ -665,20 +672,24 @@ class Session:
 
         return df, retLbls
 
-    def get_data_for_breeze(self):
+    def get_data_for_breeze(self, labels=None):
         """ Returns data in format to directly feed it to
             .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
             That is a list of two dimensional arrays where each array represents a trial.
 
             Returns:
                 data (List): List of two dimensional numpy.ndarrays
+                lbls (List): List with one dimenional arrays containing class labels
         """
 
         data = []
+        classLabels = []
         for idx in self._recording_order:
-            data.extend(self.Recordings[idx].get_data_for_breeze())
+            dat, clbl = self.Recordings[idx].get_data_for_breeze(labels=labels)
+            data.extend(dat)
+            classLabels.extend(clbl)
 
-        return data
+        return data, classLabels
 
     def get_data(self):
         """ Returns the data of all recordings and trials associated with one Session.
@@ -946,20 +957,34 @@ class Recording:
                 )
         return df, retLbls
 
-    def get_data_for_breeze(self):
+    def get_data_for_breeze(self, labels):
         """ Returns data in format to directly feed it to
             .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
             That is a list of two dimensional arrays where each array represents a trial.
 
             Returns:
                 data (List): List of two dimensional numpy.ndarrays
+                lbls (List): List with one dimenional arrays containing class labels
         """
+        if labels is None:
+            labels = self._trial_order
 
         data = []
+        lbls = []
         for idx in self._trial_order:
-            data.append(self.Recordings[idx].get_data().values)
+            if idx in labels:
+                tmp = self.Recordings[idx].get_data().values
+                data.append(tmp)
+                lbls.append(np.repeat(self.Trials[idx].Label, tmp.shape[0]))
 
-        return data
+        for lbl in labels:
+            if lbl not in retLbls:
+                warnings.warn(
+                    'Label %s was not found in any trial of recording %s' %
+                    (str(lbl), str(self.Identifier))
+                )
+
+        return data, lbls
 
     def get_labels(self):
         """ Returns a list of labels for all relevant data points.
