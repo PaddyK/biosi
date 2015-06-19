@@ -107,7 +107,6 @@ import cPickle as pkl
 import re
 import warnings
 
-# TODO: Order keys were added
 
 class Experiment:
     """ Representation of an EMG experiment. This class pools all information to reject
@@ -192,6 +191,21 @@ class Experiment:
 
         return df, retLbls
 
+    def get_data_for_breeze(self):
+        """ Returns data in format to directly feed it to
+            .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
+            That is a list of two dimensional arrays where each array represents a trial.
+
+            Returns:
+                data (List): List of two dimensional numpy.ndarrays
+        """
+
+        data = []
+        for idx in self._session_order:
+            data.extend(self.Sessions[idx].get_data_for_breeze())
+
+        return data
+
     def getFrequency(self):
         """ Returns frequency if one frequency was used with all setups. Else raises
             an exception.
@@ -229,7 +243,6 @@ class Experiment:
                 count = count + 1
                 ilabels.append(count)
         return ilabels, mapping
-
 
     def getLabels(self):
         """ Returns a list of labels for all relevant data points.
@@ -366,6 +379,7 @@ class Experiment:
             string = string + '\t' + tmp.replace('\n', '\n\t') + '\n'
         return string
 
+
 class Subject:
     """ Represents subjects having paricipated in the course of an EMG experiment.
 
@@ -381,6 +395,7 @@ class Subject:
 
     def toString(self):
         return self.Identifier
+
 
 class Setup:
     """ Represents a setup for an session. Specifies the used frequency, amount and
@@ -449,6 +464,7 @@ class Setup:
             tmp = m.recursiveToString().replace('\n', '\n\t')
             string = string + '\t' + tmp + '\n'
         return string
+
 
 class Modality:
     """ Represents a modality. A modality in the context of EMG is a group of sensors, for
@@ -521,6 +537,7 @@ class Modality:
             string = string + '\t' + s.toString() + '\n'
         return string
 
+
 class Sample:
     """ Represents a sample i.e. sensor.
 
@@ -550,6 +567,7 @@ class Sample:
 
     def toString(self):
         return 'Sample: ' + self.Identifier
+
 
 class Session:
     """ Implements a session of an experiment. A session is defined by the subject
@@ -646,6 +664,21 @@ class Session:
                 retLbls = np.concatenate((retLbls, l))
 
         return df, retLbls
+
+    def get_data_for_breeze(self):
+        """ Returns data in format to directly feed it to
+            .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
+            That is a list of two dimensional arrays where each array represents a trial.
+
+            Returns:
+                data (List): List of two dimensional numpy.ndarrays
+        """
+
+        data = []
+        for idx in self._recording_order:
+            data.extend(self.Recordings[idx].get_data_for_breeze())
+
+        return data
 
     def getData(self):
         """ Returns the data of all recordings and trials associated with one Session.
@@ -773,6 +806,7 @@ class Session:
             tmp = r.recursiveToString().replace('\n','\n\t')
             string = string + '\t' + tmp + '\n'
         return string
+
 
 class Recording:
     """ Represents one recording of a session. May contain multiply trials, i.e. performed
@@ -911,6 +945,21 @@ class Recording:
                     (str(lbl), str(self.Identifier))
                 )
         return df, retLbls
+
+    def get_data_for_breeze(self):
+        """ Returns data in format to directly feed it to
+            .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
+            That is a list of two dimensional arrays where each array represents a trial.
+
+            Returns:
+                data (List): List of two dimensional numpy.ndarrays
+        """
+
+        data = []
+        for idx in self._trial_order:
+            data.append(self.Recordings[idx].getData().values)
+
+        return data
 
     def getLabels(self):
         """ Returns a list of labels for all relevant data points.
@@ -1053,6 +1102,7 @@ class Recording:
             string = string + '\t' + t.toString() + '\n'
         return string
 
+
 class Trial:
     """ Implements one trial of an EMG experiment. A trial is the smallest amount of data
         to accept or reject a hypothesis.
@@ -1141,10 +1191,6 @@ class Trial:
         self._label = label
 
     def getData(self):
-        #idx = pd.MultiIndex.from_product(
-        #    [[self.Identifier], np.arange(0, self.Samples)],
-        #    names = ['trials', 'samples']
-        #)
         tmp = self.Recording.getAllData().iloc[self.StartIdx : self.StopIdx]
         tmp['samples'] = np.arange(self.Samples)
         tmp['trials'] = self.Identifier
@@ -1184,6 +1230,7 @@ class Trial:
             (self.Identifier, self.Duration, self.Samples)
         )
         return string
+
 
 class DataController:
     """ Handles reading and writing EMG data from file
