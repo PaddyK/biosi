@@ -69,7 +69,7 @@ def train_valid_test(devl_emg, devl_pos, test_emg, test_pos,
             val_emg, val_pos[:, target_indices],
             test_emg, test_pos[:, target_indices])
 
-def toIntLabels(labels, arr):
+def to_int_labels(labels, arr):
     """ Takes a list of labels as strings and returns a list of integer labels and
         mapping.
 

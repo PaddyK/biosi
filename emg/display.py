@@ -22,7 +22,7 @@ def predict_report(inpt, output, target):
 
     axs[0][0].legend()
 
-def visualizeEmg(model, start, stop):
+def visualize_emg(model, start, stop):
     """ Creates a visualization of the emg signals contained in model
         
         Args:
@@ -41,11 +41,11 @@ def visualizeEmg(model, start, stop):
         Warnings:
             If stop is larger than duration of recording
     """
-    data = model.getData()
+    data = model.get_data()
 
     fig, axes = plt.subplots(nrows = data.shape[1], figsize = (16,9))
     fig.tight_layout()
-    f = model.getFrequency()
+    f = model.get_frequency()
 
     fontdict = {
         'fontsize': 16,

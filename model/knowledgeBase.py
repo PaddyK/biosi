@@ -2,7 +2,7 @@ import model
 import numpy as np
 import pandas as pd
 
-def createKb(data = None):
+def create_kb(data = None):
 
     if data is None:
         print 'Create new dataset...'
@@ -25,9 +25,9 @@ def createKb(data = None):
     so1 = model.Subject('Robert')
     so2 = model.Subject('Therese')
     so3 = model.Subject('Michael')
-    experiment.putSubject(so1)
-    experiment.putSubject(so2)
-    experiment.putSubject(so3)
+    experiment.put_subject(so1)
+    experiment.put_subject(so2)
+    experiment.put_subject(so3)
 
     # Setups
     # =======
@@ -81,13 +81,13 @@ def createKb(data = None):
 
     return experiment
 
-def smallSportKb():
+def small_sport_kb():
     experiment = model.Experiment()
 
     # Subjects
     # -----------------------------------------------------------------------------------
     so3 = model.Subject('subject3')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
 
     # Setups
     # ===================================================================================
@@ -125,31 +125,31 @@ def smallSportKb():
 
     return experiment
 
-def sportKb():
+def sport_kb():
     experiment = model.Experiment()
 
     # Subjects
     # -----------------------------------------------------------------------------------
     so3 = model.Subject('subject1')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
     so3 = model.Subject('subject2')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
     so3 = model.Subject('subject3')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
     so3 = model.Subject('subject4')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
     so3 = model.Subject('subject5')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
     so3 = model.Subject('subject6')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
     so3 = model.Subject('subject7')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
     so3 = model.Subject('subject8')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
     so3 = model.Subject('subject9')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
     so3 = model.Subject('subject10')
-    experiment.putSubject(so3)
+    experiment.put_subject(so3)
 
     # Setups
     # ===================================================================================

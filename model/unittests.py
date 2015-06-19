@@ -11,54 +11,54 @@ def tcDataRetrieval():
     exp = kb.createKb()
 
     print '\nTrial0\n-------'
-    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].Data
+    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].get_data()
     print '\nTrial1\n-------'
-    print exp.Sessions['session0'].Recordings['recording0'].Trials['squat'].Data
+    print exp.Sessions['session0'].Recordings['recording0'].Trials['squat'].get_data()
     print '\nTrial2\n-------'
-    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_difficult'].Data
+    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_difficult'].get_data()
     print '\nTrial3\n-------'
-    print exp.Sessions['session0'].Recordings['recording0'].Trials['leg_lever'].Data
+    print exp.Sessions['session0'].Recordings['recording0'].Trials['leg_lever'].get_data()
     print '\nRecording\n-------'
-    print exp.Sessions['session0'].Recordings['recording0'].Data
+    print exp.Sessions['session0'].Recordings['recording0'].get_data()
     print '\nSession\n-------'
-    print exp.Sessions['session0'].Data
+    print exp.Sessions['session0'].get_data()
 
     print '\nTrial0\n-------'
-    print exp.Sessions['session1'].Recordings['recording0'].Trials['curl_simple'].Data
+    print exp.Sessions['session1'].Recordings['recording0'].Trials['curl_simple'].get_data()
     print '\nTrial1\n-------'
-    print exp.Sessions['session1'].Recordings['recording0'].Trials['squat'].Data
+    print exp.Sessions['session1'].Recordings['recording0'].Trials['squat'].get_data()
     print '\nTrial2\n-------'
-    print exp.Sessions['session1'].Recordings['recording0'].Trials['curl_difficult'].Data
+    print exp.Sessions['session1'].Recordings['recording0'].Trials['curl_difficult'].get_data()
     print '\nTrial3\n-------'
-    print exp.Sessions['session1'].Recordings['recording0'].Trials['leg_lever'].Data
+    print exp.Sessions['session1'].Recordings['recording0'].Trials['leg_lever'].get_data()
     print '\nRecording\n-------'
-    print exp.Sessions['session1'].Recordings['recording0'].Data
+    print exp.Sessions['session1'].Recordings['recording0'].get_data()
 
     print '\nTrial0\n-------'
-    print exp.Sessions['session1'].Recordings['recording1'].Trials['curl_simple2'].Data
+    print exp.Sessions['session1'].Recordings['recording1'].Trials['curl_simple2'].get_data()
     print '\nTrial1\n-------'
-    print exp.Sessions['session1'].Recordings['recording1'].Trials['squat2'].Data
+    print exp.Sessions['session1'].Recordings['recording1'].Trials['squat2'].get_data()
     print '\nTrial2\n-------'
-    print exp.Sessions['session1'].Recordings['recording1'].Trials['curl_difficult2'].Data
+    print exp.Sessions['session1'].Recordings['recording1'].Trials['curl_difficult2'].get_data()
     print '\nTrial3\n-------'
-    print exp.Sessions['session1'].Recordings['recording1'].Trials['leg_lever2'].Data
+    print exp.Sessions['session1'].Recordings['recording1'].Trials['leg_lever2'].get_data()
     print '\nRecording\n-------'
-    print exp.Sessions['session1'].Recordings['recording1'].Data
+    print exp.Sessions['session1'].Recordings['recording1'].get_data()
     print '\nSession\n-------'
-    print exp.Sessions['session1'].Data
+    print exp.Sessions['session1'].get_data()
 
     print '\nTrial0\n-------'
-    print exp.Sessions['session2'].Recordings['recording0'].Trials['curl_simple'].Data
+    print exp.Sessions['session2'].Recordings['recording0'].Trials['curl_simple'].get_data()
     print '\nTrial1\n-------'
-    print exp.Sessions['session2'].Recordings['recording0'].Trials['squat'].Data
+    print exp.Sessions['session2'].Recordings['recording0'].Trials['squat'].get_data()
     print '\nTrial2\n-------'
-    print exp.Sessions['session2'].Recordings['recording0'].Trials['curl_difficult'].Data
+    print exp.Sessions['session2'].Recordings['recording0'].Trials['curl_difficult'].get_data()
     print '\nTrial3\n-------'
-    print exp.Sessions['session2'].Recordings['recording0'].Trials['leg_lever'].Data
+    print exp.Sessions['session2'].Recordings['recording0'].Trials['leg_lever'].get_data()
     print '\nRecording\n-------'
-    print exp.Sessions['session2'].Recordings['recording0'].Data
+    print exp.Sessions['session2'].Recordings['recording0'].get_data()
     print '\nSession\n-------'
-    print exp.Sessions['session2'].Data
+    print exp.Sessions['session2'].get_data()
 
 def tcDataAssignment():
     rec1 = np.arange(100, dtype = 'float')
@@ -77,78 +77,78 @@ def tcDataAssignment():
     print '\nTrial0\n-------'
     d = pd.DataFrame(np.arange(50.5,80.5, dtype = 'float').reshape(10,3), dtype = 'float')
     print d.dtypes
-    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].getData()
-    exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].setData(d)
-    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].getData()
+    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].get_data()
+    exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].set_data(d)
+    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].get_data()
     print data
 
     print '\nTrial1\n-------'
     d = pd.DataFrame(np.arange(200.5,233.5, dtype = 'float').reshape(11,3), dtype = 'float')
-    exp.Sessions['session0'].Recordings['recording0'].Trials['squat'].setData(d)
-    print exp.Sessions['session0'].Recordings['recording0'].Trials['squat'].getData()
+    exp.Sessions['session0'].Recordings['recording0'].Trials['squat'].set_data(d)
+    print exp.Sessions['session0'].Recordings['recording0'].Trials['squat'].get_data()
     print data
     
     print '\nTrial2\n-------'
     d = pd.DataFrame(np.arange(400.5,436.5, dtype = 'float').reshape(12,3), dtype = 'float')
-    exp.Sessions['session0'].Recordings['recording0'].Trials['curl_difficult'].setData(d)
-    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_difficult'].getData()
+    exp.Sessions['session0'].Recordings['recording0'].Trials['curl_difficult'].set_data(d)
+    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_difficult'].get_data()
     print data
     
     print '\nTrial3\n-------'
     d = pd.DataFrame(np.arange(600.5,660.5, dtype = 'float').reshape(20,3), dtype = 'float')
-    exp.Sessions['session0'].Recordings['recording0'].Trials['leg_lever'].setData(d)
-    print exp.Sessions['session0'].Recordings['recording0'].Trials['leg_lever'].getData()
+    exp.Sessions['session0'].Recordings['recording0'].Trials['leg_lever'].set_data(d)
+    print exp.Sessions['session0'].Recordings['recording0'].Trials['leg_lever'].get_data()
     print data
    
     print 'Recording - relevant data'
     print '~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print exp.Sessions['session0'].Recordings['recording0'].getData()
+    print exp.Sessions['session0'].Recordings['recording0'].get_data()
     print 'Recording - all data'
     print '~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print exp.Sessions['session0'].Recordings['recording0'].getAllData()
+    print exp.Sessions['session0'].Recordings['recording0'].get_all_data()
 
     print '\nRecording\n-------'
-    exp.Sessions['session0'].Recordings['recording0'].setData(pd.DataFrame(
+    exp.Sessions['session0'].Recordings['recording0'].set_data(pd.DataFrame(
         np.arange(1000,1159, dtype = 'float').reshape(53,3)
     ))
-    print exp.Sessions['session0'].Recordings['recording0'].getData()
-    print exp.Sessions['session0'].Recordings['recording0'].getAllData()
-    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].getData()
+    print exp.Sessions['session0'].Recordings['recording0'].get_data()
+    print exp.Sessions['session0'].Recordings['recording0'].get_all_data()
+    print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].get_data()
     print data
     
     print '\nSession\n-------'
-    exp.Sessions['session0'].setData(pd.DataFrame(
+    exp.Sessions['session0'].set_data(pd.DataFrame(
         np.arange(9000.5,9159.5, dtype = 'float').reshape(53,3), dtype = 'float'
     ))
-    print exp.Sessions['session0'].getData()
-    print exp.Sessions['session0'].Recordings['recording0'].getAllData()
-    print exp.Sessions['session0'].Recordings['recording0'].getData()
+    print exp.Sessions['session0'].get_data()
+    print exp.Sessions['session0'].Recordings['recording0'].get_all_data()
+    print exp.Sessions['session0'].Recordings['recording0'].get_data()
 
     print '\nSession\n-------'
-    exp.Sessions['session1'].setData(pd.DataFrame(
+    exp.Sessions['session1'].set_data(pd.DataFrame(
         np.arange(500.5,818.5, dtype = 'float').reshape(106,3), dtype = 'float'
     ))
 
-    print exp.Sessions['session1'].getAllData()
-    print exp.Sessions['session1'].getData()
-    print exp.Sessions['session1'].Recordings['recording0'].getAllData()
-    print exp.Sessions['session1'].Recordings['recording0'].getData()
-    print exp.Sessions['session1'].Recordings['recording1'].getAllData()
-    print exp.Sessions['session1'].Recordings['recording1'].getData()
+    print exp.Sessions['session1'].get_all_data()
+    print exp.Sessions['session1'].get_data()
+    print exp.Sessions['session1'].Recordings['recording0'].get_all_data()
+    print exp.Sessions['session1'].Recordings['recording0'].get_data()
+    print exp.Sessions['session1'].Recordings['recording1'].get_all_data()
+    print exp.Sessions['session1'].Recordings['recording1'].get_data()
     
 def tcReadFromFile():
     path = '/home/patrick/interdiciplinary_project/data/recording_sport.pkl'
 #    path = '/home/patrick/interdiciplinary_project/data/recording_sport.txt'
     data = model.DataController()
 #    pd = data.readDataFromText(path)
-    pd = data.readPickledData(path)
+    pd = data.read_pickled_data(path)
     print pd
     print pd.dtypes
 
 def tcLoadByLabel():
     e = kb.sportKb()
     lst = ['hantel', 'reverse_kettle']
-    data, labels = e.getDataByLabels(lst)
+    data, labels = e.get_data_by_labels(lst)
     print data.shape
     print len(labels)
     print data
