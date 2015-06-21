@@ -79,10 +79,21 @@ def visualize_emg(model, start, stop):
             np.arange(start * f, stop * f, dtype = 'float') / f, 
             data.iloc[start * f : stop * f, i]
         )
-        axes[i].axvline(start + 0.2, c='r')
         axes[i].set_title(data.columns.values[i], fontdict = fontdict)
         axes[i].set_ylim([minimum, maximum])
 
+    markers = model.get_marker(modality='emg', from_=start, to=stop)
+    for t, l in markers:
+        for axis in axes:
+            axis.axvline(t, color='r')
+            axis.text(t, maximum, l, color='r', verticalalignment='top')
+
     plt.subplots_adjust(hspace = 0.5)
 
-
+if __name__ == '__main__':
+    import sys
+    sys.path.insert(0, '/home/patrick/GitHub/interdisciplinary_project')
+    import model.knowledgeBase as kb
+    import model.model as model
+    e = kb.small_sport_kb()
+    visualize_emg(e, 3.7, 4.3)

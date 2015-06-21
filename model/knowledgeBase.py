@@ -92,7 +92,7 @@ def small_sport_kb():
     # Setups
     # ===================================================================================
     setup = model.Setup(experiment)
-    modality = model.Modality(setup, 4000, 'arm')
+    modality = model.Modality(setup, 4000, 'emg')
     model.Sample(modality, 'bizeps')
     model.Sample(modality, 'triceps')
     model.Sample(modality, 'extensor_digitorum')
@@ -107,8 +107,11 @@ def small_sport_kb():
     rec = model.Recording(
         session,
         location = 'data/recording_sport.pkl',
+        modality=modality.Identifier
     )
-    model.Trial(rec, 0, 4, 'calm')
+    t = model.Trial(rec, 0, 4, 'calm')
+    t.add_marker((4, 'start_trials'))
+    t.add_marker((4.1,'another'))
     model.Trial(rec, 4, 4, 'reverse_kettle1', label = 'reverse_kettle')
     model.Trial(rec, 8, 4, 'reverse_kettle2', label = 'reverse_kettle')
     model.Trial(rec, 12, 4, 'reverse_kettle3', label = 'reverse_kettle')
@@ -118,7 +121,7 @@ def small_sport_kb():
     model.Trial(rec, 28, 4, 'stomach_kettle1', label = 'stomach_kettle')
     model.Trial(rec, 32, 4, 'stomach_kettle2', label = 'stomach_kettle')
     model.Trial(rec, 36, 4, 'stomach_kettle3', label = 'stomach_kettle')
-    model.Trial(rec, 44, 4, 'max_triceps')
+    model.Trial(rec, 44, 4, 'max_triceps').add_marker((0, 'start_max_tests'))
     model.Trial(rec, 48, 4, 'max_flexor')
     model.Trial(rec, 52, 4, 'max_bizeps')
     model.Trial(rec, 60, 4, 'max_extensor')

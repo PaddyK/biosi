@@ -219,7 +219,7 @@ class Experiment:
             Args:
                 setup (string, optional): Identifier of one session
                 modality (string, optional): Identifier of one modality
-            
+
             Note:
                 If one setup is defined only, setup does not need to be set. Same goes for
                 modality.
@@ -284,6 +284,84 @@ class Experiment:
             labels.extend(self.Sessions[t].get_labels())
 
         return labels
+
+    def get_marker(self, modality, sessions=None, from_=None, to=None):
+        """ Returns all markers/markers in an specific interval from one/multiple/all
+            sessions of this experiment.
+            If markers to multiple sessions are returned an offset is added to the time of each
+            marker according to the order in which each sessions is listed in `sessions`.
+            It is assumed, that data of sessions are retrieved in the same order.
+
+            Args:
+                modality (String): Identifier of an modality. Only markers of recordings
+                    with this modality are returned
+                sessions (List): List of Strings. If set markers for specified recordings
+                    are returned, else markers of all recordings are returned.
+                from_ (float): Start point from which on markers should be retrieved
+                to (float): End point of marker retrieval
+
+            Note:
+                `from_` and `to` operate over the accumulated length of specified recordings.
+                So if markers from all recordings should be selected, but `from_` and `to`
+                are very small recordings will be excluded.
+
+            Returns:
+                markers (List): List of tuples containing `time, text` pairs
+        """
+        duration = 0
+        if sessions is None:
+            sessions = self._session_order
+
+        for s in sessions:
+            if s in self._session_order:
+                recordings = self.Sessions[s].get_recordings(modality=modality)
+                for r in recordings:
+                    duration = duration + r.Duration
+            else:
+                raise IndexError(
+                    'No session with identifier %s in Experiment' % (s)
+                )
+        if from_ is None:
+            from_ = 0
+        elif (from_ < 0) and (from_ >= duration):
+            raise IndexError('Start point of time interval out of bounds')
+
+        if to is None:
+            to = duration
+        elif (to < 0) or (to > duration):
+            raise IndexError('End point of time interval out of bounds')
+
+        ret = []
+        offset = 0
+        to_pass = 0
+        for s in sessions:
+            to_pass = 0
+            from_pass = 0
+            recordings = self.Sessions[s].get_recordings(modality=modality)
+            for r in recordings:
+                s_dur = r.Duration
+                if from_ > offset + s_dur:
+                    # Start point of interval larget than duration of first n recocdings
+                    # exclude recording and continue
+                    continue
+                elif (from_ > offset) and (from_ < offset + s_dur):
+                    # If start point of interval lies within nth recording start retrieving
+                    # from this point. Convert to relative start of recording
+                    from_pass = from_ - offset
+
+                if to < offset:
+                    # If accumulated duration of all recordings is larger than end point
+                    # of time interval stop retrieving markers
+                    break
+                elif (to > offset) and (to < offset + s_dur):
+                    # If end of time interval lies within one recording retrieve only
+                    # markers until relative point of time in recording
+                    to_pass = to - offset
+            markers = self.Sessions[s].get_marker(from_=from_pass, to=to_pass)
+            for t, l in markers:
+                ret.append(((t + offset), l))
+            offset = s_dur + offset
+        return ret
 
     def get_recording(self, identifier, session):
         """ Returns specified recording if it exists
@@ -790,6 +868,99 @@ class Session:
 
         return labels
 
+    def get_marker(self, recordings=None, from_=None, to=None):
+        """ Returns all markers/markers in an specific interval from one/multiple/all
+            recordings of this session.
+            If multiple recordings are returned an offset is added to the time of each
+            marker according to the order in which each recording is listed in `recordings`.
+            It is assumed, that data of recordings are retrieved in the same order.
+
+            Args:
+                recordings (List): List of Strings. If set markers for specified recordings
+                    are returned, else markers of all recordings are returned.
+                from_ (float): Start point from which on markers should be retrieved
+                to (float): End point of marker retrieval
+
+            Note:
+                `from_` and `to` operate over the accumulated length of specified recordings.
+                So if markers from all recordings should be selected, but `from_` and `to`
+                are very small recordings will be excluded.
+
+            Returns:
+                markers (List): List of tuples containing `time, text` pairs
+        """
+        duration = 0
+        if recordings is None:
+            recordings = self._recording_order
+
+        for rec in recordings:
+            if rec in self._recording_order:
+                duration = self.Recordings[rec]
+            else:
+                raise IndexError(
+                    'No recording with identifier %s in Session %s' %
+                    (rec, self.Identifier)
+                )
+        if from_ is None:
+            from_ = 0
+        elif (from_ < 0) and (from_ >= duration):
+            raise IndexError('Start point of time interval out of bounds')
+
+        if to is None:
+            to = duration
+        elif (to < 0) or (to > duration):
+            raise IndexError('End point of time interval out of bounds')
+
+        ret = []
+        offset = 0
+        to_pass = 0
+        for rec in recordings:
+            to_pass = 0
+            from_pass = 0
+            rec_dur = self.Recordings[rec].Duration
+            if from_ > offset + rec_dur:
+                # Start point of interval larget than duration of first n recocdings
+                # exclude recording and continue
+                continue
+            elif (from_ > offset) and (from_ < offset + rec_dur):
+                # If start point of interval lies within nth recording start retrieving
+                # from this point. Convert to relative start of recording
+                from_pass = from_ - offset
+
+            if to < offset:
+                # If accumulated duration of all recordings is larger than end point
+                # of time interval stop retrieving markers
+                break
+            elif (to > offset) and (to < offset + rec_dur):
+                # If end of time interval lies within one recording retrieve only
+                # markers until relative point of time in recording
+                to_pass = to - offset
+            markers = self.Recordings[rec].get_marker(from_=from_pass, to=to_pass)
+            for t, l in markers:
+                ret.append(((t + offset), l))
+
+            offset = offset + rec_dur
+
+        return ret
+
+    def get_recordings(self, modality):
+        """ Returns all recordings belonging to a specific modality
+
+            Args:
+                modality (String): Identifier of an modality
+
+            Returns:
+                recordings (List): List of recording in the order in which they were added
+        """
+        ret = []
+        for rid in self._recording_order:
+            if modality == self.Recordings[rid].Modality:
+                ret.append(self.Recordings[rid])
+
+        if len(ret) == 0:
+            warnings.warn('No recording found recorded with modality %s' % modality)
+
+        return ret
     @property
     def Samples(self):
         return self._samples
@@ -910,6 +1081,8 @@ class Recording:
             features (int): Number of features in data set
             trial_order (List): Stores order in which trials were added
             modality (String): Modality recording is associated with
+            markers (List): Sorted list of tuples. First element of tuple is time of marker
+                in seconds. Second element is label. List is sorted after time
 
         Raises:
             ValueError: Raised if both, location and data are not set
@@ -926,6 +1099,7 @@ class Recording:
         self._identifier = identifier
         self._trial_order = []
         self._modality = modality
+        self._markers = []
 
         if self._identifier is None:
             self._identifier = 'recording' + str(len(self._session.Recordings))
@@ -958,6 +1132,67 @@ class Recording:
     @property
     def Identifier(self):
         return self._identifier
+
+    @property
+    def Modality(self):
+        return self._modality
+
+    def add_marker(self, marker):
+        """ Adds a tuple (time, text) to list of recordings markers
+
+            Args:
+                marker (Tuple): Mark to add. Must have form `(time, text)` where `time` is
+                    point of time in seconds relative to start of recording where mark
+                    should be set and `text` the label of the mark
+        """
+        time, label = marker
+
+        if len(self._markers) == 0:
+            self._markers.append(marker)
+        else:
+            max = self._markers[len(self._markers) - 1][0]
+            if time >= max:
+                self._markers.append(marker)
+            else:
+                for i in range(len(self._markers)):
+                    t = self._markers[i]
+                    if time < t:
+                        self._markers.insert(i, marker)
+
+    def get_marker(self, from_=None, to=None):
+        """ Returns markers either for whole recording or for a specific time interval
+
+            Args:
+                from_ (float, optional): Start of time interval for which marks should be retrieved
+                to (float, optional): End of time interval for which marks should be retrieved
+
+            Note:
+                If either `from` or `to` is set alone, all markers from `start` until
+                end of recording or all markers from beginning of recording until `to`
+                are returned.
+
+            Raises:
+                IndexError: If either `_from` or `to` is higher than recording's duration
+        """
+        if from_ is None:
+            from_ = 0
+        elif from_ >= self.Duration:
+            raise IndexError('Start point of interval higher than duration of recording')
+
+        if to is None:
+            to = self.Duration
+        elif to > self.Duration:
+            raise IndexError('End point of interval higher than duration of recording')
+
+        ret = []
+        for t, l in self._markers:
+            if t < from_:
+                continue
+            elif t > to:
+                break
+            else:
+                ret.append((t, l))
+        return ret
 
     def get_data(self):
         """ Returns the **relevant** data of a recording object. In especially, this
@@ -1214,12 +1449,12 @@ class Trial:
         Attributes:
             recording (Recording): The recording this trial belongs to. Necessary to
                 retrieve informations about the setting.
-            start (float): Start point of trial in miliseconds relative to the start point
+            start (float): Start point of trial in seconds relative to the start point
                 of the recording.
             startIdx (int): Offset relative to beginning of recording of trial. Index
                 to DataFrame
             stopIdx (int): End of trial relative to recording. Index to DataFrame
-            duration (float): Stop point of trial in miliseconds relative to the stop point of
+            duration (float): Stop point of trial in seconds relative to the stop point of
                 the recording.
             identifier (string): Identifier of the trial. For example *bizeps_curl*
     """
@@ -1227,7 +1462,7 @@ class Trial:
     def __init__(self, recording, start, duration, identifier, label = None):
         self._recording = recording
         self._start = start
-        self._duration = duration # Convert to miliseconds
+        self._duration = duration
         self._startIdx = 0
         self._stopIdx = 0
         self._identifier = identifier
@@ -1254,6 +1489,8 @@ class Trial:
 
     @property
     def Start(self):
+        """ Start of Trial relative to beginning of recording in seconds
+        """
         return self._start
 
     @property
@@ -1262,6 +1499,8 @@ class Trial:
 
     @property
     def Duration(self):
+        """ Duration of Trial in seconds
+        """
         return self._duration
 
     @property
@@ -1279,6 +1518,51 @@ class Trial:
     @Label.setter
     def Label(self, label):
         self._label = label
+
+    def add_marker(self, marker):
+        """ Adds a merker to the trial
+
+            Args:
+                marker (Tuple): Tuple specifying position of marker in seconds and label
+                    of marker: `(time, label)`. `time` is relative to the beginning of
+                    the trial
+        """
+
+        time, label = marker
+        time = time + self.Start
+        self.Recording.add_marker((time, label))
+
+    def get_marker(self, from_=None, to=None):
+        """ Returns all markers contained in the given interval. If no interval borders
+            are specified, they are set to beginning/end of trial. Thus all markers defined
+            for trial are returned.
+
+            Args:
+                from_ (float, optional): Start from where to retrieve markers
+                to (float, optional): End of interval for which markers should be retrieved
+
+            Raises:
+                IndexError: If either `from_` or `to` exceed duration of trial
+        """
+
+        if from_ is None:
+            from_ = 0
+        elif from_ >= self.Duration:
+            raise IndexError('Beginning of time interval out of range (greater than duration)')
+
+        if to is None:
+            to = self.Duration
+        elif to > self.Duration:
+            raise IndexError('End of time interval out of range (greater than duration)')
+
+        from_ = from_ + self.Start
+        to = to + self.Start
+        ret = []
+        tmp = self.Recording.get_marker(from_=from_, to=to)
+        for t, l in tmp:
+            # Substract offset of trial
+            ret.append((t - self.Start, l))
+        return ret
 
     def get_data(self):
         tmp = self.Recording.get_all_data().iloc[self.StartIdx : self.StopIdx]
