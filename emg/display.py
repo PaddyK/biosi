@@ -79,6 +79,7 @@ def visualize_emg(model, start, stop):
             np.arange(start * f, stop * f, dtype = 'float') / f, 
             data.iloc[start * f : stop * f, i]
         )
+        axes[i].axvline(start + 0.2, c='r')
         axes[i].set_title(data.columns.values[i], fontdict = fontdict)
         axes[i].set_ylim([minimum, maximum])
 
