@@ -213,16 +213,38 @@ class Experiment:
 
         return data, classLabels
 
-    def get_frequency(self):
-        """ Returns frequency if one frequency was used with all setups. Else raises
-            an exception.
+    def get_frequency(self, setup=None, modality=None):
+        """ Returns frequency of one modality of one session.
+
+            Args:
+                setup (string, optional): Identifier of one session
+                modality (string, optional): Identifier of one modality
+            
+            Note:
+                If one setup is defined only, setup does not need to be set. Same goes for
+                modality.
+
+            Raises:
+                ValueError: If more than one setup is defined and `setup` argument not set
+                ValueError: If in setup `setup` more than one modality is defined
+                    but `modality` argument not set
 
             Returns:
                 frequency (int)
-            Raises:
-                ValueError if different frequencies are present
         """
-        f = 0
+        f = None
+        if setup is None:
+            if len(self.Setups) > 1:
+                raise ValueError((
+                    'More than one Setup defined but none specified. Specify ' +
+                    'setup to retrieve frequency'
+                ))
+            else:
+                f = self.Setups[self.Setups.keys()[0]].getFrequency(modality)
+        else:
+            f = self.Setups[setup].getFrequency(modality)
+
+        return f
         for setup in self.Setups.itervalues():
             if f == 0:
                 f = setup.Frequency
@@ -405,12 +427,11 @@ class Subject:
 
 
 class Setup:
-    """ Represents a setup for an session. Specifies the used frequency, amount and
-        grouping of sensors.
+    """ Represents a setup for an session. Specifies the amount and
+        grouping of sensors of different recording systems.
     """
 
-    def __init__(self, experiment, frequency, identifier = None):
-        self._frequency = frequency
+    def __init__(self, experiment, identifier = None):
         self._identifier = identifier
         self._modalities = {}
         self._experiment = experiment
@@ -422,9 +443,38 @@ class Setup:
 
         self._experiment.put_setup(self)
 
-    @property
-    def Frequency(self):
-        return self._frequency
+    def getFrequency(self, modality = None):
+        """ Returns the frequency of a specified modality.
+
+            Args:
+                modality (String): Identifier of maodality for which  frequency should be
+                    retrieved.
+
+            Note:
+                If only one modality is defined, `modality` argument does not need to
+                be set.
+
+            Raises:
+                ValueError: If more than one modality is defined and `modality` argument
+                    not set.
+
+            Returns:
+                frequency (int): Frequency (SamplingRate) of a modality
+        """
+
+        f = None
+        if modality is None:
+            if len(self.Modalities) > 1:
+                raise ValueError((
+                    'More than one modality defined. Specify modality for which' +
+                    'to retrieve frequency'
+                ))
+            else:
+                f = self.Modalities[self._modalityOrder[0]].Frequency
+        else:
+                f = self.Modalities[modality].Frequency
+
+        return f
 
     @property
     def Identifier(self):
@@ -477,6 +527,8 @@ class Modality:
     """ Represents a modality. A modality in the context of EMG is a group of sensors, for
         example on the hand. Another modality would be a second set of sensors on the breast.
 
+        Also modality could be another kind of recording system such as EEG
+
         Args:
             setup (Setup): Setup this modality is specified in
             identifier (string, optional): Identifier for this modality. Later usable to
@@ -487,11 +539,13 @@ class Modality:
             identifier (string): Identifier for this modality. Later usable to select one
                 specific instanace
             samples (Dictionary): Dictionary of samples i.e. sensors making up modality
+            frequency (int): Frequency (Sampling-Rate) at which data points are taken
     """
 
-    def __init__(self, setup, identifier = None):
+    def __init__(self, setup, frequency, identifier = None):
         self._setup = setup
         self._identifier = identifier
+        self._frequency = frequency
         self._samples = {}
         self._sampleOrder = []
 
@@ -503,6 +557,10 @@ class Modality:
     @property
     def Identifier(self):
         return self._identifier
+
+    @property
+    def Frequency(self):
+        return self._frequency
 
     @property
     def Samples(self):
@@ -712,10 +770,13 @@ class Session:
 
         return df
 
-    def get_frequency(self):
+    def get_frequency(self, modality):
         """ Returns Frequency of setup
+
+            Args:
+                Modality for which frequency is going to be retrieved
         """
-        return self.Setup.Frequency
+        return self.Setup.getFrequency(modality=modality)
 
     def get_labels(self):
         """ Returns a list of labels for all relevant data points.
@@ -734,7 +795,7 @@ class Session:
         return self._samples
 
     def set_data(self, data):
-        """ Sets the data of all trials in all recordings belonging to this session.
+       """ Sets the data of all trials in all recordings belonging to this session.
 
             Args:
                 data (pandas.DataFrame): New data for session
@@ -743,7 +804,7 @@ class Session:
                 ValueError: Raised if number of samples/features does not match
         """
 
-        if (data.shape[0] != self.Samples) or (data.shape[1] != self.Setup.Features):
+       if (data.shape[0] != self.Samples) or (data.shape[1] != self.Setup.Features):
             raise ValueError((
                 'Input has wrong dimensions for session %s. Expected data of ' +
                 'dimensionality (%s,%s), instead got (%s, %s)' %
@@ -755,7 +816,7 @@ class Session:
                     data.shape[1]
                 )
             ))
-        else:
+       else:
             offset = 0
             for idx in self._recording_order:
                 end = self.Recordings[idx].Samples + offset
@@ -829,6 +890,8 @@ class Recording:
                 parameter is set and no data is given, data will be retrieved from file.
             data (pandas.DataFrame, optional): DataFrame with samples of this recording.
             identifier (string, optional): Identifier of one instance
+            modality (String, optional): Modality recording is associated with. Set if
+                multiple modalities (e.g. eeg, emg) are used
 
         Note:
             Either ``data`` or ``location`` has to be set. If both are set, ``location``
@@ -846,13 +909,14 @@ class Recording:
             identifier (string): Identifier of one specific instance
             features (int): Number of features in data set
             trial_order (List): Stores order in which trials were added
+            modality (String): Modality recording is associated with
 
         Raises:
             ValueError: Raised if both, location and data are not set
     """
 
-    def __init__(self, session, location = None, data = None, identifier = None):
-
+    def __init__(self, session, location = None, data = None, identifier = None,
+            modality = None):
         self._session = session
         self._location = location
         self._data = data
@@ -861,6 +925,7 @@ class Recording:
         self._trials = {}
         self._identifier = identifier
         self._trial_order = []
+        self._modality = modality
 
         if self._identifier is None:
             self._identifier = 'recording' + str(len(self._session.Recordings))
@@ -871,7 +936,7 @@ class Recording:
         if data is None:
             datactrl = DataController()
             self._data = datactrl.read_data_from_file(location)
-        self._duration = self._data.shape[0] / self.Session.Setup.Frequency
+        self._duration = self._data.shape[0] / self.Session.Setup.getFrequency(self._modality)
         self._session.put_recording(self)
 
     @property
@@ -1001,7 +1066,7 @@ class Recording:
     def get_frequency(self):
         """ Returns frequency of setup used for session this recording was recorded in
         """
-        return self.Session.get_frequency()
+        return self.Session.get_frequency(modality = self._modality)
 
     @property
     def Duration(self):
@@ -1172,7 +1237,7 @@ class Trial:
         if self._identifier is None:
             self._name = 'trial' + str(len(self._recording.Trials))
 
-        f = self._recording.Session.Setup.Frequency
+        f = self._recording.get_frequency()
         self._startIdx = self._start * f
         self._stopIdx = self._startIdx + self._duration * f
         self._samples = self._stopIdx - self._startIdx

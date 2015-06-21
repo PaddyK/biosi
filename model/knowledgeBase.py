@@ -31,8 +31,8 @@ def create_kb(data = None):
 
     # Setups
     # =======
-    setup = model.Setup(experiment, 1)
-    modality = model.Modality(setup, 'arm')
+    setup = model.Setup(experiment)
+    modality = model.Modality(setup, 1, 'arm')
     model.Sample(modality, 'bizeps')
     model.Sample(modality, 'trizeps')
 
@@ -91,8 +91,8 @@ def small_sport_kb():
 
     # Setups
     # ===================================================================================
-    setup = model.Setup(experiment, 4000)
-    modality = model.Modality(setup, 'arm')
+    setup = model.Setup(experiment)
+    modality = model.Modality(setup, 4000, 'arm')
     model.Sample(modality, 'bizeps')
     model.Sample(modality, 'triceps')
     model.Sample(modality, 'extensor_digitorum')
