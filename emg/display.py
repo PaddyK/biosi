@@ -22,14 +22,15 @@ def predict_report(inpt, output, target):
 
     axs[0][0].legend()
 
-def visualize_emg(model, start, stop):
-    """ Creates a visualization of the emg signals contained in model
+def visualize_modality(model, start, stop, modality=None):
+    """ Creates a visualization of the modality signals contained in model
         
         Args:
             model (model.Experiment, model.Session, model.Recording, model.Trial): A data
                 carrying entity from module model.model.
             start (float): Start time in seconds
             stop (float): Stop time in seconds
+            modality (String, optional): Must be set if more than one modality specified
 
         Note:
             Works for model.Experiment only in the case of all setups specifying the same
@@ -41,11 +42,13 @@ def visualize_emg(model, start, stop):
         Warnings:
             If stop is larger than duration of recording
     """
-    data = model.get_data()
-
+    data = model.get_data(modality=modality)
+    print 'DEBUG ----------------->'
+    print 'finsihed load ing data'
+    print '<-----------------'
     fig, axes = plt.subplots(nrows = data.shape[1], figsize = (16,9))
     fig.tight_layout()
-    f = model.get_frequency()
+    f = model.get_frequency(modality=modality)
 
     fontdict = {
         'fontsize': 16,
@@ -82,13 +85,14 @@ def visualize_emg(model, start, stop):
         axes[i].set_title(data.columns.values[i], fontdict = fontdict)
         axes[i].set_ylim([minimum, maximum])
 
-    markers = model.get_marker(modality='emg', from_=start, to=stop)
+    markers = model.get_marker(modality=modality, from_=start, to=stop)
     for t, l in markers:
         for axis in axes:
             axis.axvline(t, color='r')
             axis.text(t, maximum, l, color='r', verticalalignment='top')
 
     plt.subplots_adjust(hspace = 0.5)
+    plt.show()
 
 if __name__ == '__main__':
     import sys

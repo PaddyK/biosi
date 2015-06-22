@@ -141,7 +141,7 @@ class Experiment:
     def Subjects(self):
         return self._subjects
 
-    def get_data(self):
+    def get_data(self, modality=None):
         """ Returns all data over all sessions and recordings.
 
             Note:
@@ -161,7 +161,7 @@ class Experiment:
         df = None
         for s in self.Sessions:
             if df is None:
-                df = self.Sessions[s].get_data()
+                df = self.Sessions[s].get_data(modality=modality)
             else:
                 df = pd.concat([df, self.Sessions[s].get_data()])
 
@@ -187,6 +187,7 @@ class Experiment:
                 retLbls = l
             else:
                 df = pd.concat([df, d])
+
                 retLbls = np.concatenate((retLbls, l))
 
         return df, retLbls
@@ -588,8 +589,8 @@ class Setup:
 
     def to_string(self):
         return (
-            'Setup %s: %d Modalities, %d samples/second' %
-            (self.Identifier, len(self.Modalities), self.Frequency)
+            'Setup %s: %d Modalities' %
+            (self.Identifier, len(self.Modalities))
         )
         return string
 
@@ -670,7 +671,7 @@ class Modality:
 
     def to_string(self):
         string = (
-            'Modality %s: %d Samples' % (self.Identifier, len(self.Samples))
+            'Modality %s: %d Samples, %d Hz' % (self.Identifier, len(self.Samples), self.Frequency)
         )
         return string
 
@@ -827,7 +828,7 @@ class Session:
 
         return data, classLabels
 
-    def get_data(self):
+    def get_data(self, modality=None):
         """ Returns the data of all recordings and trials associated with one Session.
             Only the concatenated data of the trials is returned. Samples not contained
             in trials are skipped.
@@ -837,10 +838,11 @@ class Session:
         """
         df = None
         for idx in self._recording_order:
-            if df is None:
-                df = self.Recordings[idx].get_data()
-            else:
-                df = pd.concat([df, self.Recordings[idx].get_data()])
+            if (self.Recordings[idx].Modality == modality) or (modality is None):
+                if df is None:
+                    df = self.Recordings[idx].get_data()
+                else:
+                    df = pd.concat([df, self.Recordings[idx].get_data()])
 
         df['sessions'] = self.Identifier
         df.set_index('sessions', inplace = True, append = True)
@@ -1146,7 +1148,7 @@ class Recording:
                     should be set and `text` the label of the mark
         """
         time, label = marker
-
+        print time
         if len(self._markers) == 0:
             self._markers.append(marker)
         else:
@@ -1154,9 +1156,9 @@ class Recording:
             if time >= max:
                 self._markers.append(marker)
             else:
-                for i in range(len(self._markers)):
+                for i in range(len(self._markers) - 1, -1, -1):
                     t = self._markers[i]
-                    if time < t:
+                    if time > t:
                         self._markers.insert(i, marker)
 
     def get_marker(self, from_=None, to=None):
@@ -1211,16 +1213,16 @@ class Recording:
         # New data frame is created
         df = None
         for id in self._trial_order:
+            tmp = self.Trials[id].get_data()
             if df is None:
-                df = self.Trials[id].get_data()
+                df = tmp
             else:
-                df = pd.concat([df, self.Trials[id].get_data()])
+                df = pd.concat([df, tmp])
 
         df['recordings'] = self.Identifier
         df.set_index('recordings', append = True, inplace = True)
         # Returns a new object and there is no inplace option
         df = df.reorder_levels(['recordings', 'trials', 'samples'])
-
         return df
 
     def get_data_by_labels(self, labels):
@@ -1407,7 +1409,7 @@ class Recording:
             self.Samples = self.Samples + trial.Samples
             self.Session.Samples = self.Session.Samples + trial.Samples
         else:
-            raise IndexError('Trial with name ' + name + ' already member of recording')
+            raise IndexError('Trial with name ' + trial.Identifier + ' already member of recording')
 
     def to_string(self):
         string = (
@@ -1527,7 +1529,6 @@ class Trial:
                     of marker: `(time, label)`. `time` is relative to the beginning of
                     the trial
         """
-
         time, label = marker
         time = time + self.Start
         self.Recording.add_marker((time, label))
@@ -1570,7 +1571,7 @@ class Trial:
         tmp['trials'] = self.Identifier
         tmp.set_index('trials', inplace = True, append = False)
         tmp.set_index('samples', inplace = True, append = True)
-        tmp.columns = self.Recording.Session.Setup.get_sample_order()
+        tmp.columns = self.Recording.Session.Setup.Modalities[self.Recording.Modality].Sample_Order
         return tmp
 
     def get_frequency(self):
