@@ -24,7 +24,7 @@ def predict_report(inpt, output, target):
 
 def visualize_modality(model, start, stop, modality=None):
     """ Creates a visualization of the modality signals contained in model
-        
+
         Args:
             model (model.Experiment, model.Session, model.Recording, model.Trial): A data
                 carrying entity from module model.model.
@@ -42,11 +42,8 @@ def visualize_modality(model, start, stop, modality=None):
         Warnings:
             If stop is larger than duration of recording
     """
-    data = model.get_data(modality=modality)
-    print 'DEBUG ----------------->'
-    print 'finsihed load ing data'
-    print '<-----------------'
-    fig, axes = plt.subplots(nrows = data.shape[1], figsize = (16,9))
+    data = model.get_data(modality=modality, from_=start, to=stop)
+    fig, axes = plt.subplots(nrows = data.shape[1], figsize = (16, data.shape[1] * 2.5))
     fig.tight_layout()
     f = model.get_frequency(modality=modality)
 
@@ -72,15 +69,16 @@ def visualize_modality(model, start, stop, modality=None):
             ) %
             (data.shape[0]/f, stop)
         )
-        stop = data.shape[0] / f
+        #stop = data.shape[0] / f
 
-    minimum = data.iloc[start * f : stop * f, :].values.min()
-    maximum = data.iloc[start * f : stop * f, :].values.max()
+    minimum = data.values.min()
+    maximum = data.values.max()
 
     for i in range(data.shape[1]):
+        xvals = np.arange(start * f, start * f + data.shape[0], dtype = 'float') / f
         axes[i].plot(
-            np.arange(start * f, stop * f, dtype = 'float') / f, 
-            data.iloc[start * f : stop * f, i]
+            xvals,
+            data.iloc[:, i]
         )
         axes[i].set_title(data.columns.values[i], fontdict = fontdict)
         axes[i].set_ylim([minimum, maximum])
@@ -92,7 +90,7 @@ def visualize_modality(model, start, stop, modality=None):
             axis.text(t, maximum, l, color='r', verticalalignment='top')
 
     plt.subplots_adjust(hspace = 0.5)
-    plt.show()
+#    plt.show()
 
 if __name__ == '__main__':
     import sys

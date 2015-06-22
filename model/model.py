@@ -165,52 +165,44 @@ class Experiment:
         if sessions is None:
             sessions = self._session_order
 
-        for s in sessions:
-            if s in self._session_order:
-                recordings = self.Sessions[s].get_recordings(modality=modality)
-                for r in recordings:
-                    duration = duration + r.Duration
-            else:
-                raise IndexError(
-                    'No session with identifier %s in Experiment' % (s)
-                )
         if from_ is None:
             from_ = 0
-        elif (from_ < 0) and (from_ >= duration):
+        elif from_ < 0:
             raise IndexError('Start point of time interval out of bounds')
 
         if to is None:
             to = duration
-        elif (to < 0) or (to > duration):
+        elif to < 0:
             raise IndexError('End point of time interval out of bounds')
 
-        ret = []
         offset = 0
-        to_pass = 0
+        to_pass = None
+        from_pass = None
         df = None
         for s in sessions:
-            to_pass = 0
-            from_pass = 0
-            recordings = self.Sessions[s].get_recordings(modality=modality)
-            for r in recordings:
-                s_dur = r.Duration
-                if from_ > offset + s_dur:
-                    # Start point of interval larget than duration of first n recocdings
-                    # exclude recording and continue
-                    continue
-                elif (from_ > offset) and (from_ < offset + s_dur):
-                    # If start point of interval lies within nth recording start retrieving
-                    # from this point. Convert to relative start of recording
-                    from_pass = from_ - offset
+            s_dur = self.Sessions[s].get_duration(modality=modality)
+            if from_ > offset + s_dur:
+                # Start point of interval larget than duration of first n recocdings
+                # exclude recording and continue
+                continue
+            elif (from_ > offset) and (from_ < offset + s_dur):
+                # If start point of interval lies within nth recording start retrieving
+                # from this point. Convert to relative start of recording
+                from_pass = from_ - offset
+            else:
+                from_pass = None
 
-                if to < offset:
-                    # If accumulated duration of all recordings is larger than end point
-                    # of time interval stop retrieving data
-                    break
-                elif (to > offset) and (to < offset + s_dur):
-                    # If end of time interval lies within one recording retrieve only
-                    # data until relative point of time in recording
-                    to_pass = to - offset
+            if to < offset:
+                # If accumulated duration of all recordings is larger than end point
+                # of time interval stop retrieving data
+                break
+            elif (to > offset) and (to < offset + s_dur):
+                # If end of time interval lies within one recording retrieve only
+                # data until relative point of time in recording
+                to_pass = to - offset
+            else:
+                    to_pass = None
+
             tmp = self.Sessions[s].get_data(modality=modality, begin=from_pass, end=to_pass)
 
             if df is None:
@@ -368,23 +360,14 @@ class Experiment:
         if sessions is None:
             sessions = self._session_order
 
-        for s in sessions:
-            if s in self._session_order:
-                recordings = self.Sessions[s].get_recordings(modality=modality)
-                for r in recordings:
-                    duration = duration + r.Duration
-            else:
-                raise IndexError(
-                    'No session with identifier %s in Experiment' % (s)
-                )
         if from_ is None:
             from_ = 0
-        elif (from_ < 0) and (from_ >= duration):
+        elif from_ < 0:
             raise IndexError('Start point of time interval out of bounds')
 
         if to is None:
             to = duration
-        elif (to < 0) or (to > duration):
+        elif to < 0:
             raise IndexError('End point of time interval out of bounds')
 
         ret = []
@@ -393,31 +376,29 @@ class Experiment:
         for s in sessions:
             to_pass = 0
             from_pass = 0
-            recordings = self.Sessions[s].get_recordings(modality=modality)
-            for r in recordings:
-                s_dur = r.Duration
-                if from_ > offset + s_dur:
-                    # Start point of interval larget than duration of first n recocdings
-                    # exclude recording and continue
-                    continue
-                elif (from_ > offset) and (from_ < offset + s_dur):
-                    # If start point of interval lies within nth recording start retrieving
-                    # from this point. Convert to relative start of recording
-                    from_pass = from_ - offset
+            s_dur = self.Sessions[s].get_duration(modality=modality)
+            if from_ > offset + s_dur:
+                # Start point of interval larget than duration of first n recocdings
+                # exclude recording and continue
+                continue
+            elif (from_ > offset) and (from_ < offset + s_dur):
+                # If start point of interval lies within nth recording start retrieving
+                # from this point. Convert to relative start of recording
+                from_pass = from_ - offset
 
-                if to < offset:
-                    # If accumulated duration of all recordings is larger than end point
-                    # of time interval stop retrieving markers
-                    break
-                elif (to > offset) and (to < offset + s_dur):
-                    # If end of time interval lies within one recording retrieve only
-                    # markers until relative point of time in recording
-                    to_pass = to - offset
-                offset = s_dur + offset
+            if to < offset:
+                # If accumulated duration of all recordings is larger than end point
+                # of time interval stop retrieving markers
+                break
+            elif (to > offset) and (to < offset + s_dur):
+                # If end of time interval lies within one recording retrieve only
+                # markers until relative point of time in recording
+                to_pass = to - offset
 
             markers = self.Sessions[s].get_marker(from_=from_pass, to=to_pass)
             for t, l in markers:
                 ret.append(((t + offset), l))
+            offset = s_dur + offset
         return ret
 
     def get_recording(self, identifier, session):
@@ -877,7 +858,7 @@ class Session:
                 duration (float): Sum of duration of all recordings as duration of session
         """
         duration = 0
-        for r in self.Recordings:
+        for r in self.Recordings.itervalues():
             if modality is None:
                 duration = duration + r.Duration
             elif r.Modality == modality:
@@ -1062,7 +1043,9 @@ class Session:
                 # If end of time interval lies within one recording retrieve only
                 # markers until relative point of time in recording
                 to_pass = to - offset
+
             markers = self.Recordings[rec].get_marker(from_=from_pass, to=to_pass)
+
             for t, l in markers:
                 ret.append(((t + offset), l))
 
@@ -1273,7 +1256,6 @@ class Recording:
                     should be set and `text` the label of the mark
         """
         time, label = marker
-        print time
         if len(self._markers) == 0:
             self._markers.append(marker)
         else:
@@ -1282,9 +1264,11 @@ class Recording:
                 self._markers.append(marker)
             else:
                 for i in range(len(self._markers) - 1, -1, -1):
-                    t = self._markers[i]
+                    t = self._markers[i][0]
                     if time > t:
-                        self._markers.insert(i, marker)
+                        # Must be inserted after that element
+                        self._markers.insert(i + 1, marker)
+                        break
 
     def get_marker(self, from_=None, to=None):
         """ Returns markers either for whole recording or for a specific time interval
@@ -1311,15 +1295,33 @@ class Recording:
         elif to > self.Duration:
             raise IndexError('End point of interval higher than duration of recording')
 
+        offset = 0
+        to_pass = None
+        from_pass = None
         ret = []
-        for t, l in self._markers:
-            if t < from_:
+        for trial in self._trial_order:
+            if from_ > offset:
                 continue
-            elif t > to:
-                break
+            elif (from_ > offset) and (from_ < self.Trials[trial].Duration + offset):
+                from_pass = _from
             else:
-                ret.append((t, l))
+                from_pass = None
+
+            if to < offset:
+                break
+            elif (to > offset) and (to < self.Trials[trial].Duration + offset):
+                to_pass = to
+            else:
+                to = None
+
+            tmp = self.Trials[trial].get_marker(from_=from_pass, to=to_pass)
+            for t, l in tmp:
+                ret.append((t + offset, l))
+            offset = offset + self.Trials[trial].Duration
         return ret
+
+    def get_all_marker(self):
+        return self._markers
 
     def get_data(self, begin=None, end=None):
         """ Returns the **relevant** data of a recording object. In especially, this
@@ -1365,7 +1367,7 @@ class Recording:
         end_pass = None
         offset = 0
 
-        for id in self._trial_order:
+        for idx in self._trial_order:
             stop = offset + self.Trials[idx].Duration
 
             if begin is not None:
@@ -1377,14 +1379,14 @@ class Recording:
                     begin_pass = None
 
             if end is not None:
-                if end < start:
+                if end < offset:
                     break
-                elif (end > start) and (end < stop):
+                elif (end > offset) and (end < stop):
                     end_pass = end - offset
                 else:
                     end_pass = None
 
-            tmp = self.Trials[id].get_data(begin=begin_pass, end=end_pass)
+            tmp = self.Trials[idx].get_data(begin=begin_pass, end=end_pass)
 
             if df is None:
                 df = tmp
@@ -1598,8 +1600,9 @@ class Recording:
 
     def recursive_to_string(self):
         string = self.to_string() + '\n'
-        for t in self.Trials.itervalues():
-            string = string + '\t' + t.to_string() + '\n'
+        for t in self._trial_order:
+            ts = self.Trials[t].to_string().replace('\n','\n\t')
+            string = string + '\t' + ts + '\n'
         return string
 
 
@@ -1732,10 +1735,17 @@ class Trial:
         from_ = from_ + self.Start
         to = to + self.Start
         ret = []
-        tmp = self.Recording.get_marker(from_=from_, to=to)
-        for t, l in tmp:
-            # Substract offset of trial
-            ret.append((t - self.Start, l))
+        markers = self.Recording.get_all_marker()
+        # TODO: Use binary search to find start of range
+
+        for t, l in markers:
+            if t < self.Start:
+                continue
+            elif (t > self.Start) and (t < self.Start + self.Duration):
+                # Substract offset of trial
+                ret.append((t - self.Start, l))
+            elif t > self.Start + self.Duration:
+                break
         return ret
 
     def get_data(self, begin = None, end = None):
@@ -1760,7 +1770,7 @@ class Trial:
             raise IndexError((
                 'Beginning of time interval out of range. Start point of data retrieval ' +
                 ' was {start} but Trial {trial} only of length {length}'
-                ).format(start=begin, trial-self.Identifier, length=self.Identifieri)
+                ).format(start=begin, trial=self.Identifier, length=self.Identifieri)
             )
         else:
             begin = begin * self.Recording.get_frequency() + self.StartIdx
@@ -1771,13 +1781,13 @@ class Trial:
             raise IndexError((
                 'End of time interval out of range. Start point of data retrieval ' +
                 ' was {start} but Trial {trial} only of length {length}'
-                ).format(start=end, trial-self.Identifier, length=self.Identifieri)
+                ).format(start=end, trial=self.Identifier, length=self.Identifieri)
             )
         else:
             end = end * self.Recording.get_frequency() + self.StartIdx
 
         tmp = self.Recording.get_all_data().iloc[begin:end]
-        tmp['samples'] = np.arange(self.Samples)
+        tmp['samples'] = np.arange(end - begin)
         tmp['trials'] = self.Identifier
         tmp.set_index('trials', inplace = True, append = False)
         tmp.set_index('samples', inplace = True, append = True)
@@ -1814,6 +1824,9 @@ class Trial:
             'Trial %s: %fs duration, %d samples' %
             (self.Identifier, self.Duration, self.Samples)
         )
+        marker = self.get_marker()
+        for t, l in marker:
+            string = string + '\n\tMarker {a} at {b:.3f}s'.format(a=l, b=t)
         return string
 
 
