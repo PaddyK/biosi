@@ -1003,12 +1003,13 @@ class Session:
 
         for rec in recordings:
             if rec in self._recording_order:
-                duration = self.Recordings[rec]
+                duration = duration + self.Recordings[rec].Duration
             else:
                 raise IndexError(
                     'No recording with identifier %s in Session %s' %
                     (rec, self.Identifier)
                 )
+
         if from_ is None:
             from_ = 0
         elif (from_ < 0) and (from_ >= duration):
@@ -1295,11 +1296,18 @@ class Recording:
         elif to > self.Duration:
             raise IndexError('End point of interval higher than duration of recording')
 
+
         offset = 0
         to_pass = None
         from_pass = None
         ret = []
         for trial in self._trial_order:
+            print 'DEBUG Recording.get_marker >>>>>>>>>>>>>>>>>>>>>>>'
+            print offset
+            print 'from {} to {} - offset: {}, trial: {:s}'.format(from_, to, offset,trial)
+            print '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'
+            print ''
+
             if from_ > offset:
                 continue
             elif (from_ > offset) and (from_ < self.Trials[trial].Duration + offset):
