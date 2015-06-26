@@ -1669,8 +1669,8 @@ class Trial:
             self._name = 'trial' + str(len(self._recording.Trials))
 
         f = self._recording.get_frequency()
-        self._startIdx = self._start * f
-        self._stopIdx = self._startIdx + self._duration * f
+        self._startIdx = int(self._start * f)
+        self._stopIdx = int(self._startIdx + self._duration * f)
         self._samples = self._stopIdx - self._startIdx
 
         self._recording.put_trial(self)
@@ -1803,7 +1803,7 @@ class Trial:
         else:
             end = end * self.Recording.get_frequency() + self.StartIdx
 
-        tmp = self.Recording.get_all_data()[begin:end]
+        tmp = self.Recording.get_all_data()[int(begin):int(end)]
         tmp['samples'] = np.arange(tmp.shape[0])
         tmp['trials'] = self.Identifier
         tmp.set_index('trials', inplace = True, append = False)
