@@ -1803,7 +1803,7 @@ class Trial:
         else:
             end = end * self.Recording.get_frequency() + self.StartIdx
 
-        tmp = self.Recording.get_all_data()[int(begin):int(end)]
+        tmp = pd.DataFrame(self.Recording.get_all_data()[int(begin):int(end)])
         tmp['samples'] = np.arange(tmp.shape[0])
         tmp['trials'] = self.Identifier
         tmp.set_index('trials', inplace = True, append = False)
