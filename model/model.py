@@ -1300,21 +1300,25 @@ class Recording:
         elif to > self.Duration:
             raise IndexError('End point of interval higher than duration of recording')
 
+        duration = 0
         offset = 0
         to_pass = None
         from_pass = None
         ret = []
         for trial in self._trial_order:
-            if from_ > offset:
+            offset = offset + duration
+            duration = self.Trials[trial].Duration
+
+            if from_ > offset + duration:
                 continue
-            elif (from_ > offset) and (from_ < self.Trials[trial].Duration + offset):
-                from_pass = _from - offset
+            elif (from_ > offset) and (from_ < duration + offset):
+                from_pass = from_ - offset
             else:
                 from_pass = None
 
             if to < offset:
                 break
-            elif (to > offset) and (to < self.Trials[trial].Duration + offset):
+            elif (to > offset) and (to < duration + offset):
                 to_pass = to - offset
             else:
                 to_pass = None
@@ -1735,6 +1739,12 @@ class Trial:
             to = self.Duration
         elif to > self.Duration:
             raise IndexError('End of time interval out of range (greater than duration)')
+
+        print 'DEBUG >>>>>>>>'
+        print 'Interval ({};{}) lower lim: {} upper lim {}'.format(
+                self.Start, self.Start+self.Duration, from_, to)
+        print '>>>>>>>>>>'
+        print ''
 
         from_ = from_ + self.Start
         to = to + self.Start
