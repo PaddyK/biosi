@@ -1207,7 +1207,6 @@ class Recording:
             modality = None):
         self._session = session
         self._location = location
-        self._data = data
         self._samples = 0
         self._features = self.Session.Setup.Features
         self._trials = {}
@@ -1225,6 +1224,16 @@ class Recording:
         if data is None:
             datactrl = DataController()
             self._data = datactrl.read_data_from_file(location)
+        else:
+            if type(data) is pd.DataFrame:
+                self._data = data.values
+            elif type(data) is np.ndarray:
+                self._data = data
+            else:
+                raise ValueError('Data is of unsupported type. Expected ' + \
+                        '"numpy.ndarray or pandas.core.DataFrame. Got {}'
+                        .format(type(data))
+                        )
         self._duration = self._data.shape[0] / self.Session.Setup.getFrequency(self._modality)
         self._session.put_recording(self)
 
@@ -1794,7 +1803,7 @@ class Trial:
         else:
             end = end * self.Recording.get_frequency() + self.StartIdx
 
-        tmp = self.Recording.get_all_data().iloc[begin:end]
+        tmp = self.Recording.get_all_data()[begin:end]
         tmp['samples'] = np.arange(tmp.shape[0])
         tmp['trials'] = self.Identifier
         tmp.set_index('trials', inplace = True, append = False)
@@ -1819,7 +1828,7 @@ class Trial:
                 class is not changed!
         """
         if (data.shape[0] == self.Samples) and (data.shape[1] == self.Recording.Features):
-            self.Recording.get_all_data().iloc[self.StartIdx : self.StopIdx] = data.get_values()
+            self.Recording.get_all_data()[self.StartIdx : self.StopIdx] = data.get_values()
         else:
             raise ValueError((
                 'Shape missmatch replacing data in trial ' + self.Identifier + '. ' +
@@ -1914,12 +1923,18 @@ class DataController:
                 if debug:
                     if count > 99:
                         break
-        if asNumpy:
-            ret = arr
-        else:
-            ret = pd.DataFrame(arr)
 
-        return ret
+        if type(arr) is pd.DataFrame:
+            arr = arr.values
+        elif type(arr) is np.ndarray:
+            pass
+        else:
+            raise ValueError('Error loading data from pickled file. Encountered ' + \
+                    'unsupported data type. Expected pandas.core.DataFrame or ' + \
+                    'numpy.ndarray. Instead got {}'.format(type(arr))
+                    )
+
+        return arr
 
     def read_from_file_and_pickle(self, source, target, debug = False):
         """ Reads EMG data from file and creates a numpy array and pickles it to target
@@ -1945,4 +1960,13 @@ class DataController:
         with open(source, 'rb') as f:
             arr = pkl.load(f)
 
-        return pd.DataFrame(arr)
+        if type(arr) is pd.DataFrame:
+            arr = arr.values
+        elif type(arr) is np.ndarray:
+            pass
+        else:
+            raise ValueError('Error loading data from pickled file. Encountered ' + \
+                    'unsupported data type. Expected pandas.core.DataFrame or ' + \
+                    'numpy.ndarray. Instead got {}'.format(type(arr))
+                    )
+        return arr
