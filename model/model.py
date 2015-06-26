@@ -141,29 +141,76 @@ class Experiment:
     def Subjects(self):
         return self._subjects
 
-    def get_data(self):
-        """ Returns all data over all sessions and recordings.
+    def get_data(self, modality, sessions=None, from_=None, to=None):
+        """ Returns all data in an specific interval from one/multiple/all
+            sessions of this experiment.
+
+            Args:
+                modality (String): Identifier of an modality. Only data of recordings
+                    with this modality are returned
+                sessions (List): List of Strings. If set data for specified recordings
+                    are returned, else data of all recordings are returned.
+                from_ (float): Start point from which on data should be retrieved
+                to (float): End point of data retrieval
 
             Note:
-                The order in which data will be returned is:
-                * session1
-                    * recording1
-                        * trial1
-                        * trial2
-                    * recording 2
-                        * trial1
-                        * trial2
-                and so forth.
+                `from_` and `to` operate over the accumulated length of specified recordings.
+                So if data from all recordings should be selected, but `from_` and `to`
+                are very small recordings will be excluded.
 
             Returns:
-                Dataframe
+                data (pandas.core.DataFrame)
         """
+        duration = 0
+        if sessions is None:
+            sessions = self._session_order
+
+        if from_ is None:
+            from_ = 0
+        elif from_ < 0:
+            raise IndexError('Start point of time interval out of bounds')
+
+        if to is None:
+            to = duration
+        elif to < 0:
+            raise IndexError('End point of time interval out of bounds')
+
+        s_dur = 0
+        offset = 0
+        to_pass = None
+        from_pass = None
         df = None
-        for s in self.Sessions:
-            if df is None:
-                df = self.Sessions[s].get_data()
+        for s in sessions:
+            offset = offset + s_dur
+            s_dur = self.Sessions[s].get_duration(modality=modality)
+            if from_ > offset + s_dur:
+                # Start point of interval larget than duration of first n recocdings
+                # exclude recording and continue
+                continue
+            elif (from_ > offset) and (from_ < offset + s_dur):
+                # If start point of interval lies within nth recording start retrieving
+                # from this point. Convert to relative start of recording
+                from_pass = from_ - offset
             else:
-                df = pd.concat([df, self.Sessions[s].get_data()])
+                from_pass = None
+
+            if to < offset:
+                # If accumulated duration of all recordings is larger than end point
+                # of time interval stop retrieving data
+                break
+            elif (to > offset) and (to < offset + s_dur):
+                # If end of time interval lies within one recording retrieve only
+                # data until relative point of time in recording
+                to_pass = to - offset
+            else:
+                to_pass = None
+
+            tmp = self.Sessions[s].get_data(modality=modality, begin=from_pass, end=to_pass)
+
+            if df is None:
+                df = tmp
+            else:
+                df = pd.concat([df, tmp])
 
         return df
 
@@ -187,6 +234,7 @@ class Experiment:
                 retLbls = l
             else:
                 df = pd.concat([df, d])
+
                 retLbls = np.concatenate((retLbls, l))
 
         return df, retLbls
@@ -309,26 +357,19 @@ class Experiment:
                 markers (List): List of tuples containing `time, text` pairs
         """
         duration = 0
+        recordings = None
+
         if sessions is None:
             sessions = self._session_order
 
-        for s in sessions:
-            if s in self._session_order:
-                recordings = self.Sessions[s].get_recordings(modality=modality)
-                for r in recordings:
-                    duration = duration + r.Duration
-            else:
-                raise IndexError(
-                    'No session with identifier %s in Experiment' % (s)
-                )
         if from_ is None:
             from_ = 0
-        elif (from_ < 0) and (from_ >= duration):
+        elif from_ < 0:
             raise IndexError('Start point of time interval out of bounds')
 
         if to is None:
             to = duration
-        elif (to < 0) or (to > duration):
+        elif to < 0:
             raise IndexError('End point of time interval out of bounds')
 
         ret = []
@@ -337,26 +378,25 @@ class Experiment:
         for s in sessions:
             to_pass = 0
             from_pass = 0
-            recordings = self.Sessions[s].get_recordings(modality=modality)
-            for r in recordings:
-                s_dur = r.Duration
-                if from_ > offset + s_dur:
-                    # Start point of interval larget than duration of first n recocdings
-                    # exclude recording and continue
-                    continue
-                elif (from_ > offset) and (from_ < offset + s_dur):
-                    # If start point of interval lies within nth recording start retrieving
-                    # from this point. Convert to relative start of recording
-                    from_pass = from_ - offset
+            s_dur = self.Sessions[s].get_duration(modality=modality)
+            if from_ > offset + s_dur:
+                # Start point of interval larget than duration of first n recocdings
+                # exclude recording and continue
+                continue
+            elif (from_ > offset) and (from_ < offset + s_dur):
+                # If start point of interval lies within nth recording start retrieving
+                # from this point. Convert to relative start of recording
+                from_pass = from_ - offset
 
-                if to < offset:
-                    # If accumulated duration of all recordings is larger than end point
-                    # of time interval stop retrieving markers
-                    break
-                elif (to > offset) and (to < offset + s_dur):
-                    # If end of time interval lies within one recording retrieve only
-                    # markers until relative point of time in recording
-                    to_pass = to - offset
+            if to < offset:
+                # If accumulated duration of all recordings is larger than end point
+                # of time interval stop retrieving markers
+                break
+            elif (to > offset) and (to < offset + s_dur):
+                # If end of time interval lies within one recording retrieve only
+                # markers until relative point of time in recording
+                to_pass = to - offset
+
             markers = self.Sessions[s].get_marker(from_=from_pass, to=to_pass)
             for t, l in markers:
                 ret.append(((t + offset), l))
@@ -588,8 +628,8 @@ class Setup:
 
     def to_string(self):
         return (
-            'Setup %s: %d Modalities, %d samples/second' %
-            (self.Identifier, len(self.Modalities), self.Frequency)
+            'Setup %s: %d Modalities' %
+            (self.Identifier, len(self.Modalities))
         )
         return string
 
@@ -670,7 +710,7 @@ class Modality:
 
     def to_string(self):
         string = (
-            'Modality %s: %d Samples' % (self.Identifier, len(self.Samples))
+            'Modality %s: %d Samples, %d Hz' % (self.Identifier, len(self.Samples), self.Frequency)
         )
         return string
 
@@ -808,6 +848,25 @@ class Session:
 
         return df, retLbls
 
+    def get_duration(self, modality=None):
+        """ Returns session's duration depending on recordings associated with
+            `modality`. If `modality` is not set, all recordings of session are
+            considered
+
+            Args:
+                modality (String): Identifier of a modality
+
+            Returns:
+                duration (float): Sum of duration of all recordings as duration of session
+        """
+        duration = 0
+        for r in self.Recordings.itervalues():
+            if modality is None:
+                duration = duration + r.Duration
+            elif r.Modality == modality:
+                duration = duration + r.Duration
+        return duration
+
     def get_data_for_breeze(self, labels=None):
         """ Returns data in format to directly feed it to
             .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
@@ -827,20 +886,73 @@ class Session:
 
         return data, classLabels
 
-    def get_data(self):
+    def get_data(self, modality=None, begin=None, end=None):
         """ Returns the data of all recordings and trials associated with one Session.
             Only the concatenated data of the trials is returned. Samples not contained
             in trials are skipped.
+            If `begin` and `end` are specified only data of this time interval is
+            returned from recording.
+            For modality set (being required for more than one modality in setup) only
+            data of recordings with this modality are returned
+
+            Args:
+                modality (string): Identifier of an modality. Required for more than one
+                    modality present in session's setup.
+                begin (float): Start point of time interval in seconds
+                end (float): End point of time interval in seconds
+
+            Note:
+                `begin` and `end` operate on all recordints (with `modality`)
+                concatenated in the order in which they were added during experiment
+                setup.
 
             Returns:
                 pandas.DataFrame
         """
+        if (len(self.Setup.Modalities) > 1) and (modality is None):
+            raise ValueError((
+                'More than one modality present in setup {a} of session ' +
+                '{s} but modality argument was not defined'
+                ).format(a=self.Setup.Identifier, s=self.Identifier)
+            )
+
         df = None
+        begin_pass = None
+        end_pass = None
+        stop = 0
+
         for idx in self._recording_order:
-            if df is None:
-                df = self.Recordings[idx].get_data()
-            else:
-                df = pd.concat([df, self.Recordings[idx].get_data()])
+            if (self.Recordings[idx].Modality == modality) or (modality is None):
+                offset = stop # Offset has to be set here to ensure its set
+                              # even if continue clause is executed!
+                stop = self.Recordings[idx].Duration + offset
+
+                if begin is not None:
+                    if begin > stop:
+                        # Skip all Recordings for which end point of recording is smaler
+                        # than start point of interval. i.e. are not contained in interval
+                        continue
+                    elif (begin < stop) and (begin > offset):
+                        begin_pass = begin - offset
+                    else:
+                        begin_pass = None
+
+                if end is not None:
+                    if end < offset:
+                        # If endpoint of time interval is smaller than beginning of new
+                        # interval stop retrieving data
+                        break
+                    elif (end > offset) and (end < stop):
+                        end_pass = end - offset
+                    else:
+                        end_pass = None
+
+                tmp = self.Recordings[idx].get_data(begin=begin_pass, end=end_pass)
+
+                if df is None:
+                    df = tmp
+                else:
+                    df = pd.concat([df, tmp])
 
         df['sessions'] = self.Identifier
         df.set_index('sessions', inplace = True, append = True)
@@ -895,12 +1007,13 @@ class Session:
 
         for rec in recordings:
             if rec in self._recording_order:
-                duration = self.Recordings[rec]
+                duration = duration + self.Recordings[rec].Duration
             else:
                 raise IndexError(
                     'No recording with identifier %s in Session %s' %
                     (rec, self.Identifier)
                 )
+
         if from_ is None:
             from_ = 0
         elif (from_ < 0) and (from_ >= duration):
@@ -935,7 +1048,9 @@ class Session:
                 # If end of time interval lies within one recording retrieve only
                 # markers until relative point of time in recording
                 to_pass = to - offset
+
             markers = self.Recordings[rec].get_marker(from_=from_pass, to=to_pass)
+
             for t, l in markers:
                 ret.append(((t + offset), l))
 
@@ -1073,7 +1188,7 @@ class Recording:
             location (string, optional): Path to a file containing the record. If this
                 parameter is set and no data is given, data will be retrieved from file.
             data (pandas.DataFrame, optional): DataFrame with samples of this recording.
-            duration (int): Duration of recording in data in seconds
+            duration (float): Duration of recording in data in seconds
             samples (int): Number of samples in this recording. The sum of all sample
                 counts of trials being part of this recording
             trials (Dictionary): Trials included in this recording.
@@ -1092,7 +1207,6 @@ class Recording:
             modality = None):
         self._session = session
         self._location = location
-        self._data = data
         self._samples = 0
         self._features = self.Session.Setup.Features
         self._trials = {}
@@ -1110,6 +1224,16 @@ class Recording:
         if data is None:
             datactrl = DataController()
             self._data = datactrl.read_data_from_file(location)
+        else:
+            if type(data) is pd.DataFrame:
+                self._data = data.values
+            elif type(data) is np.ndarray:
+                self._data = data
+            else:
+                raise ValueError('Data is of unsupported type. Expected ' + \
+                        '"numpy.ndarray or pandas.core.DataFrame. Got {}'
+                        .format(type(data))
+                        )
         self._duration = self._data.shape[0] / self.Session.Setup.getFrequency(self._modality)
         self._session.put_recording(self)
 
@@ -1146,7 +1270,6 @@ class Recording:
                     should be set and `text` the label of the mark
         """
         time, label = marker
-
         if len(self._markers) == 0:
             self._markers.append(marker)
         else:
@@ -1154,10 +1277,12 @@ class Recording:
             if time >= max:
                 self._markers.append(marker)
             else:
-                for i in range(len(self._markers)):
-                    t = self._markers[i]
-                    if time < t:
-                        self._markers.insert(i, marker)
+                for i in range(len(self._markers) - 1, -1, -1):
+                    t = self._markers[i][0]
+                    if time > t:
+                        # Must be inserted after that element
+                        self._markers.insert(i + 1, marker)
+                        break
 
     def get_marker(self, from_=None, to=None):
         """ Returns markers either for whole recording or for a specific time interval
@@ -1184,20 +1309,48 @@ class Recording:
         elif to > self.Duration:
             raise IndexError('End point of interval higher than duration of recording')
 
+        duration = 0
+        offset = 0
+        to_pass = None
+        from_pass = None
         ret = []
-        for t, l in self._markers:
-            if t < from_:
+        for trial in self._trial_order:
+            offset = offset + duration
+            duration = self.Trials[trial].Duration
+
+            if from_ > offset + duration:
                 continue
-            elif t > to:
-                break
+            elif (from_ > offset) and (from_ < duration + offset):
+                from_pass = from_ - offset
             else:
-                ret.append((t, l))
+                from_pass = None
+
+            if to < offset:
+                break
+            elif (to > offset) and (to < duration + offset):
+                to_pass = to - offset
+            else:
+                to_pass = None
+
+            tmp = self.Trials[trial].get_marker(from_=from_pass, to=to_pass)
+            for t, l in tmp:
+                ret.append((t + offset, l))
+            offset = offset + self.Trials[trial].Duration
         return ret
 
-    def get_data(self):
+    def get_all_marker(self):
+        return self._markers
+
+    def get_data(self, begin=None, end=None):
         """ Returns the **relevant** data of a recording object. In especially, this
             property yields only the data specified in the trials belonging to the
             recording.
+            If `begin` and `end` are specified onlyt data contained in time interval is
+            returned.
+
+            Args:
+                begin (float): Point of time in seconds of beginning of time interval
+                end (float): Point of time in seconds of ending of time interval
 
             Example:
                 Sampling rate of 4000Hz, recording is 60s long. Trial one goes from
@@ -1208,19 +1361,61 @@ class Recording:
             Returns:
                 pandas.DataFrame
         """
+        if begin > end:
+            raise ValueError((
+                'Beginning of time interval larger than ending. Beginning was {beg},' +
+                'end was {e}'
+                ).format(beg=begin, e=end)
+            )
+        elif begin >= self.Duration:
+            raise ValueError((
+                'Beginning of time interval larger than duration of recording {rec}. ' +
+                'Start point of interval was at {a}s, duration is {b}s'
+                ).format(a=begin, b=self.Duration)
+            )
+        elif end > self.Duration:
+            raise ValueError((
+                'End of time interval larger than duration of recording {rec}. ' +
+                'Start point of interval was at {a}s, duration is {b}s'
+                ).format(a=end, b=self.Duration)
+            )
         # New data frame is created
         df = None
-        for id in self._trial_order:
+        begin_pass = None
+        end_pass = None
+        stop = 0
+
+        for idx in self._trial_order:
+            offset = stop # Offset has to be set here to ensure its set
+                          # even if continue clause is executed!
+            stop = offset + self.Trials[idx].Duration
+
+            if begin is not None:
+                if begin > stop:
+                    continue
+                elif (begin > offset) and (begin < stop):
+                    begin_pass = begin - offset
+                else:
+                    begin_pass = None
+
+            if end is not None:
+                if end < offset:
+                    break
+                elif (end > offset) and (end < stop):
+                    end_pass = end - offset
+                else:
+                    end_pass = None
+
+            tmp = self.Trials[idx].get_data(begin=begin_pass, end=end_pass)
             if df is None:
-                df = self.Trials[id].get_data()
+                df = tmp
             else:
-                df = pd.concat([df, self.Trials[id].get_data()])
+                df = pd.concat([df, tmp])
 
         df['recordings'] = self.Identifier
         df.set_index('recordings', append = True, inplace = True)
         # Returns a new object and there is no inplace option
         df = df.reorder_levels(['recordings', 'trials', 'samples'])
-
         return df
 
     def get_data_by_labels(self, labels):
@@ -1407,7 +1602,7 @@ class Recording:
             self.Samples = self.Samples + trial.Samples
             self.Session.Samples = self.Session.Samples + trial.Samples
         else:
-            raise IndexError('Trial with name ' + name + ' already member of recording')
+            raise IndexError('Trial with name ' + trial.Identifier + ' already member of recording')
 
     def to_string(self):
         string = (
@@ -1423,8 +1618,9 @@ class Recording:
 
     def recursive_to_string(self):
         string = self.to_string() + '\n'
-        for t in self.Trials.itervalues():
-            string = string + '\t' + t.to_string() + '\n'
+        for t in self._trial_order:
+            ts = self.Trials[t].to_string().replace('\n','\n\t')
+            string = string + '\t' + ts + '\n'
         return string
 
 
@@ -1473,8 +1669,8 @@ class Trial:
             self._name = 'trial' + str(len(self._recording.Trials))
 
         f = self._recording.get_frequency()
-        self._startIdx = self._start * f
-        self._stopIdx = self._startIdx + self._duration * f
+        self._startIdx = int(self._start * f)
+        self._stopIdx = int(self._startIdx + self._duration * f)
         self._samples = self._stopIdx - self._startIdx
 
         self._recording.put_trial(self)
@@ -1527,7 +1723,6 @@ class Trial:
                     of marker: `(time, label)`. `time` is relative to the beginning of
                     the trial
         """
-
         time, label = marker
         time = time + self.Start
         self.Recording.add_marker((time, label))
@@ -1544,7 +1739,6 @@ class Trial:
             Raises:
                 IndexError: If either `from_` or `to` exceed duration of trial
         """
-
         if from_ is None:
             from_ = 0
         elif from_ >= self.Duration:
@@ -1558,19 +1752,63 @@ class Trial:
         from_ = from_ + self.Start
         to = to + self.Start
         ret = []
-        tmp = self.Recording.get_marker(from_=from_, to=to)
-        for t, l in tmp:
-            # Substract offset of trial
-            ret.append((t - self.Start, l))
+        markers = self.Recording.get_all_marker()
+        # TODO: Use binary search to find start of range
+
+        for t, l in markers:
+            if t < self.Start:
+                continue
+            elif (t > from_) and (t < to):
+                # Substract offset of trial
+                ret.append((t - self.Start, l))
+            elif t > self.Start + self.Duration:
+                break
         return ret
 
-    def get_data(self):
-        tmp = self.Recording.get_all_data().iloc[self.StartIdx : self.StopIdx]
-        tmp['samples'] = np.arange(self.Samples)
+    def get_data(self, begin = None, end = None):
+        """ Returns data within specified interval borders. If no border set start/end
+            index of Trial is used respectively.
+
+            Args:
+                begin (float): Start point of interval for which to retrieve time.
+                    Relative to start point of trial
+                end (float): End point of interval for which to retrieve data.
+                    Relative to beginning of trial
+
+            Returns:
+                data (pandas.core.DataFrame)
+
+            Raises:
+                IndexError: If either `begin` or `end` larger than duration of trial
+        """
+        if begin is None:
+            begin = self.StartIdx
+        elif begin >= self.Start + self.Duration:
+            raise IndexError((
+                'Beginning of time interval out of range. Start point of data retrieval ' +
+                ' was {start} but Trial {trial} only of length {length}'
+                ).format(start=begin, trial=self.Identifier, length=self.Identifieri)
+            )
+        else:
+            begin = begin * self.Recording.get_frequency() + self.StartIdx
+
+        if end is None:
+            end = self.StopIdx
+        elif end > self.Duration:
+            raise IndexError((
+                'End of time interval out of range. Start point of data retrieval ' +
+                ' was {start} but Trial {trial} only of length {length}'
+                ).format(start=end, trial=self.Identifier, length=self.Identifieri)
+            )
+        else:
+            end = end * self.Recording.get_frequency() + self.StartIdx
+
+        tmp = self.Recording.get_all_data()[int(begin):int(end)]
+        tmp['samples'] = np.arange(tmp.shape[0])
         tmp['trials'] = self.Identifier
         tmp.set_index('trials', inplace = True, append = False)
         tmp.set_index('samples', inplace = True, append = True)
-        tmp.columns = self.Recording.Session.Setup.get_sample_order()
+        tmp.columns = self.Recording.Session.Setup.Modalities[self.Recording.Modality].Sample_Order
         return tmp
 
     def get_frequency(self):
@@ -1590,7 +1828,7 @@ class Trial:
                 class is not changed!
         """
         if (data.shape[0] == self.Samples) and (data.shape[1] == self.Recording.Features):
-            self.Recording.get_all_data().iloc[self.StartIdx : self.StopIdx] = data.get_values()
+            self.Recording.get_all_data()[self.StartIdx : self.StopIdx] = data.get_values()
         else:
             raise ValueError((
                 'Shape missmatch replacing data in trial ' + self.Identifier + '. ' +
@@ -1603,6 +1841,9 @@ class Trial:
             'Trial %s: %fs duration, %d samples' %
             (self.Identifier, self.Duration, self.Samples)
         )
+        marker = self.get_marker()
+        for t, l in marker:
+            string = string + '\n\tMarker {a} at {b:.3f}s'.format(a=l, b=t)
         return string
 
 
@@ -1682,12 +1923,18 @@ class DataController:
                 if debug:
                     if count > 99:
                         break
-        if asNumpy:
-            ret = arr
-        else:
-            ret = pd.DataFrame(arr)
 
-        return ret
+        if type(arr) is pd.DataFrame:
+            arr = arr.values
+        elif type(arr) is np.ndarray:
+            pass
+        else:
+            raise ValueError('Error loading data from pickled file. Encountered ' + \
+                    'unsupported data type. Expected pandas.core.DataFrame or ' + \
+                    'numpy.ndarray. Instead got {}'.format(type(arr))
+                    )
+
+        return arr
 
     def read_from_file_and_pickle(self, source, target, debug = False):
         """ Reads EMG data from file and creates a numpy array and pickles it to target
@@ -1713,4 +1960,13 @@ class DataController:
         with open(source, 'rb') as f:
             arr = pkl.load(f)
 
-        return pd.DataFrame(arr)
+        if type(arr) is pd.DataFrame:
+            arr = arr.values
+        elif type(arr) is np.ndarray:
+            pass
+        else:
+            raise ValueError('Error loading data from pickled file. Encountered ' + \
+                    'unsupported data type. Expected pandas.core.DataFrame or ' + \
+                    'numpy.ndarray. Instead got {}'.format(type(arr))
+                    )
+        return arr

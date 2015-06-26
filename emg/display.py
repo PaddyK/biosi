@@ -22,14 +22,15 @@ def predict_report(inpt, output, target):
 
     axs[0][0].legend()
 
-def visualize_emg(model, start, stop):
-    """ Creates a visualization of the emg signals contained in model
-        
+def visualize_modality(model, start, stop, modality=None):
+    """ Creates a visualization of the modality signals contained in model
+
         Args:
             model (model.Experiment, model.Session, model.Recording, model.Trial): A data
                 carrying entity from module model.model.
             start (float): Start time in seconds
             stop (float): Stop time in seconds
+            modality (String, optional): Must be set if more than one modality specified
 
         Note:
             Works for model.Experiment only in the case of all setups specifying the same
@@ -41,11 +42,10 @@ def visualize_emg(model, start, stop):
         Warnings:
             If stop is larger than duration of recording
     """
-    data = model.get_data()
-
-    fig, axes = plt.subplots(nrows = data.shape[1], figsize = (16,9))
+    data = model.get_data(modality=modality, from_=start, to=stop)
+    fig, axes = plt.subplots(nrows = data.shape[1], figsize = (16, data.shape[1] * 2.5))
     fig.tight_layout()
-    f = model.get_frequency()
+    f = model.get_frequency(modality=modality)
 
     fontdict = {
         'fontsize': 16,
@@ -54,41 +54,29 @@ def visualize_emg(model, start, stop):
         'horizontalalignment': 'center'
     }
 
-    if f * start > data.shape[0]:
-        warnings.warn(
-            'Start point to large. Recording is %fs long, but wanted to view from %f' %
-            (data.shape[0] / f, start)
-        )
-        return
-
-    if f * stop > data.shape[0]:
-        warnings.warn(
-            (
-                'Specified time longer than series. Series is %s long, wanted to' +
-                'view til %f. Set stop to end of recording'
-            ) %
-            (data.shape[0]/f, stop)
-        )
-        stop = data.shape[0] / f
-
-    minimum = data.iloc[start * f : stop * f, :].values.min()
-    maximum = data.iloc[start * f : stop * f, :].values.max()
+    minimum = data.values.min()
+    maximum = data.values.max()
 
     for i in range(data.shape[1]):
+        xvals = np.arange(
+                start * f,
+                start * f + data.shape[0],
+                dtype = 'float') / f
         axes[i].plot(
-            np.arange(start * f, stop * f, dtype = 'float') / f, 
-            data.iloc[start * f : stop * f, i]
+            xvals,
+            data.iloc[:, i]
         )
         axes[i].set_title(data.columns.values[i], fontdict = fontdict)
         axes[i].set_ylim([minimum, maximum])
 
-    markers = model.get_marker(modality='emg', from_=start, to=stop)
+    markers = model.get_marker(modality=modality, from_=start, to=stop)
     for t, l in markers:
         for axis in axes:
             axis.axvline(t, color='r')
             axis.text(t, maximum, l, color='r', verticalalignment='top')
 
     plt.subplots_adjust(hspace = 0.5)
+#    plt.show()
 
 if __name__ == '__main__':
     import sys
@@ -96,4 +84,4 @@ if __name__ == '__main__':
     import model.knowledgeBase as kb
     import model.model as model
     e = kb.small_sport_kb()
-    visualize_emg(e, 3.7, 4.3)
+    visualize_emg(e, 0, 18)
