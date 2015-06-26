@@ -54,28 +54,14 @@ def visualize_modality(model, start, stop, modality=None):
         'horizontalalignment': 'center'
     }
 
-    if f * start > data.shape[0]:
-        warnings.warn(
-            'Start point to large. Recording is %fs long, but wanted to view from %f' %
-            (data.shape[0] / f, start)
-        )
-        return
-
-    if f * stop > data.shape[0]:
-        warnings.warn(
-            (
-                'Specified time longer than series. Series is %s long, wanted to' +
-                'view til %f. Set stop to end of recording'
-            ) %
-            (data.shape[0]/f, stop)
-        )
-        #stop = data.shape[0] / f
-
     minimum = data.values.min()
     maximum = data.values.max()
 
     for i in range(data.shape[1]):
-        xvals = np.arange(start * f, start * f + data.shape[0], dtype = 'float') / f
+        xvals = np.arange(
+                start * f,
+                start * f + data.shape[0],
+                dtype = 'float') / f
         axes[i].plot(
             xvals,
             data.iloc[:, i]
@@ -84,6 +70,12 @@ def visualize_modality(model, start, stop, modality=None):
         axes[i].set_ylim([minimum, maximum])
 
     markers = model.get_marker(modality=modality, from_=start, to=stop)
+    print 'DEBUG display.show_modality >>>>>>>>>>>>>>>>'
+    print markers
+    print start
+    print stop
+    print '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'
+    print ''
     for t, l in markers:
         for axis in axes:
             axis.axvline(t, color='r')
@@ -98,4 +90,4 @@ if __name__ == '__main__':
     import model.knowledgeBase as kb
     import model.model as model
     e = kb.small_sport_kb()
-    visualize_emg(e, 3.7, 4.3)
+    visualize_emg(e, 0, 18)
