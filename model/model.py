@@ -1296,31 +1296,29 @@ class Recording:
         elif to > self.Duration:
             raise IndexError('End point of interval higher than duration of recording')
 
+        print 'DEBUG Recording.get_marker >>>>>>>>>>'
+        print 'Number markins in recording {}: {}'.format(self.Identifier, len(self._markers))
+        print '<<<<<<<<<<'
+        print ''
 
         offset = 0
         to_pass = None
         from_pass = None
         ret = []
         for trial in self._trial_order:
-            print 'DEBUG Recording.get_marker >>>>>>>>>>>>>>>>>>>>>>>'
-            print offset
-            print 'from {} to {} - offset: {}, trial: {:s}'.format(from_, to, offset,trial)
-            print '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'
-            print ''
-
             if from_ > offset:
                 continue
             elif (from_ > offset) and (from_ < self.Trials[trial].Duration + offset):
-                from_pass = _from
+                from_pass = _from - offset
             else:
                 from_pass = None
 
             if to < offset:
                 break
             elif (to > offset) and (to < self.Trials[trial].Duration + offset):
-                to_pass = to
+                to_pass = to - offset
             else:
-                to = None
+                to_pass = None
 
             tmp = self.Trials[trial].get_marker(from_=from_pass, to=to_pass)
             for t, l in tmp:
@@ -1329,6 +1327,10 @@ class Recording:
         return ret
 
     def get_all_marker(self):
+        print 'DEBUG Recording.get_all_marker >>>>>>>>>>'
+        print 'Number markins in recording {}: {}'.format(self.Identifier, len(self._markers))
+        print '<<<<<<<<<<'
+        print ''
         return self._markers
 
     def get_data(self, begin=None, end=None):
@@ -1729,7 +1731,11 @@ class Trial:
             Raises:
                 IndexError: If either `from_` or `to` exceed duration of trial
         """
-
+        print 'DEBUG Trial.get_marker >>>>>>>>>>>>>>>>>>>'
+        print 'from {} to {}, duration: {}, ,start: {}, trial: {}'.format(
+                from_, to, self.Duration, self.Start, self.Identifier)
+        print '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'
+        print ''
         if from_ is None:
             from_ = 0
         elif from_ >= self.Duration:
@@ -1747,9 +1753,15 @@ class Trial:
         # TODO: Use binary search to find start of range
 
         for t, l in markers:
+            print 'DEBUG Trial.get_marker >>>>>>>'
+            print 'marker {} at {}, num markers: {}'.format(l,t,len(markers))
+            print 'Interval: ({} ; {})'.format(from_, to)
+            print 'exit critesion: {}'.format(self.Start + self.Duration)
+            print '<<<<<<<<<<<<<<<<<<'
+            print ''
             if t < self.Start:
                 continue
-            elif (t > self.Start) and (t < self.Start + self.Duration):
+            elif (t > from_) and (t < to):
                 # Substract offset of trial
                 ret.append((t - self.Start, l))
             elif t > self.Start + self.Duration:
