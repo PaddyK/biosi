@@ -1740,12 +1740,6 @@ class Trial:
         elif to > self.Duration:
             raise IndexError('End of time interval out of range (greater than duration)')
 
-        print 'DEBUG >>>>>>>>'
-        print 'Interval ({};{}) lower lim: {} upper lim {}'.format(
-                self.Start, self.Start+self.Duration, from_, to)
-        print '>>>>>>>>>>'
-        print ''
-
         from_ = from_ + self.Start
         to = to + self.Start
         ret = []
