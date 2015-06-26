@@ -1296,11 +1296,6 @@ class Recording:
         elif to > self.Duration:
             raise IndexError('End point of interval higher than duration of recording')
 
-        print 'DEBUG Recording.get_marker >>>>>>>>>>'
-        print 'Number markins in recording {}: {}'.format(self.Identifier, len(self._markers))
-        print '<<<<<<<<<<'
-        print ''
-
         offset = 0
         to_pass = None
         from_pass = None
@@ -1731,11 +1726,6 @@ class Trial:
             Raises:
                 IndexError: If either `from_` or `to` exceed duration of trial
         """
-        print 'DEBUG Trial.get_marker >>>>>>>>>>>>>>>>>>>'
-        print 'from {} to {}, duration: {}, ,start: {}, trial: {}'.format(
-                from_, to, self.Duration, self.Start, self.Identifier)
-        print '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'
-        print ''
         if from_ is None:
             from_ = 0
         elif from_ >= self.Duration:
@@ -1753,12 +1743,6 @@ class Trial:
         # TODO: Use binary search to find start of range
 
         for t, l in markers:
-            print 'DEBUG Trial.get_marker >>>>>>>'
-            print 'marker {} at {}, num markers: {}'.format(l,t,len(markers))
-            print 'Interval: ({} ; {})'.format(from_, to)
-            print 'exit critesion: {}'.format(self.Start + self.Duration)
-            print '<<<<<<<<<<<<<<<<<<'
-            print ''
             if t < self.Start:
                 continue
             elif (t > from_) and (t < to):
@@ -1807,7 +1791,7 @@ class Trial:
             end = end * self.Recording.get_frequency() + self.StartIdx
 
         tmp = self.Recording.get_all_data().iloc[begin:end]
-        tmp['samples'] = np.arange(end - begin)
+        tmp['samples'] = np.arange(tmp.shape[0])
         tmp['trials'] = self.Identifier
         tmp.set_index('trials', inplace = True, append = False)
         tmp.set_index('samples', inplace = True, append = True)
