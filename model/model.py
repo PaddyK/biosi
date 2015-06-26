@@ -175,11 +175,13 @@ class Experiment:
         elif to < 0:
             raise IndexError('End point of time interval out of bounds')
 
+        s_dur = 0
         offset = 0
         to_pass = None
         from_pass = None
         df = None
         for s in sessions:
+            offset = offset + s_dur
             s_dur = self.Sessions[s].get_duration(modality=modality)
             if from_ > offset + s_dur:
                 # Start point of interval larget than duration of first n recocdings
@@ -201,7 +203,7 @@ class Experiment:
                 # data until relative point of time in recording
                 to_pass = to - offset
             else:
-                    to_pass = None
+                to_pass = None
 
             tmp = self.Sessions[s].get_data(modality=modality, begin=from_pass, end=to_pass)
 
@@ -917,9 +919,12 @@ class Session:
         df = None
         begin_pass = None
         end_pass = None
-        offset = 0
+        stop = 0
+
         for idx in self._recording_order:
             if (self.Recordings[idx].Modality == modality) or (modality is None):
+                offset = stop # Offset has to be set here to ensure its set
+                              # even if continue clause is executed!
                 stop = self.Recordings[idx].Duration + offset
 
                 if begin is not None:
@@ -948,7 +953,6 @@ class Session:
                     df = tmp
                 else:
                     df = pd.concat([df, tmp])
-                offset = stop
 
         df['sessions'] = self.Identifier
         df.set_index('sessions', inplace = True, append = True)
@@ -1322,10 +1326,6 @@ class Recording:
         return ret
 
     def get_all_marker(self):
-        print 'DEBUG Recording.get_all_marker >>>>>>>>>>'
-        print 'Number markins in recording {}: {}'.format(self.Identifier, len(self._markers))
-        print '<<<<<<<<<<'
-        print ''
         return self._markers
 
     def get_data(self, begin=None, end=None):
@@ -1370,9 +1370,11 @@ class Recording:
         df = None
         begin_pass = None
         end_pass = None
-        offset = 0
+        stop = 0
 
         for idx in self._trial_order:
+            offset = stop # Offset has to be set here to ensure its set
+                          # even if continue clause is executed!
             stop = offset + self.Trials[idx].Duration
 
             if begin is not None:
@@ -1392,12 +1394,10 @@ class Recording:
                     end_pass = None
 
             tmp = self.Trials[idx].get_data(begin=begin_pass, end=end_pass)
-
             if df is None:
                 df = tmp
             else:
                 df = pd.concat([df, tmp])
-            offset = stop
 
         df['recordings'] = self.Identifier
         df.set_index('recordings', append = True, inplace = True)
