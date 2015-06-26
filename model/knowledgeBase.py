@@ -414,6 +414,133 @@ def sport_kb():
     model.Trial(rec, 52, 4, 'max_extensor')
     return experiment
 
+def create_emg_eeg_kb(meta, session):
+    """ Builds an `emgframework.model.model.Experiment` using information extracted from
+        `P#_AllLifts.mat` and data extracted from `HS_P#_S#.mat`.
+        Builds the model with EMG and EEG data only (Kinematic, Environmental and
+        Miscellaneous data not included)
+
+        Args:
+            meta (pandas.core.DataFrame): Meta information to sessions
+            session (Dictionary): Data of one session
+
+        Returns:
+            emgframework.model.model.Experiment
+    """
+    if meta.loc[0, 'Part'] != session['subject']:
+        raise ValueError((
+            'Wrong meta and session data. Meta data from subject %i and ' +
+            'session data from subject %i' % (meta.loc[0, 'Part'], session['subject'])
+        ))
+    # Define fields in meta data serving as markers
+    markers = [
+#        'tHandStop',
+        'LEDOn',
+        'LEDOff',
+#        'tBothDigitTouch',
+#        'tLiftOff',
+#        'tReplace',
+        'tGF_Max',
+        'tLF_Max',
+#        'tHandStart',
+#        'tHandStop'
+    ]
+    # Define mapping for weights and surface
+    weights = {}
+    weights[1] = '165g'
+    weights[2] = '330g'
+    weights[4] = '660g'
+    surface = {}
+    surface[1] = 'sandpaper'
+    surface[2] = 'suede'
+    surface[3] = 'silk'
+    # Select data of from metadata belonging to in `session` specified session
+    meta = meta.loc[meta.loc[:, 'Run'] == session['session'], :]
+
+    # Create Experiment
+    # ==================================================================================
+    exp = model.Experiment()
+    subj = model.Subject(session['initials'])
+
+    # Creating Setup and Modalities
+    # ==================================================================================
+    setup = model.Setup(exp)
+    mod_emg = model.Modality(setup, session['emg_sr'], 'emg')
+    for s in session['emg_data'].columns:
+        model.Sample(mod_emg, s)
+    mod_eeg = model.Modality(setup, session['eeg_sr'], 'eeg')
+    for s in session['eeg_data'].columns:
+        model.Sample(mod_eeg, s)
+
+    # Creating Session, Recordings and Trials
+    # ==================================================================================
+    sess = model.Session(exp, setup, subj, 'session_' + str(session['session']))
+    # Creating Recordings
+    # ----------------------------------------------------------------------------------
+    rec_emg = model.Recording(
+            sess,
+            data=session['emg_data'],
+            identifier='emg_data',
+            modality = mod_emg.Identifier
+        )
+    rec_eeg = model.Recording(
+            sess,
+            data=session['eeg_data'],
+            identifier='eeg_data',
+            modality = mod_eeg.Identifier
+        )
+
+    # Creating Trials
+    # ----------------------------------------------------------------------------------
+    for i in range(meta.shape[0]):
+        start = meta.loc[i, 'StartTime']
+        duration = meta.loc[i, 'tHandStop']
+
+        if (start + duration) * session['emg_sr'] > session['emg_data'].shape[0]:
+            warning = (
+                    'WARNING - EMG data does not contain enough data points. Has ' +
+                    '{samples:d} data points but {needed:d} are required. Skipped ' +
+                    'Lift {lift:d}'
+                ).format(
+                        samples = session['emg_data'].shape[0],
+                        needed = int((start + duration) * session['emg_sr']),
+                        lift = i
+                    )
+            warnings.warn(warning)
+            continue
+
+        if (start + duration) *session['eeg_sr'] > session['eeg_data'].shape[0]:
+            warning = (
+                    'WARNING - EEG data does not contain enough data points. Has ' +
+                    '{samples:d} data points but {needed:d} are required. Skipped ' +
+                    'Lift {lift:d}'
+                ).format(
+                        samples = session['eeg_data'].shape[0],
+                        needed = int((start + duration) * session['eeg_sr']),
+                        lift = i
+                    )
+            warnings.warn(warning)
+            continue
+
+        t_emg = model.Trial(
+                recording=rec_emg,
+                start=meta.loc[i, 'StartTime'],
+                duration=meta.loc[i, 'tHandStop'],
+                identifier =  'emg_lift' + str(i),
+                label = weights[meta.loc[i, 'CurW']] + '_' + surface[meta.loc[i, 'CurS']]
+            )
+        t_eeg = model.Trial(
+                recording=rec_eeg,
+                start=meta.loc[i, 'StartTime'],
+                duration=meta.loc[i, 'tHandStop'],
+                identifier =  'eeg_lift' + str(i),
+                label = weights[meta.loc[i, 'CurW']] + '_' + surface[meta.loc[i, 'CurS']]
+            )
+        for marker in markers:
+            t_emg.add_marker((meta.loc[i, marker], marker))
+            t_eeg.add_marker((meta.loc[i, marker], marker))
+    return exp
+
 if __name__ == '__main__':
     e = sportKb()
     print e.recursiveToString()
