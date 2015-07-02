@@ -1287,6 +1287,16 @@ class Recording:
     def get_marker(self, from_=None, to=None):
         """ Returns markers either for whole recording or for a specific time interval
 
+            Note:
+                The time slice is specified with respect to the duration of the
+                *relevant* experiment. That is only the data specified by the
+                trials.
+                So if the recording has a length of 55s and each trial has a
+                duration of 10s and starts with an offset of 5s (0s-10s trial 1
+                15s-25s trial2, 30s-40s trial3, 45s-55s trial4) then the time
+                slice `(5;15) includes the last 5s of trial1 and the first 5s
+                of trial2 --> $$[5;10)\cup[10;15)$$
+
             Args:
                 from_ (float, optional): Start of time interval for which marks should be retrieved
                 to (float, optional): End of time interval for which marks should be retrieved
@@ -1335,7 +1345,7 @@ class Recording:
             tmp = self.Trials[trial].get_marker(from_=from_pass, to=to_pass)
             for t, l in tmp:
                 ret.append((t + offset, l))
-            offset = offset + self.Trials[trial].Duration
+
         return ret
 
     def get_all_marker(self):
@@ -1653,6 +1663,8 @@ class Trial:
             duration (float): Stop point of trial in seconds relative to the stop point of
                 the recording.
             identifier (string): Identifier of the trial. For example *bizeps_curl*
+            marker (List): List of (time, string) tuples specifying some event
+                relative to the start of the trial
     """
 
     def __init__(self, recording, start, duration, identifier, label = None):
@@ -1664,6 +1676,7 @@ class Trial:
         self._identifier = identifier
         self._samples = 0
         self._label = label
+        self._marker = []
 
         if self._identifier is None:
             self._name = 'trial' + str(len(self._recording.Trials))
@@ -1716,7 +1729,8 @@ class Trial:
         self._label = label
 
     def add_marker(self, marker):
-        """ Adds a merker to the trial
+        """ Adds a merker to the trial. Position of marker is expected to be
+            relative to the beginning of the trial
 
             Args:
                 marker (Tuple): Tuple specifying position of marker in seconds and label
@@ -1726,6 +1740,7 @@ class Trial:
         time, label = marker
         time = time + self.Start
         self.Recording.add_marker((time, label))
+        self._marker.append(marker)
 
     def get_marker(self, from_=None, to=None):
         """ Returns all markers contained in the given interval. If no interval borders
@@ -1749,18 +1764,19 @@ class Trial:
         elif to > self.Duration:
             raise IndexError('End of time interval out of range (greater than duration)')
 
-        from_ = from_ + self.Start
-        to = to + self.Start
+        #from_ = from_ + self.Start
+        #to = to + self.Start
         ret = []
-        markers = self.Recording.get_all_marker()
-        # TODO: Use binary search to find start of range
+        #markers = self.Recording.get_all_marker()
+        ## TODO: Use binary search to find start of range
 
-        for t, l in markers:
-            if t < self.Start:
+        for t, l in self._marker:
+        #    t = t - self.Start
+            if t < 0 :
                 continue
             elif (t > from_) and (t < to):
                 # Substract offset of trial
-                ret.append((t - self.Start, l))
+                ret.append((t, l))
             elif t > self.Start + self.Duration:
                 break
         return ret

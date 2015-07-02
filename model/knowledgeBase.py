@@ -4,7 +4,6 @@ import pandas as pd
 import warnings
 
 def create_kb(data = None):
-
     if data is None:
         print 'Create new dataset...'
         rec1 = np.arange(100)
@@ -415,7 +414,7 @@ def sport_kb():
     model.Trial(rec, 52, 4, 'max_extensor')
     return experiment
 
-def create_emg_eeg_kb(meta, session):
+def create_emg_eeg_kb(meta, session, markers=None):
     """ Builds an `emgframework.model.model.Experiment` using information extracted from
         `P#_AllLifts.mat` and data extracted from `HS_P#_S#.mat`.
         Builds the model with EMG and EEG data only (Kinematic, Environmental and
@@ -433,19 +432,6 @@ def create_emg_eeg_kb(meta, session):
             'Wrong meta and session data. Meta data from subject %i and ' +
             'session data from subject %i' % (meta.loc[0, 'Part'], session['subject'])
         ))
-    # Define fields in meta data serving as markers
-    markers = [
-#        'tHandStop',
-        'LEDOn',
-        'LEDOff',
-#        'tBothDigitTouch',
-#        'tLiftOff',
-#        'tReplace',
-        'tGF_Max',
-        'tLF_Max',
-#        'tHandStart',
-#        'tHandStop'
-    ]
     # Define mapping for weights and surface
     weights = {}
     weights[1] = '165g'
@@ -537,6 +523,7 @@ def create_emg_eeg_kb(meta, session):
                 identifier =  'eeg_lift' + str(i),
                 label = weights[meta.loc[i, 'CurW']] + '_' + surface[meta.loc[i, 'CurS']]
             )
+
         for marker in markers:
             t_emg.add_marker((meta.loc[i, marker], marker))
             t_eeg.add_marker((meta.loc[i, marker], marker))
