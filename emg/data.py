@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import warnings
+import breze.data
 
 def jjmdata_from_file(fn):
     with open(fn) as fp:
@@ -79,7 +80,7 @@ def to_int_labels(labels, arr):
         Args:
             labels (List): List of string labels
             arr (np.ndarray): Array with alphanumeric labels
-        
+
         Returns:
             iLbls (numpy.ndarray)
             mapping (Dictionary)
@@ -182,3 +183,214 @@ def read_session(path):
 
     return ret
 
+def train_valid_test_from_modalities(session, target_modality, split=(.5, .25, .25),
+        alignment_method='mean', include=None, exclude=None, skip=0):
+    """ Returns training, validation and testing set (for each on set containing
+        the data and one set containing the labels)
+
+        Args:
+            session (model.model.Session): Session from which sets should be
+                created
+            target_modality (String): Identifier of the modality serving as
+                target
+            split (Tuple, optional): Size of set in percent
+                (size_train, size_test, size_val)
+            alignment_method (String, optional): How to align recordings of
+                different modalities (i.e. give them the same length)
+            include (List, optional): List of recording identifier (Strings). If
+                set only specified recordings will be used for data matrix
+            exclude (List, optional): List of recording identifier (String). If
+                set all recordings but those specified will serve as data
+            skip (int): How many samples to skip between test, train and
+                validation set
+
+        Note:
+            Supported Arguments for ``alignment_method``:
+                mean: Aligns recordings by taking the mean of a subset of samples
+                    of longer recording (``recording1`` with 4000Hz, ``recording2`` with
+                    500Hz --> align by taking mean over 4 samples of ``recording1``)
+                median: Same as mean.
+                slice: Align recordings by folding samples into second dimension.
+                    With the example from ``mean`` and assuming recording has
+                    4 columns. When using split ``recording1`` will have the same
+                    length as recording2 but 16 instead of 4 columns.
+                    This method kind of destroys the timely dimension.
+
+        Raises:
+            ValueError if unknown keyword for *alignment_method* encountered
+    """
+    p_train, p_val, p_test = split
+    assert (p_train + p_val + p_test) == 1, 'Sum of percentual values for ' + \
+            'training, validation and test set greater than one. Values ' + \
+            'were {}, {}, {}'.format(p_train, p_val, p_test)
+
+    # Retrieve data of all recordings as np.ndarray
+    data_recordings = []
+    target_recording = None
+    if include is not None:
+        for recording in session.Recordings:
+            if recording.Identifier in include:
+                data_recordings.append(recording.get_data())
+        if len(data_recordings) == 0:
+            raise ValueError('Could not find any of the trials included ' + \
+                    'in "include". Error occured in emg.data.' + \
+                    'train_valid_test_from_modalities'
+                    )
+    elif exclude is not None:
+        for recording in session.Recordings:
+            if recording.Identifier not in exclude:
+                data_recordings.append(recording.get(data))
+    else:
+        data_recordings = [r.get_data(pandas=False) for r in session.Recordings]
+
+    # Search for recording with specified target modality and retrieve
+    # its data
+    for recording in session.Recordings:
+        if recording.Modality == target_modality:
+            target_recording = recording.get_data()
+            break
+    if target_found is None:
+        raise ValueError('Could not find target modality. Modality was {}. ' + \
+                'Error occured in emg.data.train_valid_test_from_modalities'
+                .format(target_modality)
+                )
+
+    # Reduce length of all arrays to the length of the shortest array
+    min_length = get_min_length(data_recordings)
+    target_done = False
+    for rec in data_recordings:
+        if alignment_method == 'mean':
+            rec = mean_reduce(rec, min_length)
+            if not target_done:
+                target_recording = mean_reduce(target_recording, min_length)
+                target_done = True
+        elif alignment_method == 'median':
+            rec = median_reduce(rec, min_length)
+            if not target_done:
+                target_recording = mean_reduce(target_recording, min_length)
+                target_done = True
+        elif alignment_method == 'split':
+            rec = np.array(breze.data.split(rec.T, min_length))
+            if not target_done:
+                target_recording = mean_reduce(target_recording, min_length)
+                target_done = True
+        else:
+            raise ValueError('Unknown value for keyword "alignment_method" ' + \
+                    'encountered. Value was: {}'.format(alignment_method)
+                    )
+    train_X = None
+    val_X = None
+    test_X = None
+    train_Y = None
+    val_Y = None
+    test_Y = None
+    target_done = False
+
+    # Create test, training and validation set
+    for rec in data_recordings:
+        start = 0
+        end = min_length * p_train
+        train_tmp = rec[start:int(end-skip/2), :]
+        if not target_done:
+            train_Y = rec[start:int(end-skip/2), :]
+
+        start = end
+        end = end + min_length * p_val
+        val_tmp = rec[int(start + skip/2):int(end - skip/2), :]
+        if not target_done:
+            val_Y = rec[int(start + skip/2):int(end - skip/2), :]
+
+        start = end
+        test_tmp = rec[int(start + skip/2):rec.shape[0], :]
+        if not target_done:
+            test_Y = rec[int(start + skip/2):rec.shape[0], :]
+            target_done = True
+
+        if train_X is None:
+            train_X = train_tmp
+            val_X = val_tmp
+            test_X = test_tmp
+        else:
+            train_X = np.column_stack(train_X, train_tmp)
+            val_X = np.column_stack(val_X, val_tmp)
+            test_X = np.column_stack(test_X, test_tmp)
+
+    return (train_X, train_Y, val_X, val_Y, test_X, test_Y)
+
+def get_min_length(data_sets):
+    """ Returns the size of the smalles data set along the first axis
+
+        Args:
+            data_set (List): List of np.ndarrays or anything with ``.shape``
+                property
+
+        Returns:
+            min_length (int)
+    """
+    min_length = -1
+    for e in data_recordings:
+        if min_length == -1:
+            min_length = e.shape[0]
+        elif e.shape[0] < min_length:
+            min_length = e.shape[0]
+    return min_length
+
+def mean_reduce(X, n):
+    """ Reduces the size of the first dimension of X to n by taking the mean
+        over ``X/n`` elements.
+
+        If first dimension of X cannot be divided by n, the mean of the last
+        row in the new array will be taken over the remaining elements (i.e.
+        more elements as the others)
+
+        Args:
+            X (np.ndarray): Array for which first dimension should be reduced
+            n (int): New size of first dimension
+
+        Returns:
+            np.ndarray
+    """
+    # TODO: Check importance of forward propagation of remainder. For very
+    # long sequences las element could be middled over quire a lot of samples
+    length, remainder = divmod(X.shape[0], n)
+    end = length
+    begin = 0
+    X_new = np.mean(X[begin:end, :], axis=0)
+
+    for i in range(1, n-1):
+        begin = end
+        end = (i + 1) * length
+        X_new = np.row_stack((X_new, np.mean(X[begin:end, :], axis=0)))
+
+    end = X.shape[0]
+    X_new = np.row_stack((X_new, np.mean(X[begin:end, :], axis=0)))
+    return X_new
+
+def median_reduce(X, n):
+    """ Reduces the size of the first dimension of X to n by taking the median
+        over ``X/n`` elements.
+
+        If first dimension of X cannot be divided by n, the median of the last
+        row in the new array will be taken over the remaining elements (i.e.
+        more elements as the others)
+
+        Args:
+            X (np.ndarray): Array for which first dimension should be reduced
+            n (int): New size of first dimension
+
+        Returns:
+            np.ndarray
+    """
+    length, remainder = divmod(X.shape[0], n)
+    end = length
+    begin = 0
+    X_new = np.median(X[begin:end, :], axis=0)
+
+    for i in range(1, n-1):
+        begin = end
+        end = (i + 1) * length
+        X_new = np.row_stack((X_new, np.median(X[begin:end, :], axis=0)))
+
+    end = X.shape[0]
+    X_new = np.row_stack((X_new, np.median(X[begin:end, :], axis=0)))
+    return X_new

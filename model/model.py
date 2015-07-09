@@ -792,22 +792,47 @@ class Session:
 
     @property
     def Subject(self):
+        """ Returns subject object associated with session
+
+            Returns:
+                model.model.Subject
+        """
         return self._subject
 
     @property
     def Setup(self):
+        """ Returns setup associated with session
+
+            Returns:
+                model.model.Session
+        """
         return self._setup
 
     @property
     def Experiment(self):
+        """ Returns experiment session belongs to
+
+            Returns:
+                model.model.Experiment
+        """
         return self._experiment
 
     @property
     def Recordings(self):
+        """ Returns recordings for this session
+
+            Returns:
+                Dictionary of model.model.Recording
+        """
         return self._recordings
 
     @property
     def Identifier(self):
+        """ Returns identifier of this session
+
+            Returns:
+                String
+        """
         return self._identifier
 
     def get_all_data(self):
@@ -1239,26 +1264,57 @@ class Recording:
 
     @property
     def Session(self):
+        """ Returns session recording belongs to
+
+            Returns:
+                model.model.Session
+        """
         return self._session
 
     @property
     def Location(self):
+        """ Returns path to file data for recording is stored
+
+            Returns:
+                String
+        """
         return self._location
 
     @property
     def Trials(self):
+        """ Returns Trials defined for Recording
+
+            Returns:
+                model.model.Trial
+        """
         return self._trials
 
     @property
     def Features(self):
+        """ Returns a List of Strings being the names of the samples defined
+            for the modality associated with this recording
+
+            Returns:
+                List of Strings
+        """
         return self._features
 
     @property
     def Identifier(self):
+        """ Returns identifier of this recording
+
+            Returns:
+                String
+        """
         return self._identifier
 
     @property
     def Modality(self):
+        """ Returns Modality associated with this recording
+
+            Returns:
+                model.model.Modality
+        """
         return self._modality
 
     def add_marker(self, marker):
@@ -1349,9 +1405,14 @@ class Recording:
         return ret
 
     def get_all_marker(self):
+        """ Returns all markers defined for this recording
+
+            Returns:
+                List of (float, String) tuples
+        """
         return self._markers
 
-    def get_data(self, begin=None, end=None):
+    def get_data(self, begin=None, end=None, pandas=True):
         """ Returns the **relevant** data of a recording object. In especially, this
             property yields only the data specified in the trials belonging to the
             recording.
@@ -1361,6 +1422,7 @@ class Recording:
             Args:
                 begin (float): Point of time in seconds of beginning of time interval
                 end (float): Point of time in seconds of ending of time interval
+                pandas (boolean): Whether or not to return as pandas.core.DataFrame
 
             Example:
                 Sampling rate of 4000Hz, recording is 60s long. Trial one goes from
@@ -1419,13 +1481,16 @@ class Recording:
             tmp = self.Trials[idx].get_data(begin=begin_pass, end=end_pass)
             if df is None:
                 df = tmp
-            else:
+            elif pandas:
                 df = pd.concat([df, tmp])
+            else:
+                df = np.row_stack([df, tmp])
 
-        df['recordings'] = self.Identifier
-        df.set_index('recordings', append = True, inplace = True)
-        # Returns a new object and there is no inplace option
-        df = df.reorder_levels(['recordings', 'trials', 'samples'])
+        if pandas:
+            df['recordings'] = self.Identifier
+            df.set_index('recordings', append = True, inplace = True)
+            # Returns a new object and there is no inplace option
+            df = df.reorder_levels(['recordings', 'trials', 'samples'])
         return df
 
     def get_data_by_labels(self, labels):
@@ -1510,10 +1575,21 @@ class Recording:
 
     @property
     def Duration(self):
+        """ Returns duartion (sum of duarion of trials) of recording in seconds
+
+            Returns:
+                float
+        """
         return self._duration
 
     @property
     def Samples(self):
+        """ Returns number of samples (sum of samples of trials) recording
+            contains.
+
+            Returns:
+                Integer
+        """
         return self._samples
 
     def set_data(self, data):
@@ -1751,6 +1827,11 @@ class Trial:
                 from_ (float, optional): Start from where to retrieve markers
                 to (float, optional): End of interval for which markers should be retrieved
 
+            Note:
+                Returns a copy of the data stored in ``Recording`` and referenced
+                by this trial. Changes to the data returned by this function do
+                not affect the data stored in ``Recording``.
+
             Raises:
                 IndexError: If either `from_` or `to` exceed duration of trial
         """
@@ -1781,7 +1862,7 @@ class Trial:
                 break
         return ret
 
-    def get_data(self, begin = None, end = None):
+    def get_data(self, begin = None, end = None, pandas=True):
         """ Returns data within specified interval borders. If no border set start/end
             index of Trial is used respectively.
 
@@ -1790,9 +1871,11 @@ class Trial:
                     Relative to start point of trial
                 end (float): End point of interval for which to retrieve data.
                     Relative to beginning of trial
+                pandas (Boolean): Returning data as pandas.core.DataFrame (``True``)
 
             Returns:
                 data (pandas.core.DataFrame)
+                data (numpy.ndarray)
 
             Raises:
                 IndexError: If either `begin` or `end` larger than duration of trial
@@ -1819,12 +1902,18 @@ class Trial:
         else:
             end = end * self.Recording.get_frequency() + self.StartIdx
 
-        tmp = pd.DataFrame(self.Recording.get_all_data()[int(begin):int(end)])
-        tmp['samples'] = np.arange(tmp.shape[0])
-        tmp['trials'] = self.Identifier
-        tmp.set_index('trials', inplace = True, append = False)
-        tmp.set_index('samples', inplace = True, append = True)
-        tmp.columns = self.Recording.Session.Setup.Modalities[self.Recording.Modality].Sample_Order
+        tmp = None
+        if pandas:
+            tmp = pd.DataFrame(self.Recording.get_all_data()[int(begin):int(end)])
+            tmp['samples'] = np.arange(tmp.shape[0])
+            tmp['trials'] = self.Identifier
+            tmp.set_index('trials', inplace = True, append = False)
+            tmp.set_index('samples', inplace = True, append = True)
+            tmp.columns = self.Recording.Session.Setup.Modalities[
+                    self.Recording.Modality
+                    ].Sample_Order
+        else:
+            tmp = np.copy(self.Recording.get_all_data()[int(begin):int(end)])
         return tmp
 
     def get_frequency(self):
