@@ -183,7 +183,7 @@ def read_session(path):
 
     return ret
 
-def align_recordings(session, target_modality, split=(.5, .25, .25),
+def align_and_label_recordings(session, target_modality, split=(.5, .25, .25),
         alignment_method='mean', include=None, exclude=None, skip=0):
     """ Returns training, validation and testing set (for each on set containing
         the data and one set containing the labels)
