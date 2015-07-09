@@ -13,7 +13,8 @@ Contents:
     
    intro
    materials
-   taxonomy.rst
+   taxonomy
+   modules
 
 Indices and tables
 ==================
