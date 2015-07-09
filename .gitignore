@@ -62,3 +62,8 @@ data/
 *.swp
 .ipynb_checkpoints
 __init__.py
+*.xmind
+*~
+*.txt
+*.txtpython
+test.py
