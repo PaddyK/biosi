@@ -22,7 +22,6 @@ def jjmdata_from_file(fn):
 
     return emg, pos
 
-
 def train_valid_test(devl_emg, devl_pos, test_emg, test_pos,
                      loc=True, rot=True,
                      val_fraction=.2, train_val_gap=1000,
@@ -424,3 +423,29 @@ def split_reduce(X, n):
             new_X = np.row_stack((new_X, row))
     return new_X
 
+def windowify_labeled_data_set(X, Y, window_size, offset=1):
+    """ Windowifies ``X`` into windows of size ``window_size`` with offset
+        ``offset`` between each window.
+
+        X and Y are expected to have the same first dimension (i.e. for each
+        data point in X exists a target in Y).
+        The target of the last element in the window is made the target of the
+        whole window.
+        This is suited for online learning.
+
+        Args:
+            X (np.ndarray): Data set
+            Y (np.ndarray): Targets to data set
+            window_size (int): Size of the window
+            offset (int): Offset between the beginning of each window
+
+        returns:
+            X_windowified: np.ndarray where one row is one window
+            Y_windowified: np.ndarray where one row is one target for
+                x_windowified
+    """
+    X_windowified = breze.data.windowify(x, window_size * x.shape[1], offset)
+    # Slices to all columns but only every window_sizedth row
+    Y_windowified = Y[window_size - 1::window_size, :]
+
+    return X_windowified, Y_windowified
