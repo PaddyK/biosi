@@ -1228,8 +1228,8 @@ class Recording:
             ValueError: Raised if both, location and data are not set
     """
 
-    def __init__(self, session, location = None, data = None, identifier = None,
-            modality = None):
+    def __init__(self, session, modality, location = None, data = None,
+            identifier = None):
         self._session = session
         self._location = location
         self._samples = 0
@@ -1259,7 +1259,9 @@ class Recording:
                         '"numpy.ndarray or pandas.core.DataFrame. Got {}'
                         .format(type(data))
                         )
-        self._duration = self._data.shape[0] / self.Session.Setup.getFrequency(self._modality)
+        self._duration = self._data.shape[0] / self.Session.Setup.getFrequency(
+                self._modality
+                )
         self._session.put_recording(self)
 
     @property

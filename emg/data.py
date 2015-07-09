@@ -183,7 +183,7 @@ def read_session(path):
 
     return ret
 
-def train_valid_test_from_modalities(session, target_modality, split=(.5, .25, .25),
+def align_recordings(session, target_modality, split=(.5, .25, .25),
         alignment_method='mean', include=None, exclude=None, skip=0):
     """ Returns training, validation and testing set (for each on set containing
         the data and one set containing the labels)
@@ -227,53 +227,54 @@ def train_valid_test_from_modalities(session, target_modality, split=(.5, .25, .
     # Retrieve data of all recordings as np.ndarray
     data_recordings = []
     target_recording = None
-    if include is not None:
-        for recording in session.Recordings:
+    for recording in session.Recordings.itervalues():
+        if recording.Modality == target_modality:
+            continue
+        elif include is not None:
             if recording.Identifier in include:
-                data_recordings.append(recording.get_data())
-        if len(data_recordings) == 0:
-            raise ValueError('Could not find any of the trials included ' + \
-                    'in "include". Error occured in emg.data.' + \
-                    'train_valid_test_from_modalities'
-                    )
-    elif exclude is not None:
-        for recording in session.Recordings:
+                data_recordings.append(recording.get_data(pandas=False))
+        elif exclude is not None:
             if recording.Identifier not in exclude:
-                data_recordings.append(recording.get(data))
-    else:
-        data_recordings = [r.get_data(pandas=False) for r in session.Recordings]
+                data_recordings.append(recording.get_data(pandas=False))
+        else:
+            data_recordings.append(recording.get_data(pandas=False))
+
+    if len(data_recordings) == 0:
+        raise ValueError('Could not find any of the trials included ' + \
+                'in "include". Error occured in emg.data.' + \
+                'train_valid_test_from_modalities'
+                )
 
     # Search for recording with specified target modality and retrieve
     # its data
-    for recording in session.Recordings:
+    for recording in session.Recordings.itervalues():
         if recording.Modality == target_modality:
-            target_recording = recording.get_data()
+            target_recording = recording.get_data(pandas=False)
             break
-    if target_found is None:
+    if target_recording is None:
         raise ValueError('Could not find target modality. Modality was {}. ' + \
                 'Error occured in emg.data.train_valid_test_from_modalities'
                 .format(target_modality)
                 )
 
-    # Reduce length of all arrays to the length of the shortest array
-    min_length = get_min_length(data_recordings)
+    # Reduce length of all arrays to the length of the target array
     target_done = False
-    for rec in data_recordings:
+    for i in range(len(data_recordings)):
         if alignment_method == 'mean':
-            rec = mean_reduce(rec, min_length)
-            if not target_done:
-                target_recording = mean_reduce(target_recording, min_length)
-                target_done = True
+            data_recordings[i] = mean_reduce(
+                    data_recordings[i],
+                    target_recording.shape[0]
+                    )
         elif alignment_method == 'median':
-            rec = median_reduce(rec, min_length)
-            if not target_done:
-                target_recording = mean_reduce(target_recording, min_length)
-                target_done = True
+            data_recordings[i] = median_reduce(
+                    data_recordings[i],
+                    target_recording.shape[0]
+                    )
         elif alignment_method == 'split':
-            rec = np.array(breze.data.split(rec.T, min_length))
-            if not target_done:
-                target_recording = mean_reduce(target_recording, min_length)
-                target_done = True
+            data_recordings[i] = split_reduce(
+                    data_recordings[i],
+                    target_recording.shape[0]
+                    )
         else:
             raise ValueError('Unknown value for keyword "alignment_method" ' + \
                     'encountered. Value was: {}'.format(alignment_method)
@@ -288,22 +289,21 @@ def train_valid_test_from_modalities(session, target_modality, split=(.5, .25, .
 
     # Create test, training and validation set
     for rec in data_recordings:
-        start = 0
-        end = min_length * p_train
+        end = target_recording.shape[0] * p_train
         train_tmp = rec[start:int(end-skip/2), :]
         if not target_done:
-            train_Y = rec[start:int(end-skip/2), :]
+            train_Y = target_recording[start:int(end-skip/2), :]
 
         start = end
-        end = end + min_length * p_val
+        end = end + target_recording.shape[0] * p_val
         val_tmp = rec[int(start + skip/2):int(end - skip/2), :]
         if not target_done:
-            val_Y = rec[int(start + skip/2):int(end - skip/2), :]
+            val_Y = target_recording[int(start + skip/2):int(end - skip/2), :]
 
         start = end
         test_tmp = rec[int(start + skip/2):rec.shape[0], :]
         if not target_done:
-            test_Y = rec[int(start + skip/2):rec.shape[0], :]
+            test_Y = target_recording[int(start + skip/2):rec.shape[0], :]
             target_done = True
 
         if train_X is None:
@@ -328,7 +328,7 @@ def get_min_length(data_sets):
             min_length (int)
     """
     min_length = -1
-    for e in data_recordings:
+    for e in data_sets:
         if min_length == -1:
             min_length = e.shape[0]
         elif e.shape[0] < min_length:
@@ -394,3 +394,33 @@ def median_reduce(X, n):
     end = X.shape[0]
     X_new = np.row_stack((X_new, np.median(X[begin:end, :], axis=0)))
     return X_new
+
+def split_reduce(X, n):
+    """ Reduces first axis of X to n by shuffling samples into second
+        axis.
+
+        Args:
+            X (np.ndarray): Data matrix
+            n (int): New size of first dimension
+
+        Returns:
+            np.ndarray
+    """
+    new_X = None
+    row = None
+    flap, rest = divmod(X.shape[0], n)
+    if rest != 0:
+        # If there is an remainder pad up array with zeros in the front
+        flap += 1
+        X = np.row_stack((np.zeros((rest, X.shape[1])), X))
+
+    for i in range(n):
+        row = X[i * flap, :]
+        for j in range(1, flap):
+            row = np.concatenate((row, X[i * flap + j, :]))
+        if new_X is None:
+            new_X = row
+        else:
+            new_X = np.row_stack((new_X, row))
+    return new_X
+

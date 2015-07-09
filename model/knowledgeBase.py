@@ -529,6 +529,47 @@ def create_emg_eeg_kb(meta, session, markers=None):
             t_eeg.add_marker((meta.loc[i, marker], marker))
     return exp
 
+def create_kb_for_testing():
+    experiment = model.Experiment()
+    so1 = model.Subject('Robert')
+    experiment.put_subject(so1)
+
+    setup = model.Setup(experiment)
+    modality1 = model.Modality(setup, 15, identifier='emg')
+    model.Sample(modality1, 'm1')
+    model.Sample(modality1, 'm2')
+    model.Sample(modality1, 'm3')
+    model.Sample(modality1, 'm4')
+
+    modality2 = model.Modality(setup, 5, identifier='pos')
+    model.Sample(modality2, 'length')
+    model.Sample(modality2, 'width')
+
+    session = model.Session(experiment, setup, so1)
+    emg_data = np.column_stack((
+            np.arange(0,150,dtype='float'),
+            np.arange(200,350,dtype='float'),
+            np.arange(400,550,dtype='float'),
+            np.arange(600,750,dtype='float')
+            ))
+    recording = model.Recording(session=session, data=emg_data,
+            identifier='emg_recording', modality=modality1.Identifier)
+    model.Trial(recording, 1, 2, 'trial1')
+    model.Trial(recording, 4, 1, 'trial2')
+    model.Trial(recording, 6, 3, 'trial3')
+
+    pos_data = np.column_stack((
+            np.arange(800,850,dtype='float'),
+            np.arange(900,950,dtype='float')
+            ))
+    recording = model.Recording(session=session, data=pos_data,
+            identifier='pos_recording', modality=modality2.Identifier)
+    model.Trial(recording, 1, 2, 'trial1')
+    model.Trial(recording, 4, 1, 'trial2')
+    model.Trial(recording, 6, 3, 'trial3')
+    return experiment
+
+
 if __name__ == '__main__':
     e = sportKb()
     print e.recursiveToString()

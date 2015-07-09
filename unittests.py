@@ -1,5 +1,6 @@
-import model
-import knowledgeBase as kb
+import model.model
+import model.knowledgeBase as kb
+import emg.data
 import pandas as pd
 import numpy as np
 
@@ -135,7 +136,7 @@ def tcDataAssignment():
     print exp.Sessions['session1'].Recordings['recording0'].get_data()
     print exp.Sessions['session1'].Recordings['recording1'].get_all_data()
     print exp.Sessions['session1'].Recordings['recording1'].get_data()
-    
+
 def tcReadFromFile():
     path = '/home/patrick/interdiciplinary_project/data/recording_sport.pkl'
 #    path = '/home/patrick/interdiciplinary_project/data/recording_sport.txt'
@@ -153,5 +154,20 @@ def tcLoadByLabel():
     print len(labels)
     print data
 
+def test_alignment():
+    e = kb.create_kb_for_testing()
+    train_X, train_Y, val_X, val_Y, test_X, test_Y = emg.data.train_valid_test_from_modalities(
+            session=e.Sessions['session0'], target_modality='pos',alignment_method='median')
+
+    print train_X.shape
+    print train_Y.shape
+    print np.column_stack((train_X, train_Y))
+    print ''
+    print val_X.shape
+    print val_Y.shape
+    print ''
+    print test_X.shape
+    print test_Y.shape
+
 if __name__ == '__main__':
-    tcLoadByLabel()
+    test_alignment()
