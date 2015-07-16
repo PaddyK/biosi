@@ -360,7 +360,7 @@ def align_by_mean(to_align, align_on):
                     )
     ret = []
     arr, n = _get_settings_for_alignment(to_align, align_on)
-    trials = arr.get_trials_as_list()
+    trials = arr.get_trials_as_list(pandas=False)
     for trial in trials:
         steps, remainder = divmod(trial.shape[0], n)
         tmp = np.mean(trial[0:n, :], axis=0)
@@ -401,7 +401,7 @@ def align_by_median(to_align, align_on):
                     )
     ret = []
     arr, n = _get_settings_for_alignment(to_align, align_on)
-    trials = arr.get_trials_as_list()
+    trials = arr.get_trials_as_list(pandas=False)
     for trial in trials:
         steps, remainder = divmod(trial.shape[0], n)
         tmp = np.median(trial[0:n, :], axis=0)
@@ -442,7 +442,7 @@ def align_by_collapse(to_align, align_on):
                     )
 
     to_collapse, n = _get_settings_for_alignment(to_align, align_on)
-    trials = to_collapse.get_trials_as_list()
+    trials = to_collapse.get_trials_as_list(pandas=False)
     ret = breze.data.collapse(trials, n)
     return ret
 
@@ -471,4 +471,72 @@ def _get_settings_for_alignment(recording_one, recording_two):
         to_collapse = recording_one
 
     return to_collapse, n
+
+def train_valid_test_from_lists(data, target, offset=0, split=(.5, .25, .25)):
+        """ Given a list of lists as data and a list as target return
+            training, test and validation set.
+
+            Args:
+                data (List): List of lists of ndarrays.
+                target (List): List of ndarrays - targets to predict
+                offset (int, optional): Offset between each set
+                split (Tuple, optional): Size of training, validation and test set
+
+            Returns:
+                X, Z, XV, ZV, XT, ZT ndarrays with two dimensions where
+                the first dimension sample size and the third dimension number
+                of features
+
+            Raises:
+                AssertionError: Sum of elements of split larger than one or
+                    dimensionality missmatch on first dimensionality of
+                    concatenated trials
+                TypeError: Dimensionality missmatch in first dimension of trials
+        """
+        ptrain, pval, ptest = split
+        assert (ptrain + pval + ptest) == 1, 'Sum of split smaller unequal ' + \
+                'to one'
+
+        X_whole = None
+        Z_whole = None
+        concat_method = None
+        if len(target[0].shape) == 1:
+            concat_method = np.concatenate
+        else:
+            concat_method = np.row_stack
+
+        for i in range(len(target)):
+            block = data[0][i]
+            for j in range(1, len(data)):
+                block = np.column_stack([block, data[j][i]])
+            if Z_whole is None:
+                Z_whole = target[i]
+                X_whole = block
+            else:
+                Z_whole = concat_method([Z_whole, target[i]])
+                X_whole = np.row_stack([X_whole, block])
+
+        assert X_whole.shape[0] == Z_whole.shape[0], 'Shape of data and ' + \
+                'targets is not the same in data.train_valid_test_from_lists. ' + \
+                'data: {}, targets: {}'.format(
+                        X_whole.shape[0],
+                        Z_whole.shape[0]
+                        )
+        n = X_whole.shape[0]
+        start = 0
+        end = int(n * ptrain - offset / 2)
+        X = X_whole[start:end, :]
+        Z = Z_whole[start:end, :]
+
+        start = int(n * ptrain + offset / 2)
+        end = int(n * (ptrain + pval) - offset / 2)
+        XV = X_whole[start:end, :]
+        XZ = Z_whole[start:end, :]
+
+        start = int(n * (ptrain + pval) + offset / 2)
+        end = X_whole.shape[0]
+        XT = X_whole[start:end, :]
+        ZT = Z_whole[start:end, :]
+
+        return X, Z, XV, XZ, XT, ZT
 

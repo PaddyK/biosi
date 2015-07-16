@@ -689,6 +689,15 @@ class Modality:
         return self._setup
 
     @property
+    def num_samples(self):
+        """ Returns number of defined samples
+
+            Returns:
+                int
+        """
+        return len(self._samples)
+
+    @property
     def Sample_Order(self):
         """ Returns List of identifiers in order in which they were added
 
@@ -1258,7 +1267,7 @@ class Recording:
         self._session = session
         self._location = location
         self._samples = 0
-        self._features = self.Session.Setup.Features
+        self._features = self.Session.Setup.Modalities[modality].num_samples
         self._trials = {}
         self._identifier = identifier
         self._trial_order = []
@@ -1318,11 +1327,10 @@ class Recording:
 
     @property
     def Features(self):
-        """ Returns a List of Strings being the names of the samples defined
-            for the modality associated with this recording
+        """ Return number of features
 
             Returns:
-                List of Strings
+                int
         """
         return self._features
 
@@ -1628,18 +1636,20 @@ class Recording:
                 accessing data though this classes properties, the updated data is
                 returned, though.
         """
-
+        print 'DEBUG >>>>>>>>>>'
+        print data.shape
+        print '{} {}'.format(self.Samples, self.Features)
+        print ' <<<<<<<<<<'
         if (data.shape[0] != self.Samples) or (data.shape[1] != self.Features):
-            raise ValueError((
-                'Dimension missmatch while trying to set data for recording %s. ' +
-                'Expected data of form (%s,%s), instead got %s' %
-                (
-                    str(self.Identifier),
-                    str(self.Samples),
-                    str(self.Features)#,
-                    #str(data.shape)
+            raise ValueError(
+                'Dimension missmatch while trying to set data for recording {}. ' + \
+                'Expected data of form ({},{}), instead got {}'.format(
+                    self.Identifier,
+                    self.Samples,
+                    self.Features,
+                    data.shape
                 )
-            ))
+            )
         else:
             samples = 0 # Use it as soffset
             for idnt in self._trial_order:
@@ -1970,8 +1980,10 @@ class Trial:
                 to create a new object behind the scenes and the data object in Record
                 class is not changed!
         """
+        if type(data) == pd.core.frame.DataFrame:
+            data = data.values()
         if (data.shape[0] == self.Samples) and (data.shape[1] == self.Recording.Features):
-            self.Recording.get_all_data()[self.StartIdx : self.StopIdx] = data.get_values()
+            self.Recording.get_all_data()[self.StartIdx : self.StopIdx] = data
         else:
             raise ValueError((
                 'Shape missmatch replacing data in trial ' + self.Identifier + '. ' +
