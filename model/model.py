@@ -1529,34 +1529,20 @@ class Recording:
                 )
         return df, retLbls
 
-    def get_trials_as_list(self, labels):
+    def get_trials_as_list(self):
         """ Returns data in format to directly feed it to
             .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
             That is a list of two dimensional arrays where each array represents a trial.
 
             Returns:
                 data (List): List of two dimensional numpy.ndarrays
-                lbls (List): List with one dimenional arrays containing class labels
         """
-        if labels is None:
-            labels = self._trial_order
-
         data = []
-        lbls = []
         for idx in self._trial_order:
-            if idx in labels:
-                tmp = self.Recordings[idx].get_data().values
-                data.append(tmp)
-                lbls.append(np.repeat(self.Trials[idx].Label, tmp.shape[0]))
+            tmp = self.Trials[idx].get_data().values
+            data.append(tmp)
 
-        for lbl in labels:
-            if lbl not in retLbls:
-                warnings.warn(
-                    'Label %s was not found in any trial of recording %s' %
-                    (str(lbl), str(self.Identifier))
-                )
-
-        return data, lbls
+        return data
 
     def get_labels(self):
         """ Returns a list of labels for all relevant data points.

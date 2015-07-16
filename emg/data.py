@@ -223,20 +223,20 @@ def align_and_label_recordings(session, target_modality, split=(.5, .25, .25),
             'training, validation and test set greater than one. Values ' + \
             'were {}, {}, {}'.format(p_train, p_val, p_test)
 
-    # Retrieve data of all recordings as np.ndarray
+    # Retrieve all specified recordings and the target recording
     data_recordings = []
     target_recording = None
     for recording in session.Recordings.itervalues():
         if recording.Modality == target_modality:
-            continue
+            target_recording = recording
         elif include is not None:
             if recording.Identifier in include:
-                data_recordings.append(recording.get_data(pandas=False))
+                data_recordings.append(recording)
         elif exclude is not None:
             if recording.Identifier not in exclude:
-                data_recordings.append(recording.get_data(pandas=False))
+                data_recordings.append(recording)
         else:
-            data_recordings.append(recording.get_data(pandas=False))
+            data_recordings.append(recording)
 
     if len(data_recordings) == 0:
         raise ValueError('Could not find any of the trials included ' + \
@@ -244,12 +244,6 @@ def align_and_label_recordings(session, target_modality, split=(.5, .25, .25),
                 'train_valid_test_from_modalities'
                 )
 
-    # Search for recording with specified target modality and retrieve
-    # its data
-    for recording in session.Recordings.itervalues():
-        if recording.Modality == target_modality:
-            target_recording = recording.get_data(pandas=False)
-            break
     if target_recording is None:
         raise ValueError('Could not find target modality. Modality was {}. ' + \
                 'Error occured in emg.data.train_valid_test_from_modalities'
@@ -258,21 +252,22 @@ def align_and_label_recordings(session, target_modality, split=(.5, .25, .25),
 
     # Reduce length of all arrays to the length of the target array
     target_done = False
-    for i in range(len(data_recordings)):
+    aligned = {}
+    for recording in data_recordings:
         if alignment_method == 'mean':
-            data_recordings[i] = mean_reduce(
-                    data_recordings[i],
-                    target_recording.shape[0]
+            aligned[recording.Identifier] = align_by_mean(
+                    recording,
+                    target_recording
                     )
         elif alignment_method == 'median':
-            data_recordings[i] = median_reduce(
-                    data_recordings[i],
-                    target_recording.shape[0]
+            aligned[recording.Identifier] = align_by_median(
+                    recording,
+                    target_recording
                     )
-        elif alignment_method == 'split':
-            data_recordings[i] = split_reduce(
-                    data_recordings[i],
-                    target_recording.shape[0]
+        elif alignment_method == 'collapse':
+            aligned[recording.Identifier] = align_by_collapse(
+                    recording,
+                    target_recording
                     )
         else:
             raise ValueError('Unknown value for keyword "alignment_method" ' + \
@@ -284,6 +279,7 @@ def align_and_label_recordings(session, target_modality, split=(.5, .25, .25),
     train_Y = None
     val_Y = None
     test_Y = None
+    target_trials = target_recording.get_trials_as_list()
     target_done = False
 
     # Create test, training and validation set
@@ -369,10 +365,10 @@ def align_by_mean(to_align, align_on):
         steps, remainder = divmod(trial.shape[0], n)
         tmp = np.mean(trial[0:n, :], axis=0)
 
-        for setp in range(1, steps):
+        for step in range(1, steps):
             start = step * n
             stop = (step + 1) * n
-            tmp = np.row_stack([tmp, np.mean(trial[start:stop, :])])
+            tmp = np.row_stack([tmp, np.mean(trial[start:stop, :], axis=0)])
         ret.append(tmp)
     return ret
 
@@ -410,14 +406,14 @@ def align_by_median(to_align, align_on):
         steps, remainder = divmod(trial.shape[0], n)
         tmp = np.median(trial[0:n, :], axis=0)
 
-        for setp in range(1, steps):
+        for step in range(1, steps):
             start = step * n
             stop = (step + 1) * n
-            tmp = np.row_stack([tmp, np.median(trial[start:stop, :])])
+            tmp = np.row_stack([tmp, np.median(trial[start:stop, :], axis=0)])
         ret.append(tmp)
     return ret
 
-def align_recordings_by_collapse(to_align, align_on):
+def align_by_collapse(to_align, align_on):
     """ Given two recordings aligns all trials to have the same first
         dimension by collapsing rows of the trial recorded with higher
         frequencies into second dimension.
