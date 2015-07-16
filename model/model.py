@@ -1529,7 +1529,7 @@ class Recording:
                 )
         return df, retLbls
 
-    def get_data_for_breeze(self, labels):
+    def get_trials_as_list(self, labels):
         """ Returns data in format to directly feed it to
             .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
             That is a list of two dimensional arrays where each array represents a trial.

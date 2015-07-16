@@ -288,6 +288,7 @@ def align_and_label_recordings(session, target_modality, split=(.5, .25, .25),
 
     # Create test, training and validation set
     for rec in data_recordings:
+        start = 0
         end = target_recording.shape[0] * p_train
         train_tmp = rec[start:int(end-skip/2), :]
         if not target_done:
@@ -334,118 +335,144 @@ def get_min_length(data_sets):
             min_length = e.shape[0]
     return min_length
 
-def mean_reduce(X, n):
-    """ Reduces the size of the first dimension of X to n by taking the mean
-        over ``X/n`` elements.
-
-        If first dimension of X cannot be divided by n, the mean of the last
-        row in the new array will be taken over the remaining elements (i.e.
-        more elements as the others)
+def align_by_mean(to_align, align_on):
+    """ Aligns trials of two recordings by taking the mean.
+        
+        Example:
+            If recording ``to_align`` was recorded using 4000Hz and ``align_on``
+            recorded with 500Hz, when the mean over 8 samples of ``to_align``
+            is taken
 
         Args:
-            X (np.ndarray): Array for which first dimension should be reduced
-            n (int): New size of first dimension
+            to_align (model.model.Recording): Recording on which mean should
+                be applied (needs to have larger sampling rate)
+            align_on (model.model.Recording): Recording to align on
 
         Returns:
-            np.ndarray
+            List of np.ndarrays
+
+        Raises:
+            AssertionError if ``to_align`` has smaller sampling rate/frequency
+            than ``align_on''
     """
-    # TODO: Check importance of forward propagation of remainder. For very
-    # long sequences las element could be middled over quire a lot of samples
-    length, remainder = divmod(X.shape[0], n)
-    end = length
-    begin = 0
-    X_new = np.mean(X[begin:end, :], axis=0)
+    assert to_align.get_frequency() > align_on.get_frequency(), 'Frequency ' + \
+            'of recording for which first dimension of trials should be ' + \
+            'reduced has higher frequency than recording it should be ' + \
+            'aligned to. {}: {}Hz, {}: {}Hz'.format(
+                    to_align.Identifier, to_align.get_frequency(),
+                    align_on.Identifier, align_on.get_frequency()
+                    )
+    ret = []
+    arr, n = _get_settings_for_alignment(to_align, align_on)
+    trials = arr.get_trials_as_list()
+    for trial in trials:
+        steps, remainder = divmod(trial.shape[0], n)
+        tmp = np.mean(trial[0:n, :], axis=0)
 
-    for i in range(1, n-1):
-        begin = end
-        end = (i + 1) * length
-        X_new = np.row_stack((X_new, np.mean(X[begin:end, :], axis=0)))
+        for setp in range(1, steps):
+            start = step * n
+            stop = (step + 1) * n
+            tmp = np.row_stack([tmp, np.mean(trial[start:stop, :])])
+        ret.append(tmp)
+    return ret
 
-    end = X.shape[0]
-    X_new = np.row_stack((X_new, np.mean(X[begin:end, :], axis=0)))
-    return X_new
-
-def median_reduce(X, n):
-    """ Reduces the size of the first dimension of X to n by taking the median
-        over ``X/n`` elements.
-
-        If first dimension of X cannot be divided by n, the median of the last
-        row in the new array will be taken over the remaining elements (i.e.
-        more elements as the others)
+def align_by_median(to_align, align_on):
+    """ Aligns trials of two recordings by taking the median.
+        
+        Example:
+            If recording ``to_align`` was recorded using 4000Hz and ``align_on``
+            recorded with 500Hz, when the median over 8 samples of ``to_align``
+            is taken
 
         Args:
-            X (np.ndarray): Array for which first dimension should be reduced
-            n (int): New size of first dimension
+            to_align (model.model.Recording): Recording on which median should
+                be applied (needs to have larger sampling rate)
+            align_on (model.model.Recording): Recording to align on
 
         Returns:
-            np.ndarray
+            List of np.ndarrays
+
+        Raises:
+            AssertionError if ``to_align`` has smaller sampling rate/frequency
+            than ``align_on''
     """
-    length, remainder = divmod(X.shape[0], n)
-    end = length
-    begin = 0
-    X_new = np.median(X[begin:end, :], axis=0)
+    assert to_align.get_frequency() > align_on.get_frequency(), 'Frequency ' + \
+            'of recording for which first dimension of trials should be ' + \
+            'reduced has higher frequency than recording it should be ' + \
+            'aligned to. {}: {}Hz, {}: {}Hz'.format(
+                    to_align.Identifier, to_align.get_frequency(),
+                    align_on.Identifier, align_on.get_frequency()
+                    )
+    ret = []
+    arr, n = _get_settings_for_alignment(to_align, align_on)
+    trials = arr.get_trials_as_list()
+    for trial in trials:
+        steps, remainder = divmod(trial.shape[0], n)
+        tmp = np.median(trial[0:n, :], axis=0)
 
-    for i in range(1, n-1):
-        begin = end
-        end = (i + 1) * length
-        X_new = np.row_stack((X_new, np.median(X[begin:end, :], axis=0)))
+        for setp in range(1, steps):
+            start = step * n
+            stop = (step + 1) * n
+            tmp = np.row_stack([tmp, np.median(trial[start:stop, :])])
+        ret.append(tmp)
+    return ret
 
-    end = X.shape[0]
-    X_new = np.row_stack((X_new, np.median(X[begin:end, :], axis=0)))
-    return X_new
+def align_recordings_by_collapse(to_align, align_on):
+    """ Given two recordings aligns all trials to have the same first
+        dimension by collapsing rows of the trial recorded with higher
+        frequencies into second dimension.
 
-def split_reduce(X, n):
-    """ Reduces first axis of X to n by shuffling samples into second
-        axis.
+        If size of first dimension in a trial is not a multiple of
+        ``columns * factor`` trial is cut of. ``factor`` is the ration
+        between frequencies.
+
+        Example:
+            Trial has shape ``(20, 2)``, ``factor=3`` then
+            20 * 2 / (2 * 3) = 40 / 6 = 6 rest 4 --> 4 samples are ommitted
 
         Args:
-            X (np.ndarray): Data matrix
-            n (int): New size of first dimension
+            to_align (model.model.Recording): First recording to align
+            align_on (model.model.Recording): Second recording to align
 
         Returns:
-            np.ndarray
+            List of numpy.ndarray
     """
-    new_X = None
-    row = None
-    flap, rest = divmod(X.shape[0], n)
-    if rest != 0:
-        # If there is an remainder pad up array with zeros in the front
-        flap += 1
-        X = np.row_stack((np.zeros((rest, X.shape[1])), X))
+    assert to_align.get_frequency() > align_on.get_frequency(), 'Frequency ' + \
+            'of recording for which first dimension of trials should be ' + \
+            'reduced has higher frequency than recording it should be ' + \
+            'aligned to. {}: {}Hz, {}: {}Hz'.format(
+                    to_align.Identifier, to_align.get_frequency(),
+                    align_on.Identifier, align_on.get_frequency()
+                    )
 
-    for i in range(n):
-        row = X[i * flap, :]
-        for j in range(1, flap):
-            row = np.concatenate((row, X[i * flap + j, :]))
-        if new_X is None:
-            new_X = row
-        else:
-            new_X = np.row_stack((new_X, row))
-    return new_X
+    to_collapse, n = _get_settings_for_alignment(to_align, align_on)
+    trials = to_collapse.get_trials_as_list()
+    ret = breze.data.collapse(trials, n)
+    return ret
 
-def windowify_labeled_data_set(X, Y, window_size, offset=1):
-    """ Windowifies ``X`` into windows of size ``window_size`` with offset
-        ``offset`` between each window.
-
-        X and Y are expected to have the same first dimension (i.e. for each
-        data point in X exists a target in Y).
-        The target of the last element in the window is made the target of the
-        whole window.
-        This is suited for online learning.
+def _get_settings_for_alignment(recording_one, recording_two):
+    """ Given two trials gets the one with higher frequency and ration of
+        frequencies.
 
         Args:
-            X (np.ndarray): Data set
-            Y (np.ndarray): Targets to data set
-            window_size (int): Size of the window
-            offset (int): Offset between the beginning of each window
+            recording_one (model.model.Recording): First trial
+            recording_two (model.model.Recording): Second trial
 
-        returns:
-            X_windowified: np.ndarray where one row is one window
-            Y_windowified: np.ndarray where one row is one target for
-                x_windowified
+        Returns:
+            to_collapse (model.model.Recording): Recording with higher frequency
+            n (int) ration between frequences (bigger than one)
     """
-    X_windowified = breze.data.windowify(x, window_size * x.shape[1], offset)
-    # Slices to all columns but only every window_sizedth row
-    Y_windowified = Y[window_size - 1::window_size, :]
+    f1 = recording_one.get_frequency()
+    f2 = recording_two.get_frequency()
+    n = 0
+    to_collapse = None
 
-    return X_windowified, Y_windowified
+    if f1 < f2:
+        n = f2 / f1
+        to_collapse = recording_two
+    else:
+        n = f1 / f2
+        to_collapse = recording_one
+
+    return to_collapse, n
+

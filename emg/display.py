@@ -70,7 +70,6 @@ def visualize_modality(model, start, stop, modality=None):
         axes[i].set_ylim([minimum, maximum])
 
     markers = model.get_marker(modality=modality, from_=start, to=stop)
-    print markers
     for t, l in markers:
         for axis in axes:
             axis.axvline(t, color='r')

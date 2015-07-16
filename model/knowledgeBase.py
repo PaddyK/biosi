@@ -432,6 +432,9 @@ def create_emg_eeg_kb(meta, session, markers=None):
             'Wrong meta and session data. Meta data from subject %i and ' +
             'session data from subject %i' % (meta.loc[0, 'Part'], session['subject'])
         ))
+    cols = [col for col in meta.columns if col.startswith('t') or col.startswith('Dur_')]
+    print cols
+    meta.loc[:,cols] = meta.loc[:, cols] - 2.002
     # Define mapping for weights and surface
     weights = {}
     weights[1] = '165g'
@@ -452,12 +455,30 @@ def create_emg_eeg_kb(meta, session, markers=None):
     # Creating Setup and Modalities
     # ==================================================================================
     setup = model.Setup(exp)
+    kin_cols = [
+            'Px1 - position x sensor 1',
+            'Px2 - position x sensor 2',
+            'Px3 - position x sensor 3',
+            'Px4 - position x sensor 4',
+            'Py1 - position y sensor 1',
+            'Py2 - position y sensor 2',
+            'Py3 - position y sensor 3',
+            'Py4 - position y sensor 4',
+            'Pz1 - position z sensor 1',
+            'Pz2 - position z sensor 2',
+            'Pz3 - position z sensor 3',
+            'Pz4 - position z sensor 4'
+            ]
     mod_emg = model.Modality(setup, session['emg_sr'], 'emg')
     for s in session['emg_data'].columns:
         model.Sample(mod_emg, s)
     mod_eeg = model.Modality(setup, session['eeg_sr'], 'eeg')
     for s in session['eeg_data'].columns:
         model.Sample(mod_eeg, s)
+    mod_kin = model.Modality(setup, session['kin_sr'], 'kin')
+    for s in session['kin_data'].columns:
+        if s in kin_cols:
+            model.Sample(mod_kin, s)
 
     # Creating Session, Recordings and Trials
     # ==================================================================================
@@ -476,12 +497,21 @@ def create_emg_eeg_kb(meta, session, markers=None):
             identifier='eeg_data',
             modality = mod_eeg.Identifier
         )
+    rec_kin = model.Recording(
+            sess,
+            data=session['kin_data'].loc[:, kin_cols],
+            identifier='kin_data',
+            modality = mod_kin.Identifier
+            )
 
     # Creating Trials
     # ----------------------------------------------------------------------------------
     for i in range(meta.shape[0]):
         start = meta.loc[i, 'StartTime']
-        duration = meta.loc[i, 'tHandStop']
+        if i == meta.shape[0] - 1:
+            duration = float(session['emg_data'].shape[0])/4000. - meta.loc[i, 'StartTime']
+        else:
+            duration = meta.loc[i + 1, 'StartTime'] - meta.loc[i, 'StartTime']
 
         if (start + duration) * session['emg_sr'] > session['emg_data'].shape[0]:
             warning = (
@@ -511,22 +541,32 @@ def create_emg_eeg_kb(meta, session, markers=None):
 
         t_emg = model.Trial(
                 recording=rec_emg,
-                start=meta.loc[i, 'StartTime'],
-                duration=meta.loc[i, 'tHandStop'],
+                start=start,
+                duration=duration,
                 identifier =  'emg_lift' + str(i),
                 label = weights[meta.loc[i, 'CurW']] + '_' + surface[meta.loc[i, 'CurS']]
             )
         t_eeg = model.Trial(
                 recording=rec_eeg,
-                start=meta.loc[i, 'StartTime'],
-                duration=meta.loc[i, 'tHandStop'],
+                start=start,
+                duration=duration,
                 identifier =  'eeg_lift' + str(i),
                 label = weights[meta.loc[i, 'CurW']] + '_' + surface[meta.loc[i, 'CurS']]
             )
+        t_kin = model.Trial(
+                recording=rec_kin,
+                start=start,
+                duration=duration,
+                identifier =  'kin_lift' + str(i),
+                label = weights[meta.loc[i, 'CurW']] + '_' + surface[meta.loc[i, 'CurS']]
+            )
 
-        for marker in markers:
-            t_emg.add_marker((meta.loc[i, marker], marker))
-            t_eeg.add_marker((meta.loc[i, marker], marker))
+        if markers is not None:
+            for marker in markers:
+                print '{}: {} --> {}'.format(marker, meta.loc[i, marker], meta.loc[i, marker] - 2.002)
+                t_emg.add_marker((meta.loc[i, marker], marker))
+                t_eeg.add_marker((meta.loc[i, marker], marker))
+                t_kin.add_marker((meta.loc[i, marker], marker))
     return exp
 
 def create_kb_for_testing():
