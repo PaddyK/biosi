@@ -697,6 +697,31 @@ class Modality:
         """
         return self._sampleOrder
 
+    def get_sample_index(self, identifier=None):
+        """ Returns index of samples specified in ``identifier``
+
+            if ``identifier`` is None values 0..num Samples are returned
+
+            Args:
+                identifier (List, String): Either string or list of strings
+
+            Returns:
+                indices, List of integers
+
+            Raises:
+                ValueError if one of the specified identifier is not found
+        """
+        if identifier is None:
+            return range(len(self.Sample_Order))
+
+        if (type(identifier) == str) or (type(identifier) == unicode):
+            identifier = [identifier]
+
+        indices = []
+        for id in identifier:
+            indices.append(self.Sample_Order.index(id))
+        return indices
+
     def put_sample(self, sample):
         if sample.Identifier not in self.Samples:
             self.Samples[sample.Identifier] = sample
@@ -1529,17 +1554,25 @@ class Recording:
                 )
         return df, retLbls
 
-    def get_trials_as_list(self):
+    def get_trials_as_list(self, pandas=True, samples=None):
         """ Returns data in format to directly feed it to
             .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
             That is a list of two dimensional arrays where each array represents a trial.
+
+            Args:
+                pandas (Boolean, optional): True return dataframe, false array
+                samples (List): List of sample ids. If set only those samples
+                    are returned
+            
+            Raises:
+                KeyError one of identifiers in samples not found
 
             Returns:
                 data (List): List of two dimensional numpy.ndarrays
         """
         data = []
         for idx in self._trial_order:
-            tmp = self.Trials[idx].get_data().values
+            tmp = self.Trials[idx].get_data(pandas=pandas, samples=samples)
             data.append(tmp)
 
         return data
@@ -1850,7 +1883,7 @@ class Trial:
                 break
         return ret
 
-    def get_data(self, begin = None, end = None, pandas=True):
+    def get_data(self, begin=None, end=None, pandas=True, samples=None):
         """ Returns data within specified interval borders. If no border set start/end
             index of Trial is used respectively.
 
@@ -1860,6 +1893,12 @@ class Trial:
                 end (float): End point of interval for which to retrieve data.
                     Relative to beginning of trial
                 pandas (Boolean): Returning data as pandas.core.DataFrame (``True``)
+                samples (List): List of Sample Idenfiers. Only those specified
+                    are returned. If none specified all are returned
+
+            Note:
+                If samples is specified, columns of returned dataframe/array
+                are in the order as samples were listed
 
             Returns:
                 data (pandas.core.DataFrame)
@@ -1890,18 +1929,29 @@ class Trial:
         else:
             end = end * self.Recording.get_frequency() + self.StartIdx
 
+        sample_indices = self.Recording.Session.Setup.Modalities[
+                self.Recording.Modality].get_sample_index(identifier=samples)
+
         tmp = None
+        begin = int(begin)
+        end = int(end)
         if pandas:
-            tmp = pd.DataFrame(self.Recording.get_all_data()[int(begin):int(end)])
+            tmp = pd.DataFrame(
+                    self.Recording.get_all_data()[begin:end, sample_indices]
+                    )
             tmp['samples'] = np.arange(tmp.shape[0])
             tmp['trials'] = self.Identifier
             tmp.set_index('trials', inplace = True, append = False)
             tmp.set_index('samples', inplace = True, append = True)
-            tmp.columns = self.Recording.Session.Setup.Modalities[
-                    self.Recording.Modality
-                    ].Sample_Order
+
+            if samples is None:
+                tmp.columns = self.Recording.Session.Setup.Modalities[
+                        self.Recording.Modality
+                        ].Sample_Order
+            else:
+                tmp.columns = samples
         else:
-            tmp = np.copy(self.Recording.get_all_data()[int(begin):int(end)])
+            tmp = np.copy(self.Recording.get_all_data()[begin:end, sample_indices])
         return tmp
 
     def get_frequency(self):
