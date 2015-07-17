@@ -1636,10 +1636,6 @@ class Recording:
                 accessing data though this classes properties, the updated data is
                 returned, though.
         """
-        print 'DEBUG >>>>>>>>>>'
-        print data.shape
-        print '{} {}'.format(self.Samples, self.Features)
-        print ' <<<<<<<<<<'
         if (data.shape[0] != self.Samples) or (data.shape[1] != self.Features):
             raise ValueError(
                 'Dimension missmatch while trying to set data for recording {}. ' + \

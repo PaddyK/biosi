@@ -433,7 +433,6 @@ def create_emg_eeg_kb(meta, session, markers=None):
             'session data from subject %i' % (meta.loc[0, 'Part'], session['subject'])
         ))
     cols = [col for col in meta.columns if col.startswith('t') or col.startswith('Dur_')]
-    print cols
     meta.loc[:,cols] = meta.loc[:, cols] - 2.002
     # Define mapping for weights and surface
     weights = {}
@@ -563,7 +562,6 @@ def create_emg_eeg_kb(meta, session, markers=None):
 
         if markers is not None:
             for marker in markers:
-                print '{}: {} --> {}'.format(marker, meta.loc[i, marker], meta.loc[i, marker] - 2.002)
                 t_emg.add_marker((meta.loc[i, marker], marker))
                 t_eeg.add_marker((meta.loc[i, marker], marker))
                 t_kin.add_marker((meta.loc[i, marker], marker))
