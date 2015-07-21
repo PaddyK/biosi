@@ -540,3 +540,94 @@ def train_valid_test_from_lists(data, target, offset=0, split=(.5, .25, .25)):
 
         return X, Z, XV, XZ, XT, ZT
 
+def sets_for_sequence_learning(sequences, targets, split=(0.5, 0.25, 0.25)):
+    """ Creates training, validation and testing set for sequence classification
+
+        Expects windowfied data, collapses data sequences into one vector and
+        assigns the last target of the window as target to the collaosed
+        sequence.
+
+        Args:
+            sequences (List): List of sequences (numpy.ndarrays)
+            targets (List): List of targets (numpy.ndarrays)
+            split (Tuple): sizes of training, validation and test set
+
+        Returns:
+            X, Z, VX, VZ, TX, TZ two dimensional nd_arrays
+    """
+    p_train, p_val, p_test = split
+    flat_sequences = []
+    last_targets = []
+
+    for i in range(len(sequences)):
+        flat_sequences.append(sequences[i].flatten())
+        last_targets.append(targets[i][targets[i].shape[0] - 1, :])
+
+    stop = int(len(flat_sequences) * p_train)
+    X = np.row_stack(flat_sequences[:stop])
+    Z = np.row_stack(last_targets[:stop])
+
+    start = stop
+    stop = int(len(flat_sequences) * (p_train + p_val))
+    XV = np.row_stack(flat_sequences[start:stop])
+    ZV = np.row_stack(last_targets[start:stop])
+
+    start = stop
+    stop = len(flat_sequences)
+    XT = np.row_stack(flat_sequences[start:stop])
+    ZT = np.row_stack(last_targets[start:stop])
+
+    return X, Z, XV, ZV, XT, ZT
+
+def windowify_labeled_data_set(sequences, targets, length, offset, as_list=True):
+    """ Windowifies sequences and targets and returns them as three
+        dimensional np.ndarray or list.
+
+        Args:
+            sequences (List): List on numpy arrays
+            targets (List): List of numpy arrays
+            offset (int): Offset between start of windows
+            length (int): length of windows
+            as_list (Boolean, optional): Whether or not to return windowfied
+                sets as list
+
+        Returns:
+            w_sequences, w_targets
+    """
+    w_sequences = breze.data.windowify(sequences, length, offset)
+    w_targets = breze.data.windowify(targets, length, offset)
+
+    if as_list:
+        tmps = []
+        tmpt = []
+
+        for i in range(w_sequences.shape[0]):
+            tmps.append(w_sequences[i, :, :])
+            tmpt.append(w_targets[i, :, :])
+    w_sequences = tmps
+    w_targets = tmpt
+
+    return w_sequences, w_targets
+
+def padzeros(sequences, as_list=True, front=False):
+    """ Returns sequences of unit length by padding shorter sequences with
+        zeros.
+
+        Args:
+            sequences (List): List of np.ndarrays
+            as_list (Boolean): If true return as list of arrays, if false
+                return as three dimensional array with
+                ``num trials x num samples x num features``
+            front (Boolean): If True pad zeros from the front, else from the
+                back
+
+        Returns:
+            three dimensional array of shape trials x samples x features
+            Or list of ndarrays
+    """
+    padded = breze.data.padzeros(sequences, front=front)
+    if as_list:
+        # Returns ith trial, if padded is three-D the same as padded[i, :, :]
+        tmp = [padded[i] for i in range(padded.shape[0])]
+        padded = tmp
+    return padded

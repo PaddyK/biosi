@@ -17,7 +17,6 @@ def predict_report(inpt, output, target):
 
         axs[i][0].plot(y, 'k-', linewidth=1, label='predictions')
         axs[i][0].plot(z, 'r-', linewidth=2, label='truth')
-
         axs[i][0].set_ylim([bottom, top])
 
     axs[0][0].legend()
