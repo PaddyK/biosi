@@ -1,6 +1,13 @@
 emg package
 ===========
 
+Subpackages
+-----------
+
+.. toctree::
+
+    emg.breze
+
 Submodules
 ----------
 

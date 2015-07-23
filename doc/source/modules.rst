@@ -8,3 +8,4 @@
    model
    setup
    test
+   unittests

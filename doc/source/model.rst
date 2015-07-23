@@ -20,14 +20,6 @@ model.model module
     :undoc-members:
     :show-inheritance:
 
-model.unittests module
-----------------------
-
-.. automodule:: model.unittests
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 
 Module contents
 ---------------
