@@ -333,7 +333,7 @@ def get_min_length(data_sets):
 
 def align_by_mean(to_align, align_on):
     """ Aligns trials of two recordings by taking the mean.
-        
+
         Example:
             If recording ``to_align`` was recorded using 4000Hz and ``align_on``
             recorded with 500Hz, when the mean over 8 samples of ``to_align``
@@ -374,7 +374,7 @@ def align_by_mean(to_align, align_on):
 
 def align_by_median(to_align, align_on):
     """ Aligns trials of two recordings by taking the median.
-        
+
         Example:
             If recording ``to_align`` was recorded using 4000Hz and ``align_on``
             recorded with 500Hz, when the median over 8 samples of ``to_align``
@@ -579,15 +579,15 @@ def sets_for_sequence_learning(sequences, targets, split=(0.5, 0.25, 0.25)):
 
     return X, Z, XV, ZV, XT, ZT
 
-def windowify_labeled_data_set(sequences, targets, length, offset, as_list=True):
+def windowify_labeled_data_set(sequences, targets, length, offset=0, as_list=True):
     """ Windowifies sequences and targets and returns them as three
         dimensional np.ndarray or list.
 
         Args:
             sequences (List): List on numpy arrays
             targets (List): List of numpy arrays
-            offset (int): Offset between start of windows
             length (int): length of windows
+            offset (int, optional): Offset between start of windows
             as_list (Boolean, optional): Whether or not to return windowfied
                 sets as list
 
@@ -595,7 +595,15 @@ def windowify_labeled_data_set(sequences, targets, length, offset, as_list=True)
             w_sequences, w_targets
     """
     w_sequences = breze.data.windowify(sequences, length, offset)
+    # breze returns three dimensional array with shape (dimensionality of
+    # input sequence + 1 --> 1D array --> 2D array)
+    # num windows x window length x features in original sequence
     w_targets = breze.data.windowify(targets, length, offset)
+
+    if len(w_targets.shape) == 2:
+        w_targets = w_targets[:, :, np.newaxis]
+    if len(w_sequences.shape) == 2:
+        w_sequences = w_sequences[:, :, np.newaxis]
 
     if as_list:
         tmps = []
@@ -608,6 +616,81 @@ def windowify_labeled_data_set(sequences, targets, length, offset, as_list=True)
     w_targets = tmpt
 
     return w_sequences, w_targets
+
+def windowify_nominal_labeled_data_set(sequences, labels, length, offset=1,
+        as_list=True):
+    """ Windowifies sequences and broadcasts respective label accordingly.
+
+        It is expected that each sequence has one label in labels. Each
+        sequence gets windowified and the respective label is added accordingly
+        for each window.
+
+        Args:
+            sequences (List): List of numpy.ndarrays
+            labels (List): List of strings
+            length (int): Number samples each window contains
+            offset (int, optional): Distance in sample between beginning of two
+                consecutive windows
+            as_list (Boolean): Return windowfied sequences and labels as lists
+                or arrays
+
+        Note:
+            If `as_list=False` three-dimensional array is returned with
+            *num trials x windowsize x num features*.
+            Labels are also returned as three dimensional array with shape
+            *num trials x windowsize x 1*, i.e. each sample has a trial.
+
+            If `as_list=True` windows are returned as list and labels are
+            returned as list. As opposed to `as_list=True`, each **window**
+            has one label (and *not* each sample!)
+
+        Returns:
+            w_sequences, List of Arrays or 3D array
+            w_labels, List of strings or 3D array
+    """
+    windows = []
+    for i in range(len(sequences)):
+        # Breze will return a three dimensional array, where the first
+        # dimension is the number of windows made out of the trials
+        #
+        # So for each original sequence we have one array of windows. Thus
+        # mapping of labels is retained
+        windows.append(breze.data.windowify(sequences[i], length, offset))
+
+    w_sequences = None
+    w_labels = None
+
+    if as_list:
+        w_sequences = []
+        w_labels = []
+        for i in length(windows):
+            for j in length(windows[i].shape[0]):
+                # For each windowified trial go through each window (first
+                # dimension) and append it to a list.
+                w_sequences.append(windows[i][j])
+                w_labels.append(labels[i])
+    else:
+        # Concatenate windows along the first axis to get one big array
+        # Copy label for each sample in each window and also create a
+        # three  dimensional array with the same two first dimensions
+        w_sequences = windows[0]
+        w_labels = np.repeat(
+                labels[0],
+                windows[0].shape[0] * windows[0].shape[1]
+                ).reshape(windows[0].shape[0], windows[0].shape[1], np.newaxis)
+        for i in range(1, windows):
+            w_sequences = np.concatenate((w_sequences, windows[i]), axis=0)
+            w_labels = np.concatenate(
+                    np.repeat(
+                        labels[i],
+                        windows[i].shape[0] * windows[i].shape[1]
+                        ).reshape(
+                            windows[i].shape[0],
+                            windows[i].shape[1],
+                            np.newaxis
+                            )
+                    )
+    return w_sequences, w_labels
 
 def padzeros(sequences, as_list=True, front=False):
     """ Returns sequences of unit length by padding shorter sequences with
