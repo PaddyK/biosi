@@ -188,5 +188,18 @@ def tc_retrieve_by_label():
             X.shape, Z.shape, type(X), type(Z)
             )
 
+def tc_nominal_windowfication():
+    exp = kb.create_kb_for_testing()
+    X, Z = exp.Sessions['session0'].Recordings['emg_recording'].get_data_by_labels(
+            pandas=False)
+    print X[0].shape, Z
+    wX, wZ = emg.data.windowify_nominal_labeled_data_set(X, Z, 10)
+    print type(wX), type(wZ)
+    print len(wX), len(wZ)
+
+    wX, wZ = emg.data.windowify_nominal_labeled_data_set(X, Z, 10,as_list=False)
+    print type(wX), type(wZ)
+    print wX.shape, wZ.shape
+
 if __name__ == '__main__':
-    tc_retrieve_by_label()
+    tc_nominal_windowfication()

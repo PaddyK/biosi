@@ -655,7 +655,7 @@ def windowify_nominal_labeled_data_set(sequences, labels, length, offset=1,
         #
         # So for each original sequence we have one array of windows. Thus
         # mapping of labels is retained
-        windows.append(breze.data.windowify(sequences[i], length, offset))
+        windows.append(breze.data.windowify([sequences[i]], length, offset))
 
     w_sequences = None
     w_labels = None
@@ -663,8 +663,8 @@ def windowify_nominal_labeled_data_set(sequences, labels, length, offset=1,
     if as_list:
         w_sequences = []
         w_labels = []
-        for i in length(windows):
-            for j in length(windows[i].shape[0]):
+        for i in range(len(windows)):
+            for j in range(windows[i].shape[0]):
                 # For each windowified trial go through each window (first
                 # dimension) and append it to a list.
                 w_sequences.append(windows[i][j])
@@ -677,19 +677,21 @@ def windowify_nominal_labeled_data_set(sequences, labels, length, offset=1,
         w_labels = np.repeat(
                 labels[0],
                 windows[0].shape[0] * windows[0].shape[1]
-                ).reshape(windows[0].shape[0], windows[0].shape[1], np.newaxis)
-        for i in range(1, windows):
+                ).reshape(windows[0].shape[0], windows[0].shape[1])
+        for i in range(1, len(windows)):
             w_sequences = np.concatenate((w_sequences, windows[i]), axis=0)
-            w_labels = np.concatenate(
+            w_labels = np.concatenate((
+                    w_labels,
                     np.repeat(
                         labels[i],
                         windows[i].shape[0] * windows[i].shape[1]
                         ).reshape(
                             windows[i].shape[0],
-                            windows[i].shape[1],
-                            np.newaxis
+                            windows[i].shape[1]
                             )
+                    ),axis=0
                     )
+        w_labels = w_labels[:, :, np.newaxis]
     return w_sequences, w_labels
 
 def padzeros(sequences, as_list=True, front=False):
