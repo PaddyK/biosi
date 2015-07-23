@@ -1745,32 +1745,36 @@ class Trial:
         seconds, relative to start of recording) and the setting, i.e. sample frequency,
         this class calculates the indices marking start and end.
 
-        Args:
-            recording (Recording): The recording this trial belongs to. Necessary to
-                retrieve informations about the setting.
-            start (float): Start point of trial in seconds relative to the start point of
-                the recording (format: ``seconds.miliseconds``).
-            duration (float): Stop point of trial in seconds relative to the stop point of
-                the recording (format: ``seconds.miliseconds``).
-            identifier (string): Identifier of the trial. For example *bizeps_curl*
-            label (String, optional): Class label if existing
-
         Attributes:
+            duration (float): Stop point of trial in seconds relative to the stop point of
+                the recording.
+            identifier (string): Identifier of the trial. For example *bizeps_curl*
+            label (String): Class Label
+            marker (List): List of (time, string) tuples specifying some event
+                relative to the start of the trial
             recording (Recording): The recording this trial belongs to. Necessary to
                 retrieve informations about the setting.
+            samples (int): Number of data points in this trial
             start (float): Start point of trial in seconds relative to the start point
                 of the recording.
             startIdx (int): Offset relative to beginning of recording of trial. Index
                 to DataFrame
             stopIdx (int): End of trial relative to recording. Index to DataFrame
-            duration (float): Stop point of trial in seconds relative to the stop point of
-                the recording.
-            identifier (string): Identifier of the trial. For example *bizeps_curl*
-            marker (List): List of (time, string) tuples specifying some event
-                relative to the start of the trial
     """
 
     def __init__(self, recording, start, duration, identifier, label = None):
+        """ Initializes Object
+
+            Args:
+                recording (Recording): The recording this trial belongs to. Necessary to
+                    retrieve informations about the setting.
+                start (float): Start point of trial in seconds relative to the start point of
+                    the recording (format: ``seconds.miliseconds``).
+                duration (float): Stop point of trial in seconds relative to the stop point of
+                    the recording (format: ``seconds.miliseconds``).
+                identifier (string): Identifier of the trial. For example *bizeps_curl*
+                label (String, optional): Class label if existing
+        """
         self._recording = recording
         self._start = start
         self._duration = duration
