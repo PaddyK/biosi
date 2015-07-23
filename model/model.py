@@ -1797,10 +1797,20 @@ class Trial:
 
     @property
     def Identifier(self):
+        """ Getter Property for identifier attributes
+
+            Returns:
+                String
+        """
         return self._identifier
 
     @property
     def Recording(self):
+        """ Getter Property for recording attribute
+
+            Returns:
+                model.model.Recording
+        """
         return self._recording
 
     @property
@@ -1811,6 +1821,13 @@ class Trial:
 
     @property
     def StartIdx(self):
+        """ Getter property of attribute _startIdx.
+
+            Returns start index of trial in the whole data
+
+            Returns:
+                int
+        """
         return self._startIdx
 
     @property
@@ -1821,18 +1838,40 @@ class Trial:
 
     @property
     def Label(self):
+        """ Getter property for attribute label
+
+            Returns:
+                String
+        """
         return self._label
 
     @property
     def StopIdx(self):
+        """ Getter property for attribute stopIdx.
+
+            Returns index to the recording's data at which trial ends
+
+            Returns:
+                int
+        """
         return self._stopIdx
 
     @property
     def Samples(self):
+        """ Getter property for attributes samples
+
+            Returns:
+                int
+        """
         return self._samples
 
     @Label.setter
     def Label(self, label):
+        """ Setter property for attribute label
+
+            Args:
+                label (String): Label of trial
+        """
         self._label = label
 
     def add_marker(self, marker):
