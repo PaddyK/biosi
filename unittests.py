@@ -74,7 +74,7 @@ def tcDataAssignment():
     data = np.row_stack((rec1,rec2,rec3))
     print data.dtype
     exp = kb.createKb(data)
-    
+
     print '\nTrial0\n-------'
     d = pd.DataFrame(np.arange(50.5,80.5, dtype = 'float').reshape(10,3), dtype = 'float')
     print d.dtypes
@@ -88,19 +88,19 @@ def tcDataAssignment():
     exp.Sessions['session0'].Recordings['recording0'].Trials['squat'].set_data(d)
     print exp.Sessions['session0'].Recordings['recording0'].Trials['squat'].get_data()
     print data
-    
+
     print '\nTrial2\n-------'
     d = pd.DataFrame(np.arange(400.5,436.5, dtype = 'float').reshape(12,3), dtype = 'float')
     exp.Sessions['session0'].Recordings['recording0'].Trials['curl_difficult'].set_data(d)
     print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_difficult'].get_data()
     print data
-    
+
     print '\nTrial3\n-------'
     d = pd.DataFrame(np.arange(600.5,660.5, dtype = 'float').reshape(20,3), dtype = 'float')
     exp.Sessions['session0'].Recordings['recording0'].Trials['leg_lever'].set_data(d)
     print exp.Sessions['session0'].Recordings['recording0'].Trials['leg_lever'].get_data()
     print data
-   
+
     print 'Recording - relevant data'
     print '~~~~~~~~~~~~~~~~~~~~~~~~~'
     print exp.Sessions['session0'].Recordings['recording0'].get_data()
@@ -116,7 +116,7 @@ def tcDataAssignment():
     print exp.Sessions['session0'].Recordings['recording0'].get_all_data()
     print exp.Sessions['session0'].Recordings['recording0'].Trials['curl_simple'].get_data()
     print data
-    
+
     print '\nSession\n-------'
     exp.Sessions['session0'].set_data(pd.DataFrame(
         np.arange(9000.5,9159.5, dtype = 'float').reshape(53,3), dtype = 'float'
@@ -169,5 +169,24 @@ def test_alignment():
     print test_X.shape
     print test_Y.shape
 
+def tc_retrieve_by_label():
+    exp = kb.create_kb_for_testing()
+    print exp.recursive_to_string()
+    rec = exp.Sessions['session0'].Recordings['emg_recording']
+
+    X, Z = rec.get_data_by_labels(labels=None, as_list=True, pandas=False)
+    print 'len: {} - {}, types: {} - {}'.format(len(X), len(Z), type(X[0]), type(Z[0]))
+    X, Z = rec.get_data_by_labels(labels=None, as_list=True, pandas=True)
+    print 'len: {} - {}, types: {} - {}'.format(len(X), len(Z), type(X[0]), type(Z[0]))
+
+    X, Z = rec.get_data_by_labels(labels=None, as_list=False, pandas=False)
+    print 'shape: {} - {}, types: {} - {}'.format(
+            X.shape, Z.shape, type(X), type(Z)
+            )
+    X, Z = rec.get_data_by_labels(labels=None, as_list=False, pandas=True)
+    print 'shape: {} - {}, types: {} - {}'.format(
+            X.shape, Z.shape, type(X), type(Z)
+            )
+
 if __name__ == '__main__':
-    test_alignment()
+    tc_retrieve_by_label()

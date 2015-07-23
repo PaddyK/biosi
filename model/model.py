@@ -668,7 +668,7 @@ class Modality:
         self._sampleOrder = []
 
         if self._identifier is None:
-            self._identifier = 'modality' + str(len(self._setup.modalities))
+            self._identifier = 'modality' + str(len(self._setup.Modalities))
 
         self._setup.put_modality(self)
 
@@ -1293,9 +1293,8 @@ class Recording:
                         '"numpy.ndarray or pandas.core.DataFrame. Got {}'
                         .format(type(data))
                         )
-        self._duration = self._data.shape[0] / self.Session.Setup.getFrequency(
-                self._modality
-                )
+        f = self.Session.Setup.Modalities[self._modality].Frequency
+        self._duration = self._data.shape[0] / f
         self._session.put_recording(self)
 
     @property
@@ -1528,7 +1527,7 @@ class Recording:
             df = df.reorder_levels(['recordings', 'trials', 'samples'])
         return df
 
-    def _label_to_data_pandas(trials, labels):
+    def _label_to_data_pandas(self, trials, labels):
         """ Given a list of trials and a list of labels returns one DataFrame
             containing all the data of trials and one DataFrame with a label
             for each sample in the trial's DataFrame.
@@ -1547,7 +1546,7 @@ class Recording:
         pd_labels = pd.DataFrame(
                 [labels[0] for i in range(trials[0].shape[0])]
                 )
-        for i in range(1, len(tmp_trials)):
+        for i in range(1, len(trials)):
             pd_trials = pd.concat([pd_trials, trials[i]])
             pd_labels = pd.concat([
                 pd_labels,
@@ -1557,7 +1556,7 @@ class Recording:
                 ])
         return pd_trials, pd_labels
 
-    def _label_to_data_numpy(trials, labels):
+    def _label_to_data_numpy(self, trials, labels):
         """ Given a list of trials and a list of labels returns one ndarray 
             containing all the data of trials and one ndarray with a label
             for each sample in the trial's ndarray.
@@ -1576,14 +1575,11 @@ class Recording:
         np_labels = np.array(
                 [labels[0] for i in range(trials[0].shape[0])]
                 )
-        for i in range(1, len(tmp_trials)):
+        for i in range(1, len(trials)):
             np_trials = np.row_stack([np_trials, trials[i]])
-            np_labels = np.concatenate([
-                np_labels,
-                np.array(
-                    [labels[i] for j in range(trials[i].shape[0])]
-                    )
-                ])
+            lst = [labels[i] for j in range(trials[i].shape[0])]
+            a = np.array(lst)
+            np_labels = np.concatenate([np_labels, a])
         return np_trials, np_labels
 
     def get_data_by_labels(self, labels=None, as_list=True, pandas=True):
@@ -1624,18 +1620,18 @@ class Recording:
                 trials.append(self.Trials[idx].get_data(pandas=pandas))
                 ret_labels.append(self.Trials[idx].Label)
 
+        for lbl in ret_labels:
+            if lbl not in ret_labels:
+                warnings.warn(
+                    'Label %s was not found in any trial of recording %s' %
+                    (str(lbl), str(self.Identifier))
+                )
+
         if not as_list:
             if pandas:
                 trials, ret_labels = self._label_to_data_pandas(trials, ret_labels)
             else:
                 trials, ret_labels = self._label_to_data_numpy(trials, ret_labels)
-
-        for lbl in labels:
-            if lbl not in retLbls:
-                warnings.warn(
-                    'Label %s was not found in any trial of recording %s' %
-                    (str(lbl), str(self.Identifier))
-                )
         return trials, ret_labels
 
     def get_trials_as_list(self, pandas=True, samples=None):
@@ -1669,8 +1665,8 @@ class Recording:
         """
         labels = []
         for t in self._trial_order:
-            labels.extend(self.Trials[t].get_labels())
-
+            if self.Trials[t].Label is not None:
+                labels.append(self.Trials[t].Label)
         return labels
 
     def get_frequency(self):
@@ -2107,10 +2103,9 @@ class Trial:
             ))
 
     def to_string(self):
-        string = (
-            'Trial %s: %fs duration, %d samples' %
-            (self.Identifier, self.Duration, self.Samples)
-        )
+        string = 'Trial {}: {}s duration, {} samples, label {}'.format(
+                self.Identifier, self.Duration, self.Samples, self.Label
+                )
         marker = self.get_marker()
         for t, l in marker:
             string = string + '\n\tMarker {a} at {b:.3f}s'.format(a=l, b=t)

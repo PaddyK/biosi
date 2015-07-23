@@ -92,7 +92,11 @@ def small_sport_kb():
     # Setups
     # ===================================================================================
     setup = model.Setup(experiment)
-    modality = model.Modality(setup, 4000, 'emg')
+    modality = model.Modality(
+            setup=setup,
+            frequency=4000,
+            identifier='arm'
+            )
     model.Sample(modality, 'bizeps')
     model.Sample(modality, 'triceps')
     model.Sample(modality, 'extensor_digitorum')
@@ -106,7 +110,7 @@ def small_sport_kb():
     session = model.Session(experiment, setup, so3)
     rec = model.Recording(
         session,
-        location = 'data/recording_sport.pkl',
+        location = 'data/Proband_01.pkl',
         modality=modality.Identifier
     )
     t = model.Trial(rec, 0, 4, 'calm')
@@ -156,8 +160,12 @@ def sport_kb():
 
     # Setups
     # ===================================================================================
-    setup = model.Setup(experiment, 4000)
-    modality = model.Modality(setup, 'arm')
+    setup = model.Setup(experiment)
+    modality = model.Modality(
+            setup=setup,
+            frequency=4000,
+            identifier='arm'
+            )
     model.Sample(modality, 'bizeps')
     model.Sample(modality, 'triceps')
     model.Sample(modality, 'extensor_digitorum')
@@ -602,9 +610,9 @@ def create_kb_for_testing():
             ))
     recording = model.Recording(session=session, data=emg_data,
             identifier='emg_recording', modality=modality1.Identifier)
-    model.Trial(recording, 1, 2, 'trial1')
-    model.Trial(recording, 4, 1, 'trial2')
-    model.Trial(recording, 6, 3, 'trial3')
+    model.Trial(recording, 1, 2, 'trial1', label='cool')
+    model.Trial(recording, 4, 1, 'trial2', label='cool')
+    model.Trial(recording, 6, 3, 'trial3', label='hot')
 
     pos_data = np.column_stack((
             np.arange(800,850,dtype='float'),
@@ -612,9 +620,9 @@ def create_kb_for_testing():
             ))
     recording = model.Recording(session=session, data=pos_data,
             identifier='pos_recording', modality=modality2.Identifier)
-    model.Trial(recording, 1, 2, 'trial1')
-    model.Trial(recording, 4, 1, 'trial2')
-    model.Trial(recording, 6, 3, 'trial3')
+    model.Trial(recording, 1, 2, 'trial1', label='hot')
+    model.Trial(recording, 4, 1, 'trial2', label='hot')
+    model.Trial(recording, 6, 3, 'trial3', label='cool')
     return experiment
 
 
