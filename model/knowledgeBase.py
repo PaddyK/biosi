@@ -172,6 +172,7 @@ def sport_kb():
     rec = model.Recording(
         session,
         location = 'data/Proband_01.pkl',
+        modality = modality.Identifier
     )
     model.Trial(rec, 0, 4, 'calm')
     model.Trial(rec, 4, 4, 'hantel1', label = 'hantel')
@@ -197,6 +198,7 @@ def sport_kb():
     rec = model.Recording(
         session,
         location = 'data/Proband_02.pkl',
+        modality = modality.Identifier
     )
     model.Trial(rec, 0, 4, 'calm')
     model.Trial(rec, 4, 4, 'hantel1', label = 'hantel')
@@ -222,6 +224,7 @@ def sport_kb():
     rec = model.Recording(
         session,
         location = 'data/Proband_03.pkl',
+        modality = modality.Identifier
     )
     model.Trial(rec, 0, 4, 'calm')
     model.Trial(rec, 4, 4, 'stomach_kettle1', label = 'stomach_kettle')
@@ -247,6 +250,7 @@ def sport_kb():
     rec = model.Recording(
         session,
         location = 'data/Proband_04.pkl',
+        modality = modality.Identifier
     )
     model.Trial(rec, 0, 4, 'calm')
     model.Trial(rec, 4, 4, 'reverse_kettle1', label = 'reverse_kettle')
@@ -272,6 +276,7 @@ def sport_kb():
     rec = model.Recording(
         session,
         location = 'data/Proband_05.pkl',
+        modality = modality.Identifier
     )
     model.Trial(rec, 0, 4, 'calm')
     model.Trial(rec, 4, 4, 'stomach_kettle1', label = 'stomach_kettle')
@@ -297,6 +302,7 @@ def sport_kb():
     rec = model.Recording(
         session,
         location = 'data/Proband_06.pkl',
+        modality = modality.Identifier
     )
     model.Trial(rec, 0, 4, 'calm')
     model.Trial(rec, 4, 4, 'reverse_kettle1', label = 'reverse_kettle')
@@ -322,6 +328,7 @@ def sport_kb():
     rec = model.Recording(
         session,
         location = 'data/Proband_07.pkl',
+        modality = modality.Identifier
     )
     model.Trial(rec, 0, 4, 'calm')
     model.Trial(rec, 4, 4, 'hantel1', label = 'hantel')
@@ -347,6 +354,7 @@ def sport_kb():
     rec = model.Recording(
         session,
         location = 'data/Proband_08.pkl',
+        modality = modality.Identifier
     )
     model.Trial(rec, 0, 4, 'calm')
     model.Trial(rec, 4, 4, 'stomach_kettle1', label = 'stomach_kettle')
@@ -372,6 +380,7 @@ def sport_kb():
     rec = model.Recording(
         session,
         location = 'data/Proband_09.pkl',
+        modality = modality.Identifier
     )
     model.Trial(rec, 0, 4, 'calm')
     model.Trial(rec, 4, 4, 'stomach_kettle1', label = 'stomach_kettle')
@@ -397,6 +406,7 @@ def sport_kb():
     rec = model.Recording(
         session,
         location = 'data/Proband_10.pkl',
+        modality = modality.Identifier
     )
     model.Trial(rec, 0, 4, 'calm')
     model.Trial(rec, 4, 4, 'hantel1', label = 'hantel')
