@@ -1528,31 +1528,107 @@ class Recording:
             df = df.reorder_levels(['recordings', 'trials', 'samples'])
         return df
 
-    def get_data_by_labels(self, labels):
+    def _label_to_data_pandas(trials, labels):
+        """ Given a list of trials and a list of labels returns one DataFrame
+            containing all the data of trials and one DataFrame with a label
+            for each sample in the trial's DataFrame.
+
+            I.e. The first axis of the returned DataFrames is the same.
+
+            Args:
+                trials (List): List of model.model.Trials
+                labels (List): List of labels (strings). One label for each trial
+
+            Returns:
+                pd_trials (pandas.core.frame.DataFrame)
+                pd_labels (pandas.core.frame.DataFrame)
+        """
+        pd_trials = trials[0]
+        pd_labels = pd.DataFrame(
+                [labels[0] for i in range(trials[0].shape[0])]
+                )
+        for i in range(1, len(tmp_trials)):
+            pd_trials = pd.concat([pd_trials, trials[i]])
+            pd_labels = pd.concat([
+                pd_labels,
+                pd.DataFrame(
+                    [labels[i] for j in range(trials[i].shape[0])]
+                    )
+                ])
+        return pd_trials, pd_labels
+
+    def _label_to_data_numpy(trials, labels):
+        """ Given a list of trials and a list of labels returns one ndarray 
+            containing all the data of trials and one ndarray with a label
+            for each sample in the trial's ndarray.
+
+            I.e. The first axis of the returned ndarrays is the same.
+
+            Args:
+                trials (List): List of model.model.Trials
+                labels (List): List of labels (strings). One label for each trial
+
+            Returns:
+                np_trials (numpy.ndarray)
+                np_labels (numpy.ndarray)
+        """
+        np_trials = trials[0]
+        np_labels = np.array(
+                [labels[0] for i in range(trials[0].shape[0])]
+                )
+        for i in range(1, len(tmp_trials)):
+            np_trials = np.row_stack([np_trials, trials[i]])
+            np_labels = np.concatenate([
+                np_labels,
+                np.array(
+                    [labels[i] for j in range(trials[i].shape[0])]
+                    )
+                ])
+        return np_trials, np_labels
+
+    def get_data_by_labels(self, labels=None, as_list=True, pandas=True):
         """ Returns data of all trials with the labels specified in ''labels''.
             Returned DataFrame does not have an MultiIndex
 
             Args:
-                labels (list): List with class labels
+                labels (list, optional): List with class labels. If not set
+                    data to all labels is returned
+                as_list (boolean, optional): Return trials in list (List of
+                    array like) and labels as list (list of strings)
+                pandas (boolean, optional): Return trials and data as
+                    pandas.core.frame.DataFrame or as numpy.ndarray
+
+            Note:
+                If `as_list=False` trials are stacked to one big DataFrame/array.
+                Labels are also returned as one big DataFrame/Array and repeated
+                as often as trial has samples.
+                So the first dimension of `labels` and `data is the same.
+
+                If `as_list=True` trials are in one list (as DataFrame or array
+                depending on argument `pandas`. Labels are also returned as list
+                **but not replicated**. So its only a list of strings **and not**
+                a list of DataFrames/arrays.
 
             Returns:
-                data (pandas.core.frame.DataFrame)
-                labels (numpy.ndarray): Array  with one label per sample in data
+                data (List/array like)
+                labels (List/array like)
         """
-        df = None
-        retLbls = None
+        if labels is None:
+            labels = self.get_labels()
+
+        trials = []
+        ret_labels = []
+
         for idx in self._trial_order:
             if self.Trials[idx].Label in labels:
-                if df is None:
-                    df = self.Trials[idx].get_data()
-                    retLbls = np.repeat(self.Trials[idx].Label, df.shape[0])
-                else:
-                    tmp = self.Trials[idx].get_data()
-                    df = pd.concat([df, tmp])
-                    retLbls = np.concatenate((
-                        retLbls,
-                        np.repeat(self.Trials[idx].Label, tmp.shape[0])
-                    ))
+                trials.append(self.Trials[idx].get_data(pandas=pandas))
+                ret_labels.append(self.Trials[idx].Label)
+
+        if not as_list:
+            if pandas:
+                trials, ret_labels = self._label_to_data_pandas(trials, ret_labels)
+            else:
+                trials, ret_labels = self._label_to_data_numpy(trials, ret_labels)
 
         for lbl in labels:
             if lbl not in retLbls:
@@ -1560,7 +1636,7 @@ class Recording:
                     'Label %s was not found in any trial of recording %s' %
                     (str(lbl), str(self.Identifier))
                 )
-        return df, retLbls
+        return trials, ret_labels
 
     def get_trials_as_list(self, pandas=True, samples=None):
         """ Returns data in format to directly feed it to
