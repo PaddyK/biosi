@@ -5,24 +5,27 @@ from threading import Thread
 from nanomsg import SUB
 from nanomsg import SUB_SUBSCRIBE
 from nanomsg import Socket
-from nanomsg import EBADF, ENOTSUP, EFSM, EAGAIN, EINTER, ETIMEDOUT, ETERM
+from nanomsg import NanoMsgAPIError
+#from nanomsg import EBADF, ENOTSUP, EFSM, EAGAIN, EINTER, ETIMEDOUT, ETERM
 from Queue import Queue
+import json
+import matplotlib.pyplot as plt
 
-error_codes = {
-        EBADF: 'The provided socket is invalid.',
-        ENOTSUP: 'The operation is not supported by this socket type.',
-        EFSM: 'The operation cannot be performed on this socket at the ' + \
-                'moment because socket is not in the appropriate state. ' + \
-                'This error may occur with socket types that switch ' + \
-                'between several states.',
-        EAGAIN: 'Non-blocking mode was requested and there’s no message ' + \
-                'to receive at the moment.',
-        EINTER: 'The operation was interrupted by delivery of a signal ' + \
-                'before the message was received.',
-        ETIMEDOUT: 'Individual socket types may define their own specific ' + \
-                'timeouts. If such timeout is hit this error will be returned.',
-        ETERM: 'The library is terminating.'
-        }
+#error_codes = {
+#        EBADF: 'The provided socket is invalid.',
+#        ENOTSUP: 'The operation is not supported by this socket type.',
+#        EFSM: 'The operation cannot be performed on this socket at the ' + \
+#                'moment because socket is not in the appropriate state. ' + \
+#                'This error may occur with socket types that switch ' + \
+#                'between several states.',
+#        EAGAIN: 'Non-blocking mode was requested and there is no message ' + \
+#                'to receive at the moment.',
+#        EINTER: 'The operation was interrupted by delivery of a signal ' + \
+#                'before the message was received.',
+#        ETIMEDOUT: 'Individual socket types may define their own specific ' + \
+#                'timeouts. If such timeout is hit this error will be returned.',
+#        ETERM: 'The library is terminating.'
+#        }
 
 class AbstractSubscriber(Thread):
     """ Abstract base class for concrete subscribers
@@ -35,6 +38,7 @@ class AbstractSubscriber(Thread):
                 url (String): URL to publisher socket
                 topic (String): Topic to subscribe to
         """
+        super(AbstractSubscriber, self).__init__()
         self._url = url
         self._topic = topic + '|' # Momentarily used as separator <topic>|<body>
 
@@ -59,13 +63,31 @@ class AbstractSubscriber(Thread):
     def run(self):
         """ Starts Thread
         """
+        set = []
+        start = 0
+
         with Socket(SUB) as sub_socket:
             sub_socket.connect(self.url)
-            sub_socket.set_string_options(SUB, SUB_SUBSCRIBE, self.topic)
+            sub_socket.set_string_option(SUB, SUB_SUBSCRIBE, self.topic)
+            plt.ion()
+            plt.show()
             while True:
                 try:
-                    size, message = sub_socket.recv()
-                    print 'SUBSCRIBER: {} - {}'.format(size, message)
+                    message = sub_socket.recv()
+                    msg = message.split('|')
+                    data = json.loads(msg[1])
+
+                    if len(set) > 8000:
+                        set.pop()
+                        start += 1
+                    set.append(data)
+                    x = range(start, start + len(set))
+
+                    plt.clf()
+                    plt.plot(x, set)
+                    plt.draw()
+
+                    print 'SUBSCRIBER: {}'.format(message)
                 except NanoMsgAPIError as e:
                     print 'Error during receiving of data in AbstractSubscriber ' + \
                             'Error was : {}'.format(e.message)
@@ -104,4 +126,4 @@ class EmgSubscriber(AbstractSubscriber):
                 `<address>` can be an IPv4, IPv6 address or DNS name, `<port>`
                 is the numeric port.
         """
-        super(AbstractSubscriber, self).__init__(topic='emg', url=url)
+        super(EmgSubscriber, self).__init__(url, 'emg' )

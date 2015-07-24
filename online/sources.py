@@ -6,6 +6,8 @@ import online
 from threading import Thread
 from Queue import Queue
 import json
+import cPickle
+import time
 
 class AbstractSource(Thread):
     """ Abstract base class for sources
@@ -14,6 +16,7 @@ class AbstractSource(Thread):
     def __init__(self):
         """ Initializes object
         """
+        super(AbstractSource, self).__init__()
         self._queue = Queue()
 
     @property
@@ -25,7 +28,7 @@ class AbstractSource(Thread):
         """
         return self._queue
 
-    def acquire_data():
+    def acquire_data(self):
         pass
 
     def run(self):
@@ -39,8 +42,7 @@ class AbstractSource(Thread):
             if sample is None:
                 print 'No new data available - shutting down data source'
                 break
-
-            self.queue.put(self.serialize(sample))
+            self._queue.put(self.serialize(sample))
 
     def serialize(self, sample):
         """ Serializes object to send it over the wire
@@ -57,34 +59,36 @@ class AbstractSource(Thread):
 class FileSource(AbstractSource):
     """ Reads data from a file and makes it available.
     """
-    import cPickle
 
     def __init__(self):
-        super(AbstractSource, self).__init__()
-        self._file = '../data/Proband_01.pkl'
+        super(FileSource, self).__init__()
+        self._file = 'data/Proband_01.pkl'
         """ Path to pickled numpy ndarray
         """
-        self._fh = None
+        self._data = None
         try:
-            self._fh = cPickle.load(self._file)
+            with open(self._file, 'rb') as fh:
+                self._data = cPickle.load(fh)
         except Exception as e:
             print 'Error while opening file {}. Error was {}'.format(
                     self._file, e.message
                     )
             return
 
-    def acquire_data():
-        """ Reads data from a pickled numpy array
-        """
-        import time
+    def acquire_data(self):
+        """ Reads data from a pickled numpy array as list
 
-        if sample.shape[0] <= 1:
+            Returns:
+                List
+        """
+
+        if self._data.shape[0] <= 1:
             return None
 
-        sample = self._fh[0, :]
-        self._fh = self._fh[1:, :]
+        line = self._data[0, :]
+        self._data = self._data[1:, :]
         time.sleep(0.001)
-        return line
+        return line.tolist()
 
 
 class SourceFactory(object):
@@ -103,12 +107,11 @@ class SourceFactory(object):
         if source == 'file':
             return FileSource()
         elif source == 'emg':
-            raise NotImplementedError('Source for keyword {} not yet ' + \
-                    'implemented'.format(source))
+            msg = 'Source for keyword {} not yet implemented'.format(source)
+            raise NotImplementedError(msg)
         elif source == 'kin':
-            raise NotImplementedError('Source for keyword {} not yet ' + \
-                    'implemented'.format(source))
+            msg = 'Source for keyword {} not yet implemented'.format(source)
+            raise NotImplementedError(msg)
         else:
-            raise NotImplementedError('Unkown keyword {} enocuntered in ' + \
-                    'SourceFactory.produce'.format(source)
-                    )
+            msg = 'Unkown keyword {} enocuntered in SourceFactory.produce'.format(source)
+            raise NotImplementedError(msg)

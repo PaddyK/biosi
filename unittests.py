@@ -3,6 +3,8 @@ import model.knowledgeBase as kb
 import emg.data
 import pandas as pd
 import numpy as np
+import online.publisher
+import online.subscriber
 
 def tcBuildModel():
     exp = kb.createKb()
@@ -201,5 +203,19 @@ def tc_nominal_windowfication():
     print type(wX), type(wZ)
     print wX.shape, wZ.shape
 
+def tc_pub_sub_scheme():
+    url = 'inproc://test'
+    source = online.sources.FileSource()
+    publisher = online.publisher.EmgPublisher(url,source)
+    subscriber = online.subscriber.EmgSubscriber(url)
+
+    url = 'inproc://test'
+    print 'start source'
+    source.start()
+    print 'start publisher'
+    publisher.start()
+    print 'start subscriber'
+    subscriber.start()
+
 if __name__ == '__main__':
-    tc_nominal_windowfication()
+    tc_pub_sub_scheme()

@@ -5,19 +5,20 @@ import sources
 from threading import Thread
 from nanomsg import PUB
 from nanomsg import Socket
-from Queue import Queue
+from Queue import Queue, Empty
 
 
 class AbstractPublisher(Thread):
     """ Abstract base class for concrete publisher classes
     """
 
-    def __init__(self, source, url):
+    def __init__(self, topic, source, url):
         """ Initializes object
         """
-        self._factory = sources.SourceFactory()
-        self._source = self._factory.produce(source)
+        super(AbstractPublisher, self).__init__()
+        self._source = source
         self._url = url
+        self._topic = topic
 
     @property
     def url(self):
@@ -50,9 +51,10 @@ class AbstractPublisher(Thread):
 
             while True:
                 try:
-                    sample = self.source.queue.get(timeout=1)
-                    message = '{:s}|{:s}'.format(source, sample)
+                    sample = self.source.queue.get(timeout=10)
+                    message = '{:s}|{:s}'.format(self._topic, sample)
                     pub_socket.send(message)
+                    self.source.queue.task_done()
                 except Empty as e:
                     print 'No new data available - terminating publisher'
                     break
@@ -62,7 +64,7 @@ class EmgPublisher(AbstractPublisher):
     """ Publisher for EMG data
     """
 
-    def __init__(self, url):
+    def __init__(self, url, queue):
         """ Initializes Object
 
             Args:
@@ -91,4 +93,4 @@ class EmgPublisher(AbstractPublisher):
                 `<address>` can be an IPv4, IPv6 address or DNS name, `<port>`
                 is the numeric port.
         """
-        super(EmgPublisher, self).__init__('emg', url)
+        super(EmgPublisher, self).__init__('emg', queue, url)
