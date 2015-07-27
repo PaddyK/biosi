@@ -716,3 +716,25 @@ def padzeros(sequences, as_list=True, front=False):
         tmp = [padded[i] for i in range(padded.shape[0])]
         padded = tmp
     return padded
+
+def one_hot(labels, hot_label, hot_value=1, cool_value=0):
+    """ Transforms a list of labels into *one hot* coding scheme
+
+        Args:
+            labels (List): List of labels to be transformed into one hot scheme
+            hot_label (object): Target label
+            hot_value (int, optional): Value for the target label
+            cool_value (int, optional): Value for all labels being not target
+                label
+
+        Returns:
+            one_hot, List of ints
+    """
+    one_hot = []
+    for label in labels:
+        if label == hot_label:
+            one_hot.append(hot_value)
+        else:
+            one_hot.append(cool_value)
+    return one_hot
+

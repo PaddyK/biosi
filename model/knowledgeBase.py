@@ -2,6 +2,13 @@ import model
 import numpy as np
 import pandas as pd
 import warnings
+import sys
+import os
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.realpath(os.path.join(__file__, os.path.pardir))),
+    'emg'
+    ))
+import emg.data
 
 def create_kb(data = None):
     if data is None:
@@ -432,7 +439,7 @@ def sport_kb():
     model.Trial(rec, 52, 4, 'max_extensor')
     return experiment
 
-def create_emg_eeg_kb(meta, session, markers=None):
+def create_emg_eeg_kb(meta, sessions, markers=None):
     """ Builds an `emgframework.model.model.Experiment` using information extracted from
         `P#_AllLifts.mat` and data extracted from `HS_P#_S#.mat`.
         Builds the model with EMG and EEG data only (Kinematic, Environmental and
@@ -445,11 +452,6 @@ def create_emg_eeg_kb(meta, session, markers=None):
         Returns:
             emgframework.model.model.Experiment
     """
-    if meta.loc[0, 'Part'] != session['subject']:
-        raise ValueError((
-            'Wrong meta and session data. Meta data from subject %i and ' +
-            'session data from subject %i' % (meta.loc[0, 'Part'], session['subject'])
-        ))
     cols = [col for col in meta.columns if col.startswith('t') or col.startswith('Dur_')]
     meta.loc[:,cols] = meta.loc[:, cols] - 2.002
     # Define mapping for weights and surface
@@ -461,13 +463,11 @@ def create_emg_eeg_kb(meta, session, markers=None):
     surface[1] = 'sandpaper'
     surface[2] = 'suede'
     surface[3] = 'silk'
-    # Select data of from metadata belonging to in `session` specified session
-    meta = meta.loc[meta.loc[:, 'Run'] == session['session'], :]
 
     # Create Experiment
     # ==================================================================================
     exp = model.Experiment()
-    subj = model.Subject(session['initials'])
+    subj = model.Subject(sessions[0]['initials'])
 
     # Creating Setup and Modalities
     # ==================================================================================
@@ -486,103 +486,107 @@ def create_emg_eeg_kb(meta, session, markers=None):
             'Pz3 - position z sensor 3',
             'Pz4 - position z sensor 4'
             ]
-    mod_emg = model.Modality(setup, session['emg_sr'], 'emg')
-    for s in session['emg_data'].columns:
+    mod_emg = model.Modality(setup, sessions[0]['emg_sr'], 'emg')
+    for s in sessions[0]['emg_data'].columns:
         model.Sample(mod_emg, s)
-    mod_eeg = model.Modality(setup, session['eeg_sr'], 'eeg')
-    for s in session['eeg_data'].columns:
+    mod_eeg = model.Modality(setup, sessions[0]['eeg_sr'], 'eeg')
+    for s in sessions[0]['eeg_data'].columns:
         model.Sample(mod_eeg, s)
-    mod_kin = model.Modality(setup, session['kin_sr'], 'kin')
-    for s in session['kin_data'].columns:
+    mod_kin = model.Modality(setup, sessions[0]['kin_sr'], 'kin')
+    for s in sessions[0]['kin_data'].columns:
         if s in kin_cols:
             model.Sample(mod_kin, s)
 
     # Creating Session, Recordings and Trials
     # ==================================================================================
-    sess = model.Session(exp, setup, subj, 'session_' + str(session['session']))
-    # Creating Recordings
-    # ----------------------------------------------------------------------------------
-    rec_emg = model.Recording(
-            sess,
-            data=session['emg_data'],
-            identifier='emg_data',
-            modality = mod_emg.Identifier
-        )
-    rec_eeg = model.Recording(
-            sess,
-            data=session['eeg_data'],
-            identifier='eeg_data',
-            modality = mod_eeg.Identifier
-        )
-    rec_kin = model.Recording(
-            sess,
-            data=session['kin_data'].loc[:, kin_cols],
-            identifier='kin_data',
-            modality = mod_kin.Identifier
+    for session in sessions:
+        # Select data of from metadata belonging to in `session` specified session
+        meta_session = meta.loc[meta.loc[:, 'Run'] == session['session'], :]
+        meta_session.reset_index(inplace=True)
+        sess = model.Session(exp, setup, subj, 'session_' + str(session['session']))
+        # Creating Recordings
+        # ----------------------------------------------------------------------------------
+        rec_emg = model.Recording(
+                sess,
+                data=session['emg_data'],
+                identifier='emg_data',
+                modality = mod_emg.Identifier
             )
-
-    # Creating Trials
-    # ----------------------------------------------------------------------------------
-    for i in range(meta.shape[0]):
-        start = meta.loc[i, 'StartTime']
-        if i == meta.shape[0] - 1:
-            duration = float(session['emg_data'].shape[0])/4000. - meta.loc[i, 'StartTime']
-        else:
-            duration = meta.loc[i + 1, 'StartTime'] - meta.loc[i, 'StartTime']
-
-        if (start + duration) * session['emg_sr'] > session['emg_data'].shape[0]:
-            warning = (
-                    'WARNING - EMG data does not contain enough data points. Has ' +
-                    '{samples:d} data points but {needed:d} are required. Skipped ' +
-                    'Lift {lift:d}'
-                ).format(
-                        samples = session['emg_data'].shape[0],
-                        needed = int((start + duration) * session['emg_sr']),
-                        lift = i
-                    )
-            warnings.warn(warning)
-            continue
-
-        if (start + duration) *session['eeg_sr'] > session['eeg_data'].shape[0]:
-            warning = (
-                    'WARNING - EEG data does not contain enough data points. Has ' +
-                    '{samples:d} data points but {needed:d} are required. Skipped ' +
-                    'Lift {lift:d}'
-                ).format(
-                        samples = session['eeg_data'].shape[0],
-                        needed = int((start + duration) * session['eeg_sr']),
-                        lift = i
-                    )
-            warnings.warn(warning)
-            continue
-
-        t_emg = model.Trial(
-                recording=rec_emg,
-                start=start,
-                duration=duration,
-                identifier =  'emg_lift' + str(i),
-                label = weights[meta.loc[i, 'CurW']] + '_' + surface[meta.loc[i, 'CurS']]
+        rec_eeg = model.Recording(
+                sess,
+                data=session['eeg_data'],
+                identifier='eeg_data',
+                modality = mod_eeg.Identifier
             )
-        t_eeg = model.Trial(
-                recording=rec_eeg,
-                start=start,
-                duration=duration,
-                identifier =  'eeg_lift' + str(i),
-                label = weights[meta.loc[i, 'CurW']] + '_' + surface[meta.loc[i, 'CurS']]
-            )
-        t_kin = model.Trial(
-                recording=rec_kin,
-                start=start,
-                duration=duration,
-                identifier =  'kin_lift' + str(i),
-                label = weights[meta.loc[i, 'CurW']] + '_' + surface[meta.loc[i, 'CurS']]
-            )
+        rec_kin = model.Recording(
+                sess,
+                data=session['kin_data'].loc[:, kin_cols],
+                identifier='kin_data',
+                modality = mod_kin.Identifier
+                )
 
-        if markers is not None:
-            for marker in markers:
-                t_emg.add_marker((meta.loc[i, marker], marker))
-                t_eeg.add_marker((meta.loc[i, marker], marker))
-                t_kin.add_marker((meta.loc[i, marker], marker))
+        # Creating Trials
+        # ----------------------------------------------------------------------------------
+        for i in range(meta_session.shape[0]):
+            start = meta_session.loc[i, 'StartTime']
+            if i == meta_session.shape[0] - 1:
+                duration = float(session['emg_data'].shape[0])/4000. - meta_session.loc[i, 'StartTime']
+            else:
+                duration = meta_session.loc[i + 1, 'StartTime'] - meta_session.loc[i, 'StartTime']
+
+            if (start + duration) * session['emg_sr'] > session['emg_data'].shape[0]:
+                warning = (
+                        'WARNING - EMG data does not contain enough data points. Has ' +
+                        '{samples:d} data points but {needed:d} are required. Skipped ' +
+                        'Lift {lift:d}'
+                    ).format(
+                            samples = session['emg_data'].shape[0],
+                            needed = int((start + duration) * session['emg_sr']),
+                            lift = i
+                        )
+                warnings.warn(warning)
+                continue
+
+            if (start + duration) *session['eeg_sr'] > session['eeg_data'].shape[0]:
+                warning = (
+                        'WARNING - EEG data does not contain enough data points. Has ' +
+                        '{samples:d} data points but {needed:d} are required. Skipped ' +
+                        'Lift {lift:d}'
+                    ).format(
+                            samples = session['eeg_data'].shape[0],
+                            needed = int((start + duration) * session['eeg_sr']),
+                            lift = i
+                        )
+                warnings.warn(warning)
+                continue
+
+            t_emg = model.Trial(
+                    recording=rec_emg,
+                    start=start,
+                    duration=duration,
+                    identifier =  'emg_lift' + str(i),
+                    label = weights[meta_session.loc[i, 'CurW']]# + '_' + surface[meta_session.loc[i, 'CurS']]
+                )
+            t_eeg = model.Trial(
+                    recording=rec_eeg,
+                    start=start,
+                    duration=duration,
+                    identifier =  'eeg_lift' + str(i),
+                    label = weights[meta_session.loc[i, 'CurW']]# + '_' + surface[meta_session.loc[i, 'CurS']]
+                )
+            t_kin = model.Trial(
+                    recording=rec_kin,
+                    start=start,
+                    duration=duration,
+                    identifier =  'kin_lift' + str(i),
+                    label = weights[meta_session.loc[i, 'CurW']]# + '_' + surface[meta_session.loc[i, 'CurS']]
+                )
+
+            if markers is not None:
+                for marker in markers:
+                    t_emg.add_marker((meta_session.loc[i, marker], marker))
+                    t_eeg.add_marker((meta_session.loc[i, marker], marker))
+                    t_kin.add_marker((meta_session.loc[i, marker], marker))
     return exp
 
 def create_kb_for_testing():
