@@ -716,3 +716,28 @@ def padzeros(sequences, as_list=True, front=False):
         tmp = [padded[i] for i in range(padded.shape[0])]
         padded = tmp
     return padded
+
+def one_hot(labels, hot_labels, hot_value=1, cool_value=0):
+    """ Transforms a list of labels into *one hot* coding scheme. Return value
+        will be an array of `len(labels) x len(hot_labels)`.
+
+        The order of labels in `hot_labels` determines the one hot coding
+        scheme.
+
+        Args:
+            labels (List): List of labels to be transformed into one hot scheme
+            hot_labels (List): Target labels
+            hot_value (int, optional): Value for the target label
+            cool_value (int, optional): Value for all labels being not target
+                label
+
+        Returns:
+            array
+    """
+    one_hot = np.repeat(cool_value, len(hot_labels) * len(labels)).reshape(
+            len(labels), len(hot_labels)
+            )
+    for i in range(len(labels)):
+        one_hot[i, hot_labels.index(labels[i])] = hot_value
+    return one_hot
+

@@ -214,30 +214,50 @@ class Experiment:
 
         return df
 
-    def get_data_by_labels(self, labels):
+    def get_data_by_labels(self, sessions=None, recordings=None, labels=None, as_list=True,
+            pandas=True):
         """ Returns data of all trials with the labels specified in ''labels''.
             Returned DataFrame does not have an MultiIndex
 
             Args:
-                labels (list): List with class labels
+                sessions (list, optional): List of session Ids
+                labels (list, optional): List with class labels
+                recordings (list, optional): List of identifiers of recordings
+                as_list (boolean, optional): Wether to return labels and
+                    sequence as lists
+                pandas (boolean, optional): Whether to return data as
+                    pandas.core.frame.DataFrame or as numpy.ndarray
 
             Returns:
-                data (pandas.core.frame.DataFrame)
-                labels (List): List with one label per sample in data
+                sequences, List, Pandas data frame or numpy ndarray
+                labels, List, Pandas data frame or numpy ndarray 
         """
-        df = None
-        retLbls = None
-        for idx in self._session_order:
-            d, l = self.Sessions[idx].get_data_by_labels(labels)
-            if df is None:
-                df = d
-                retLbls = l
-            else:
-                df = pd.concat([df, d])
+        if sessions is None:
+            sessions = self._session_order
 
-                retLbls = np.concatenate((retLbls, l))
-
-        return df, retLbls
+        sequences = None
+        labels = None
+        for session in sessions:
+            if session in self._session_order:
+                d, l = self.Sessions[session].get_data_by_labels(
+                        labels=labels,
+                        recordings=recordings,
+                        as_list=as_list,
+                        pandas=pandas
+                        )
+                if sequences is None:
+                    sequences = d
+                    labels = l
+                elif as_list:
+                    sequences.extend(d)
+                    labels.extend(l)
+                elif pandas:
+                    sequences = pd.concat([sequences, d])
+                    labels = pd.concat([labels, l])
+                else:
+                    sequences = np.concatenate([sequences, d])
+                    labels = np.concatenate([labels, l])
+        return sequences, labels
 
     def get_data_for_breeze(self, labels=None):
         """ Returns data in format to directly feed it to
@@ -883,29 +903,48 @@ class Session:
                 df = pd.concat([df, self.Recordings[idx].get_all_data()])
         return df
 
-    def get_data_by_labels(self, labels):
+    def get_data_by_labels(self, recordings=None, labels=None, as_list=True,
+            pandas=True):
         """ Returns data of all trials with the labels specified in ''labels''.
             Returned DataFrame does not have an MultiIndex
 
             Args:
-                labels (list): List with class labels
+                labels (list, optional): List with class labels
+                recordings (list, optional): List of identifiers of recordings
+                as_list (boolean, optional): Wether to return labels and
+                    sequence as lists
+                pandas (boolean, optional): Whether to return data as
+                    pandas.core.frame.DataFrame or as numpy.ndarray
 
             Returns:
-                data (pandas.core.frame.DataFrame)
-                labels (numpyp.ndarray): Array with one label per sample in data
+                sequences, List, Pandas data frame or numpy ndarray
+                labels, List, Pandas data frame or numpy ndarray 
         """
-        df = None
-        retLbls = None
-        for idx in self._recording_order:
-            d, l = self.Recordings[idx].get_data_by_labels(labels)
-            if df is None:
-                df = d
-                retLbls = l
-            else:
-                df = pd.concat([df, d])
-                retLbls = np.concatenate((retLbls, l))
+        if recordings is None:
+            recordings = self._recording_order
 
-        return df, retLbls
+        sequences = None
+        labels = None
+        for recording in recordings:
+            if recording in self._recording_order:
+                d, l = self.Recordings[recording].get_data_by_labels(
+                        labels=labels,
+                        as_list=as_list,
+                        pandas=pandas
+                        )
+                if sequences is None:
+                    sequences = d
+                    labels = l
+                elif as_list:
+                    sequences.extend(d)
+                    labels.extend(l)
+                elif pandas:
+                    sequences = pd.concat([sequences, d])
+                    labels = pd.concat([labels, l])
+                else:
+                    sequences = np.concatenate([sequences, d])
+                    labels = np.concatenate([labels, l])
+        return sequences, labels
 
     def get_duration(self, modality=None):
         """ Returns session's duration depending on recordings associated with
