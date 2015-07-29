@@ -12,13 +12,25 @@ class AbstractPublisher(Thread):
     """ Abstract base class for concrete publisher classes
     """
 
-    def __init__(self, topic, source, url):
+    def __init__(self, topic, url):
         """ Initializes object
         """
         super(AbstractPublisher, self).__init__()
-        self._source = source
+        self._queue = Queue()
         self._url = url
-        self._topic = topic
+        self._topic = topic + '|'
+
+    @property
+    def queue(self):
+        """ Getter property for queue attribute.
+
+            Queue contains messages (already serialized) to send it over the
+            network
+
+            Returns:
+                Queue.queue
+        """
+        return self._queue
 
     @property
     def url(self):
@@ -31,15 +43,6 @@ class AbstractPublisher(Thread):
         """
         return self._url
 
-    @property
-    def source(self):
-        """ Returns data source of publisher
-
-            Returns:
-                online.sources.AbstractSource
-        """
-        return self._source
-
     def run(self):
         """ Starts Thread
 
@@ -51,10 +54,11 @@ class AbstractPublisher(Thread):
 
             while True:
                 try:
-                    sample = self.source.queue.get(timeout=10)
-                    message = '{:s}|{:s}'.format(self._topic, sample)
+                    sample = self.queue.get(timeout=10)
+                    message = self._topic + sample
                     pub_socket.send(message)
-                    self.source.queue.task_done()
+                    self.queue.task_done()
+                    print 'PUBLISHER: {}'.format(self.queue.qsize())
                 except Empty as e:
                     print 'No new data available - terminating publisher'
                     break
@@ -64,7 +68,7 @@ class EmgPublisher(AbstractPublisher):
     """ Publisher for EMG data
     """
 
-    def __init__(self, url, queue):
+    def __init__(self, url):
         """ Initializes Object
 
             Args:
@@ -93,4 +97,4 @@ class EmgPublisher(AbstractPublisher):
                 `<address>` can be an IPv4, IPv6 address or DNS name, `<port>`
                 is the numeric port.
         """
-        super(EmgPublisher, self).__init__('emg', queue, url)
+        super(EmgPublisher, self).__init__('emg', url)

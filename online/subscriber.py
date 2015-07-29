@@ -27,6 +27,15 @@ import matplotlib.pyplot as plt
 #        ETERM: 'The library is terminating.'
 #        }
 
+def array_iterator(msgclass, subscriber):
+    while True:
+        message = subscriber.queue.get()
+        parsed = msgclass.deserialize(message)
+        subscriber.queue.task_done()
+#        print 'SUBSCRIBER - GET: {}'.format(subscriber.queue.qsize())
+        yield parsed
+
+
 class AbstractSubscriber(Thread):
     """ Abstract base class for concrete subscribers
     """
@@ -41,6 +50,7 @@ class AbstractSubscriber(Thread):
         super(AbstractSubscriber, self).__init__()
         self._url = url
         self._topic = topic + '|' # Momentarily used as separator <topic>|<body>
+        self._qeueu = Queue()
 
     @property
     def url(self):
@@ -50,6 +60,17 @@ class AbstractSubscriber(Thread):
                 String
         """
         return self._url
+
+    @property
+    def queue(self):
+        """ Returns objects *queue* attribute.
+
+            queue contains messages as they are received by subscriber.
+            Messages are not preprocessed or deserialized.
+
+            Return Queue.Queue
+        """
+        return self._qeueu
 
     @property
     def topic(self):
@@ -63,31 +84,15 @@ class AbstractSubscriber(Thread):
     def run(self):
         """ Starts Thread
         """
-        set = []
-        start = 0
 
         with Socket(SUB) as sub_socket:
             sub_socket.connect(self.url)
             sub_socket.set_string_option(SUB, SUB_SUBSCRIBE, self.topic)
-            plt.ion()
-            plt.show()
             while True:
                 try:
                     message = sub_socket.recv()
-                    msg = message.split('|')
-                    data = json.loads(msg[1])
-
-                    if len(set) > 8000:
-                        set.pop()
-                        start += 1
-                    set.append(data)
-                    x = range(start, start + len(set))
-
-                    plt.clf()
-                    plt.plot(x, set)
-                    plt.draw()
-
-                    print 'SUBSCRIBER: {}'.format(message)
+                    self.queue.put(message[len(self.topic):])
+                    print 'SUBSCRIBER: {}'.format(self.queue.qsize())
                 except NanoMsgAPIError as e:
                     print 'Error during receiving of data in AbstractSubscriber ' + \
                             'Error was : {}'.format(e.message)
@@ -127,3 +132,5 @@ class EmgSubscriber(AbstractSubscriber):
                 is the numeric port.
         """
         super(EmgSubscriber, self).__init__(url, 'emg' )
+
+

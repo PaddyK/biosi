@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import online.publisher
 import online.subscriber
+from online.messageclasses import ArrayMessage
+import matplotlib.pyplot as plt
 
 def tcBuildModel():
     exp = kb.createKb()
@@ -205,8 +207,8 @@ def tc_nominal_windowfication():
 
 def tc_pub_sub_scheme():
     url = 'inproc://test'
-    source = online.sources.FileSource()
-    publisher = online.publisher.EmgPublisher(url,source)
+    publisher = online.publisher.EmgPublisher(url)
+    source = online.sources.FileSource(publisher, 4000)
     subscriber = online.subscriber.EmgSubscriber(url)
 
     url = 'inproc://test'
@@ -216,6 +218,26 @@ def tc_pub_sub_scheme():
     publisher.start()
     print 'start subscriber'
     subscriber.start()
+
+    plt.ion()
+    plt.show()
+    set = None
+    start = 0
+    for arrmsg in online.subscriber.array_iterator(ArrayMessage, subscriber):
+        msgdata = arrmsg.data
+        if set is None:
+            set = msgdata
+
+        if set.shape[0] > 16000:
+            set = set[1000:]
+            start += 0.25
+        set = np.row_stack((set, msgdata))
+        x = np.arange(set.shape[0])/4000. + start
+
+        plt.clf()
+        plt.ylim(-2,2)
+        plt.plot(x, set)
+        plt.draw()
 
 if __name__ == '__main__':
     tc_pub_sub_scheme()

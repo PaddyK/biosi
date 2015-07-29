@@ -8,25 +8,18 @@ from Queue import Queue
 import json
 import cPickle
 import time
+from messageclasses import ArrayMessage
 
 class AbstractSource(Thread):
     """ Abstract base class for sources
     """
 
-    def __init__(self):
+    def __init__(self, publisher, samplingrate):
         """ Initializes object
         """
         super(AbstractSource, self).__init__()
-        self._queue = Queue()
-
-    @property
-    def queue(self):
-        """ Getter property for queue attribute
-
-            Returns:
-                Queue.queue
-        """
-        return self._queue
+        self._samplingrate = samplingrate
+        self._publisher = publisher
 
     def acquire_data(self):
         pass
@@ -42,7 +35,8 @@ class AbstractSource(Thread):
             if sample is None:
                 print 'No new data available - shutting down data source'
                 break
-            self._queue.put(self.serialize(sample))
+            message = ArrayMessage(sample)
+            self._publisher.queue.put(message.serialize(4000))
 
     def serialize(self, sample):
         """ Serializes object to send it over the wire
@@ -60,8 +54,8 @@ class FileSource(AbstractSource):
     """ Reads data from a file and makes it available.
     """
 
-    def __init__(self):
-        super(FileSource, self).__init__()
+    def __init__(self, publisher, samplingrate):
+        super(FileSource, self).__init__(publisher, samplingrate)
         self._file = 'data/Proband_01.pkl'
         """ Path to pickled numpy ndarray
         """
@@ -85,10 +79,10 @@ class FileSource(AbstractSource):
         if self._data.shape[0] <= 1:
             return None
 
-        line = self._data[0, :]
-        self._data = self._data[1:, :]
-        time.sleep(0.001)
-        return line.tolist()
+        arr = self._data[:ArrayMessage.duration * 4000]
+        self._data = self._data[ArrayMessage.duration * 4000:]
+        time.sleep(ArrayMessage.duration)
+        return arr
 
 
 class SourceFactory(object):
