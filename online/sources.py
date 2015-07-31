@@ -9,6 +9,13 @@ import json
 import cPickle
 import time
 from messageclasses import ArrayMessage
+import sys
+import os
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.realpath(os.path.join(__file__, os.path.pardir))),
+    'emg'
+    ))
+import emg.data
 
 class AbstractSource(Thread):
     """ Abstract base class for sources
@@ -52,17 +59,19 @@ class AbstractSource(Thread):
 
 class FileSource(AbstractSource):
     """ Reads data from a file and makes it available.
+
+        currently from WAY-GAAL experiment thing a session
     """
 
-    def __init__(self, publisher, samplingrate):
+    def __init__(self, publisher, samplingrate, modality):
         super(FileSource, self).__init__(publisher, samplingrate)
-        self._file = 'data/Proband_01.pkl'
+        self._file = 'data/P1/HS_P1_S1.mat'
         """ Path to pickled numpy ndarray
         """
         self._data = None
         try:
             with open(self._file, 'rb') as fh:
-                self._data = cPickle.load(fh)
+                self._data = emg.data.read_session(self._file)[modality].values
         except Exception as e:
             print 'Error while opening file {}. Error was {}'.format(
                     self._file, e.message
@@ -79,8 +88,8 @@ class FileSource(AbstractSource):
         if self._data.shape[0] <= 1:
             return None
 
-        arr = self._data[:ArrayMessage.duration * 4000]
-        self._data = self._data[ArrayMessage.duration * 4000:]
+        arr = self._data[:int(ArrayMessage.duration * self._samplingrate)]
+        self._data = self._data[int(ArrayMessage.duration * self._samplingrate):]
         time.sleep(ArrayMessage.duration)
         return arr
 

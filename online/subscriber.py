@@ -134,3 +134,11 @@ class EmgSubscriber(AbstractSubscriber):
         super(EmgSubscriber, self).__init__(url, 'emg' )
 
 
+class KinSubscriber(AbstractSubscriber):
+    """ Subscriber for Kinematic data
+    """
+
+    def __init__(self, url):
+        """ Initiates object
+        """
+        super(KinSubscriber, self).__init__(url, 'kin')

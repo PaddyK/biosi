@@ -98,3 +98,12 @@ class EmgPublisher(AbstractPublisher):
                 is the numeric port.
         """
         super(EmgPublisher, self).__init__('emg', url)
+
+class KinPublisher(AbstractPublisher):
+    """ Publisher for kinematic data
+    """
+
+    def __init__(self, url):
+        """ Initiates object
+        """
+        super(KinPublisher, self).__init__('kin', self)

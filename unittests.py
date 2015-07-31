@@ -207,8 +207,9 @@ def tc_nominal_windowfication():
 
 def tc_pub_sub_scheme():
     url = 'inproc://test'
+    f = 500
     publisher = online.publisher.EmgPublisher(url)
-    source = online.sources.FileSource(publisher, 4000)
+    source = online.sources.FileSource(publisher, f, 'kin_data')
     subscriber = online.subscriber.EmgSubscriber(url)
 
     url = 'inproc://test'
@@ -232,10 +233,10 @@ def tc_pub_sub_scheme():
             set = set[1000:]
             start += 0.25
         set = np.row_stack((set, msgdata))
-        x = np.arange(set.shape[0])/4000. + start
+        x = np.arange(set.shape[0])/f + start
 
         plt.clf()
-        plt.ylim(-2,2)
+#        plt.ylim(-2,2)
         plt.plot(x, set)
         plt.draw()
 
