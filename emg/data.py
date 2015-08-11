@@ -618,16 +618,16 @@ def windowify_labeled_data_set(sequences, targets, length, offset=0, as_list=Tru
     return w_sequences, w_targets
 
 def windowify_nominal_labeled_data_set(sequences, labels, length, offset=1,
-        as_list=True):
+        as_list=True, stepwise=False):
     """ Windowifies sequences and broadcasts respective label accordingly.
 
-        It is expected that each sequence has one label in labels. Each
+        It is expected that each sequence has one label in `labels`. Each
         sequence gets windowified and the respective label is added accordingly
         for each window.
 
         Args:
             sequences (List): List of numpy.ndarrays
-            labels (List): List of strings
+            labels (List): List of labels (int, string, ...)
             length (int): Number samples each window contains
             offset (int, optional): Distance in sample between beginning of two
                 consecutive windows
@@ -637,12 +637,11 @@ def windowify_nominal_labeled_data_set(sequences, labels, length, offset=1,
         Note:
             If `as_list=False` three-dimensional array is returned with
             *num trials x windowsize x num features*.
-            Labels are also returned as three dimensional array with shape
-            *num trials x windowsize x 1*, i.e. each sample has a trial.
+            Labels are returned as two dimensional array with shape
+            *num trials x dim_labels*.
 
             If `as_list=True` windows are returned as list and labels are
-            returned as list. As opposed to `as_list=True`, each **window**
-            has one label (and *not* each sample!)
+            returned as list.
 
         Returns:
             w_sequences, List of Arrays or 3D array
@@ -673,25 +672,23 @@ def windowify_nominal_labeled_data_set(sequences, labels, length, offset=1,
         # Concatenate windows along the first axis to get one big array
         # Copy label for each sample in each window and also create a
         # three  dimensional array with the same two first dimensions
+        print windows[0].shape, labels[0]
         w_sequences = windows[0]
-        w_labels = np.repeat(
-                labels[0],
-                windows[0].shape[0] * windows[0].shape[1]
-                ).reshape(windows[0].shape[0], windows[0].shape[1])
+        w_labels = np.tile(labels[0], windows[0].shape[0]).reshape(
+                windows[0].shape[0], labels[0].shape[0]
+                )
         for i in range(1, len(windows)):
             w_sequences = np.concatenate((w_sequences, windows[i]), axis=0)
             w_labels = np.concatenate((
                     w_labels,
-                    np.repeat(
-                        labels[i],
-                        windows[i].shape[0] * windows[i].shape[1]
-                        ).reshape(
-                            windows[i].shape[0],
-                            windows[i].shape[1]
-                            )
-                    ),axis=0
+                    np.tile(labels[i], windows[i].shape[0]).reshape(
+                        windows[i].shape[0], labels[i].shape[0]
+                        )),axis=0
                     )
-        w_labels = w_labels[:, :, np.newaxis]
+                # Create a two dimensional array, number of rows is number of
+                # windows and number of columns is number dimensionality of
+                # labels
+
     return w_sequences, w_labels
 
 def padzeros(sequences, as_list=True, front=False):
@@ -738,6 +735,7 @@ def one_hot(labels, hot_labels, hot_value=1, cool_value=0):
             len(labels), len(hot_labels)
             )
     for i in range(len(labels)):
-        one_hot[i, hot_labels.index(labels[i])] = hot_value
+        if labels[i] in hot_labels:
+            one_hot[i, hot_labels.index(labels[i])] = hot_value
     return one_hot
 
