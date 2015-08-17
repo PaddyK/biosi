@@ -41,7 +41,7 @@ class LinReg(object):
         elif basis_fcts == 'sigmoid':
             return lambda X: np.divide(1., np.add(1., np.exp(-X)))
         elif basis_fcts == 'polynomial':
-            return lambda X, order: np.power(X, order)
+            return lambda X: np.power(X, np.arange(X.shape[1]))
         else:
             return basis_fcts
 
@@ -56,22 +56,33 @@ class LinReg(object):
                 array of shape (classes, features)
         """
         X_ = self._psi(X)
-        g = np.mean(np.dot(np.dot(X_, W).T, X_), axis=1)
-        # [(n x db)*(db x dz)] --> (n, dz) --> (dz, n)*(n, db) --> (dz, n) --> (dz, 1)
-        return g
+        # batchsize x dim_basis
+        Y = np.dot(X_, self._W) # (batchsize, dim_basis) * (dim_basis, dim_out)
+        # batchsize x dimout
+        D = np.subtract(Z, Y)
+        # (batchsize, dim_out)
+        g = np.dot(D.T, X_) # (dim_out, batchsize) * (batchsize, dim_basis)
+        # (dim_out, dim_basis)
+        g = np.divide(g, np.sqrt(np.sum(np.power(g, 2), axis=1)))
+        # (dim_out, dim_basis) / (1, dim_basis) make gradient for each feature
+        # unitlength
+        return g.T
+        # (dim_basis, dim_out)
 
     def loss(self, X, Z):
         """ Let Y be the prediction
         """
-        Y = self.predict(X, Z)
-        # (n, dz)
+        assert Z.ndim > 1, 'Target must be two dimensional (even if one dim ' + \
+            'is only 1)'
+        Y = self.predict(X)
+        # (batchsize, dim_out)
         D = np.subtract(Z, Y)
-        # (n, dz)
-        loss = np.mean(np.sum(np.power(D, 2), axis=0))
+        # (batchsize, dim_out)
+        loss = np.mean(np.sum(np.power(D, 2)))
         # (n, dz) --> (dz,) --> (1,)
-        return np.mean(np.dot(self.predict(X,Z).T, Z))
+        return loss
 
-    def train(self, X, Z, alpha=0.01):
+    def train(self, X, Z, alpha=0.001):
         """ Performs online learning step using gradient descend on a minibatch
 
             Args:
@@ -80,8 +91,11 @@ class LinReg(object):
                     one row one sample)
                 alpha (float, optional): Learning Rate
         """
+        assert Z.ndim > 1, 'Target must be two dimensional (even if one dim ' + \
+            'is only 1)'
         grad = self.grad(X, Z)
-        self._W = self.W - alpha * grad
+        corr = alpha * grad
+        self._W = self._W + corr
 
     def predict(self, X):
         """ Predicts values for given dataset
@@ -94,6 +108,6 @@ class LinReg(object):
         """
         """ Predicts value for a single vector
         """
-        Y = np.dot(self._psi(X), W)
+        Y = np.dot(self._psi(X), self._W)
         return Y
 
