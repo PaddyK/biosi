@@ -1,6 +1,7 @@
 """ Online version of regression
 """
 import numpy as np
+import logging
 
 class LinReg(object):
     """ Implements online version of linear regression according
@@ -56,6 +57,9 @@ class LinReg(object):
                 array of shape (classes, features)
         """
         X_ = self._psi(X)
+        logging.debug('LinReg.grad - Shape of transformed data: ' + \
+                '{}'.format(X_.shape)
+                )
         # batchsize x dim_basis
         Y = np.dot(X_, self._W) # (batchsize, dim_basis) * (dim_basis, dim_out)
         # batchsize x dimout
@@ -63,7 +67,18 @@ class LinReg(object):
         # (batchsize, dim_out)
         g = np.dot(D.T, X_) # (dim_out, batchsize) * (batchsize, dim_basis)
         # (dim_out, dim_basis)
-        g = np.divide(g, np.sqrt(np.sum(np.power(g, 2), axis=1)))
+        logging.debug('LinReg.grad - Shape gradient before normalization: ' + \
+                '{}'.format(g.shape)
+                )
+        ft_magnitudes = np.sqrt(np.sum(np.power(g, 2), axis=1))
+        logging.debug('LinReg.grad - magnitudes: {}'.format(ft_magnitudes))
+        # Take magnitude for each output dimension
+        g = np.divide(g, ft_magnitudes)
+        # ``ft_magnitudes`` is row vector of dimensionality ``dim_out``
+        # Therefore transpose gradient
+        logging.debug('LinReg.grad - Shape gradient after normalization: ' + \
+                '{}'.format(g.shape)
+                )
         # (dim_out, dim_basis) / (1, dim_basis) make gradient for each feature
         # unitlength
         return g.T
@@ -93,9 +108,17 @@ class LinReg(object):
         """
         assert Z.ndim > 1, 'Target must be two dimensional (even if one dim ' + \
             'is only 1)'
+        logging.debug(
+                'LinReg.train - Shape of weights before training: ' + \
+                '{}'.format(self._W.shape)
+                 )
         grad = self.grad(X, Z)
         corr = alpha * grad
         self._W = self._W + corr
+        logging.debug(
+                'LinReg.train - Shape of weights after ' + \
+                'training: {}'.format(self._W.shape)
+                )
 
     def predict(self, X):
         """ Predicts values for given dataset
@@ -108,6 +131,9 @@ class LinReg(object):
         """
         """ Predicts value for a single vector
         """
-        Y = np.dot(self._psi(X), self._W)
+        X_ = self._psi(X)
+        logging.debug('LinReg.predict - shape of weights: {}'.format(self._W.shape))
+        logging.debug('LinReg.predict - shape of weights: {}'.format(X_.shape))
+        Y = np.dot(X_, self._W)
         return Y
 
