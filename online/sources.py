@@ -63,7 +63,7 @@ class AbstractSource(Thread):
                 print 'No new data available - shutting down data source'
                 break
             message = ArrayMessage(sample)
-            self._publisher.queue.put(message.serialize(4000))
+            self._publisher.queue.put(message.serialize(self.samplingrate))
 
             if self._abort is not None:
                 if self._abort.is_set():
