@@ -131,3 +131,4 @@ class KinPublisher(AbstractPublisher):
         """ Initiates object
         """
         super(KinPublisher, self).__init__('kin', url, name, abort=abort)
+
