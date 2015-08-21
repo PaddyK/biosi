@@ -11,7 +11,6 @@ import threading
 import logging
 import time
 
-logging.basicConfig(level=logging.DEBUG)
 
 class DummyPublisher(object):
     def __init__(self):
@@ -19,6 +18,7 @@ class DummyPublisher(object):
 
 class TestFileSource(object):
     def test_data_acquisition(self):
+        logging.basicConfig(level=logging.DEBUG)
         p = DummyPublisher()
         e = threading.Event()
         filesource = FileSource(p, 4000, 'emg_data', abort=e)
@@ -32,3 +32,5 @@ class TestFileSource(object):
         e.set()
         print 'Waiting until thread terminates'
 
+if __name__ == '__main__':
+    TestFileSource().test_data_acquisition()

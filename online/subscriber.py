@@ -1,6 +1,7 @@
 """ Module containing subscriber classes for different data sources
 """
 import online
+from threading import currentThread
 from threading import Thread
 from nanomsg import SUB
 from nanomsg import SUB_SUBSCRIBE
@@ -10,6 +11,7 @@ from nanomsg import NanoMsgAPIError
 from Queue import Queue
 import json
 import matplotlib.pyplot as plt
+import logging
 
 #error_codes = {
 #        EBADF: 'The provided socket is invalid.',
@@ -40,17 +42,20 @@ class AbstractSubscriber(Thread):
     """ Abstract base class for concrete subscribers
     """
 
-    def __init__(self, url, topic):
+    def __init__(self, url, topic, name, abort=None):
         """ Initiates object
 
             Args:
                 url (String): URL to publisher socket
                 topic (String): Topic to subscribe to
+                name (String): Name of Thread
+                abort (threading.Event): Inidcates if Thread should abort
         """
-        super(AbstractSubscriber, self).__init__()
+        super(AbstractSubscriber, self).__init__(name=name)
         self._url = url
         self._topic = topic + '|' # Momentarily used as separator <topic>|<body>
         self._qeueu = Queue()
+        self._abort = abort
 
     @property
     def url(self):
@@ -81,6 +86,11 @@ class AbstractSubscriber(Thread):
         """
         return self._topic
 
+    def _cleanup(self):
+        """ Cleans when Thread exits
+        """
+        pass
+
     def run(self):
         """ Starts Thread
         """
@@ -92,17 +102,27 @@ class AbstractSubscriber(Thread):
                 try:
                     message = sub_socket.recv()
                     self.queue.put(message[len(self.topic):])
-                    print 'SUBSCRIBER: {}'.format(self.queue.qsize())
+                    logging.debug('SUBSCRIBER: {}'.format(self.queue.qsize()))
                 except NanoMsgAPIError as e:
-                    print 'Error during receiving of data in AbstractSubscriber ' + \
-                            'Error was : {}'.format(e.message)
+                    logging.info('Error during receiving of data in ' + \
+                            'AbstractSubscriber Error was : {}'.format(e.message))
+                    self._cleanup()
+                    self._abort.set()
                     break
+
+                if self._abort is not None:
+                    if self._abort.is_set():
+                        logging.info('{} - Abort event is set. Exit...'.format(
+                                currentThread().getName()
+                                ))
+                        self._cleanup()
+                        break
 
 class EmgSubscriber(AbstractSubscriber):
     """ Subscriber for EMG data
     """
 
-    def __init__(self, url):
+    def __init__(self, url, name='EmgSubscriber', abort=None):
         """ Initiates object
 
             Args:
@@ -131,14 +151,14 @@ class EmgSubscriber(AbstractSubscriber):
                 `<address>` can be an IPv4, IPv6 address or DNS name, `<port>`
                 is the numeric port.
         """
-        super(EmgSubscriber, self).__init__(url, 'emg' )
+        super(EmgSubscriber, self).__init__(url, 'emg', name, abort=abort)
 
 
 class KinSubscriber(AbstractSubscriber):
     """ Subscriber for Kinematic data
     """
 
-    def __init__(self, url):
+    def __init__(self, url, name='KinSubscriber', abort=None):
         """ Initiates object
         """
-        super(KinSubscriber, self).__init__(url, 'kin')
+        super(KinSubscriber, self).__init__(url, 'kin', name, abort=abort)

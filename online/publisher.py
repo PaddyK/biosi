@@ -3,22 +3,31 @@
 import online
 import sources
 from threading import Thread
+from threading import currentThread
 from nanomsg import PUB
 from nanomsg import Socket
 from Queue import Queue, Empty
+import logging
 
 
 class AbstractPublisher(Thread):
     """ Abstract base class for concrete publisher classes
     """
 
-    def __init__(self, topic, url):
+    def __init__(self, topic, url, name, abort=None):
         """ Initializes object
+
+            Args:
+                topic (String): Topic on which information is published
+                url (String): URL to which data is published
+                name (String): Name of Thread
+                abort (threading.Event): Inidcates if Thread should abort
         """
-        super(AbstractPublisher, self).__init__()
+        super(AbstractPublisher, self).__init__(name=name)
         self._queue = Queue()
         self._url = url
         self._topic = topic + '|'
+        self._abort = abort
 
     @property
     def queue(self):
@@ -43,6 +52,11 @@ class AbstractPublisher(Thread):
         """
         return self._url
 
+    def _cleanup(self):
+        """ Clean ressources up after abortion
+        """
+        pass
+
     def run(self):
         """ Starts Thread
 
@@ -58,17 +72,27 @@ class AbstractPublisher(Thread):
                     message = self._topic + sample
                     pub_socket.send(message)
                     self.queue.task_done()
-                    print 'PUBLISHER: {}'.format(self.queue.qsize())
+                    logging.debug('PUBLISHER: {}'.format(self.queue.qsize()))
                 except Empty as e:
-                    print 'No new data available - terminating publisher'
+                    logging.info('No new data available - terminating publisher')
+                    self._cleanup()
+                    self._abort.set()
                     break
+
+                if self._abort is not None:
+                    if self._abort.is_set():
+                        logging.info('{} - Abort event is set. Exit...'.format(
+                                currentThread().getName()
+                                ))
+                        self._cleanup()
+                        break
 
 
 class EmgPublisher(AbstractPublisher):
     """ Publisher for EMG data
     """
 
-    def __init__(self, url):
+    def __init__(self, url, name='EmgPublisher', abort=None):
         """ Initializes Object
 
             Args:
@@ -97,13 +121,13 @@ class EmgPublisher(AbstractPublisher):
                 `<address>` can be an IPv4, IPv6 address or DNS name, `<port>`
                 is the numeric port.
         """
-        super(EmgPublisher, self).__init__('emg', url)
+        super(EmgPublisher, self).__init__('emg', url, name, abort=abort)
 
 class KinPublisher(AbstractPublisher):
     """ Publisher for kinematic data
     """
 
-    def __init__(self, url):
+    def __init__(self, url, name='KinPublisher', abort=None):
         """ Initiates object
         """
-        super(KinPublisher, self).__init__('kin', self)
+        super(KinPublisher, self).__init__('kin', url, name, abort=abort)
