@@ -23,7 +23,7 @@ class TestPubSub(object):
 
     def setup_kin(self, url, e):
         publisher = online.publisher.KinPublisher(url, abort=e)
-        source = online.sources.FileSource(publisher, 4000, 'kin_data', abort=e)
+        source = online.sources.FileSource(publisher, 500, 'kin_data', abort=e)
         subscriber = online.subscriber.KinSubscriber(url, abort=e)
         return source, publisher, subscriber
 

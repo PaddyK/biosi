@@ -19,6 +19,7 @@ import online.subscriber
 import online.publisher
 import online.sources
 from online.messageclasses import ArrayMessage
+import threading
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -189,35 +190,59 @@ class TestLinearRegression(object):
         display.predict_report(X, Y, Z, True)
 
     def test_learn_online(self):
-        url = '/inproc://test'
-        emgp = online.publisher.EmgPublisher(url)
-        emgs = online.sources.FileSource(emgp, 4000, 'emg_data')
-        emgsub = online.subscriber.EmgSubscriber(url)
-        emgiter = online.subscriber.array_iterator(ArrayMessage, emgsub)
+        e = threading.Event()
+        try:
+            urlemg = 'inproc://test_emg'
+            emgp = online.publisher.EmgPublisher(urlemg, abort=e)
+            emgs = online.sources.FileSource(emgp, 4000, 'emg_data', abort=e)
+            emgsub = online.subscriber.EmgSubscriber(urlemg, abort=e)
+            emgiter = online.subscriber.array_iterator(ArrayMessage, emgsub)
 
-        kinp = online.publisher.KinPublisher(url)
-        kins = online.sources.FileSource(kinp, 500, 'kin_data')
-        kinsub = online.subscriber.KinSubscriber(url)
-        kiniter = online.subscriber.array_iterator(ArrayMessage, kinsub)
+            urlkin = 'inproc://test_kin'
+            kinp = online.publisher.KinPublisher(urlkin, abort=e)
+            kins = online.sources.FileSource(kinp, 500, 'kin_data', abort=e)
+            kinsub = online.subscriber.KinSubscriber(urlkin, abort=e)
+            kiniter = online.subscriber.array_iterator(ArrayMessage, kinsub)
 
-        #sigmoid = lambda X: 1 / (1 + np.exp(X))
-        identity = lambda X: X
+            #sigmoid = lambda X: 1 / (1 + np.exp(X))
+            identity = lambda X: X
 
-        model = online.regression.LinReg(
-                dim_in=ArrayMessage.duration * emgs.samplingrate * 5,
-                dim_out=ArrayMessage.duration * kins.samplingrate * 3,
-                dim_basis=ArrayMessage.duration * emgs.samplingrate * 5,
-                basis_fcts=identity
-                )
+            model = online.regression.LinReg(
+                    dim_in=ArrayMessage.duration * kins.samplingrate * 5,
+                    dim_out=ArrayMessage.duration * kins.samplingrate * 3,
+                    dim_basis=ArrayMessage.duration * kins.samplingrate * 5,
+                    basis_fcts=identity
+                    )
+            print 'Calculated shapes: dim_in={}, dim_out={}, dim_basis={}'.format(
+                    ArrayMessage.duration * kins.samplingrate * 5,
+                    ArrayMessage.duration * kins.samplingrate * 3,
+                    ArrayMessage.duration * kins.samplingrate * 5
+                    )
+            print 'start threads'
+            emgp.start()
+            emgs.start()
+            emgsub.start()
+            kinp.start()
+            kins.start()
+            kinsub.start()
 
-        while True:
-            Z = kiniter.next()
-            X = emgiter.next()
-            X = np.mean(X.reshape(Z.shape[0], -1, X.shape[1]), axis=1)
-            Z = Z.flatten().reshape(1, -1)
-            X = X.flatten().reshape(1, -1)
-            model.train(X,Z)
-            print model.loss(X, Z)
+            count = 0
+            while count < 1000:
+                Z = kiniter.next().data[:, [2,7,9]]
+                X = emgiter.next().data
+                X_ = X.reshape(Z.shape[0], -1, X.shape[1])
+                X = np.mean(X_, axis=1)
+                Z = Z.flatten().reshape(1, -1)
+                X = X.flatten().reshape(1, -1)
+                model.train(X,Z)
+                if count % 50 == 0:
+                    print '{}\t\t{}'.format(count, model.loss(X, Z))
+                count += 1
+            e.set()
+        except Exception as ex:
+            e.set()
+            raise ex
+        e.set()
 
 if __name__ == '__main__':
     test_online_regression()
