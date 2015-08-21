@@ -70,7 +70,7 @@ class LinReg(object):
         logging.debug('LinReg.grad - Shape gradient before normalization: ' + \
                 '{}'.format(g.shape)
                 )
-        ft_magnitudes = np.sqrt(np.sum(np.power(g, 2), axis=1))
+        ft_magnitudes = np.sqrt(np.sum(np.power(g, 2), axis=1)).reshape(-1, 1)
         logging.debug('LinReg.grad - magnitudes: {}'.format(ft_magnitudes))
         # Take magnitude for each output dimension
         g = np.divide(g, ft_magnitudes)

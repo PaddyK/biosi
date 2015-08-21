@@ -4,7 +4,7 @@ import numpy as np
 import warnings
 
 
-def predict_report(inpt, output, target):
+def predict_report(inpt, output, target, plot=False):
     fig, axs = plt.subplots(target.shape[1], 1, squeeze=False, figsize=(16, 9))
 
     for i in range(target.shape[1]):
@@ -20,6 +20,8 @@ def predict_report(inpt, output, target):
         axs[i][0].set_ylim([bottom, top])
 
     axs[0][0].legend()
+    if plot:
+        plt.plot()
 
 def visualize_modality(model, start, stop, modality=None):
     """ Creates a visualization of the modality signals contained in model
