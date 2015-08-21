@@ -4,6 +4,7 @@
 """
 import online
 from threading import Thread
+from threading import currentThread
 from Queue import Queue
 import json
 import cPickle
@@ -16,20 +17,39 @@ sys.path.insert(0, os.path.join(
     'emg'
     ))
 import emg.data
+import logging
 
 class AbstractSource(Thread):
     """ Abstract base class for sources
     """
 
-    def __init__(self, publisher, samplingrate):
+    def __init__(self, publisher, samplingrate, name, abort=None):
         """ Initializes object
+
+            Args:
+                publisher (online.publisher.AbstractPublisher): Reference to
+                    publisher thread object
+                samplingrate (int): Sampling Rate of data provided by source
+                name (String): Name of Thread
+                abort (threading.Event, optional): Event signalling, that
+                    Thread should shut down
         """
-        super(AbstractSource, self).__init__()
+        super(AbstractSource, self).__init__(name=name)
         self._samplingrate = samplingrate
         self._publisher = publisher
+        self._abort = abort
 
     def acquire_data(self):
         pass
+
+    @property
+    def samplingrate(self):
+        """ Returns sampling rate of data provided by source
+
+            Returns:
+                int
+        """
+        return self._samplingrate
 
     def run(self):
         """ Starts Thread
@@ -44,6 +64,19 @@ class AbstractSource(Thread):
                 break
             message = ArrayMessage(sample)
             self._publisher.queue.put(message.serialize(4000))
+
+            if self._abort is not None:
+                if self._abort.is_set():
+                    self._cleanup()
+                    logging.info('{} - Abort event set. Exiting...'.format(
+                        currentThread().getName()
+                        ))
+                    break
+
+    def _cleanup(self):
+        """ Cleans up ressources when exiting
+        """
+        pass
 
     def serialize(self, sample):
         """ Serializes object to send it over the wire
@@ -63,8 +96,8 @@ class FileSource(AbstractSource):
         currently from WAY-GAAL experiment thing a session
     """
 
-    def __init__(self, publisher, samplingrate, modality):
-        super(FileSource, self).__init__(publisher, samplingrate)
+    def __init__(self, publisher, samplingrate, modality, abort=None, name='FileSource'):
+        super(FileSource, self).__init__(publisher, samplingrate, name, abort=abort)
         self._file = 'data/P1/HS_P1_S1.mat'
         """ Path to pickled numpy ndarray
         """
@@ -79,10 +112,10 @@ class FileSource(AbstractSource):
             return
 
     def acquire_data(self):
-        """ Reads data from a pickled numpy array as list
+        """ Reads data from a previously read numpy array
 
             Returns:
-                List
+                numpy.ndarray
         """
 
         if self._data.shape[0] <= 1:

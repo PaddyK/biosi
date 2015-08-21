@@ -9,11 +9,16 @@ sys.path.insert(0, os.path.join(
     os.path.pardir,
     os.path.pardir
     ))
-import online.regression
 import emg.data as data
 import model.model as model
 import emg.display as display
 import model.knowledgeBase as kb
+
+import online.regression
+import online.subscriber
+import online.publisher
+import online.sources
+from online.messageclasses import ArrayMessage
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -182,6 +187,37 @@ class TestLinearRegression(object):
         self._fit(model, X, Z, batchsize=1)
         Y = model.predict(X)
         display.predict_report(X, Y, Z, True)
+
+    def test_learn_online(self):
+        url = '/inproc://test'
+        emgp = online.publisher.EmgPublisher(url)
+        emgs = online.sources.FileSource(emgp, 4000, 'emg_data')
+        emgsub = online.subscriber.EmgSubscriber(url)
+        emgiter = online.subscriber.array_iterator(ArrayMessage, emgsub)
+
+        kinp = online.publisher.KinPublisher(url)
+        kins = online.sources.FileSource(kinp, 500, 'kin_data')
+        kinsub = online.subscriber.KinSubscriber(url)
+        kiniter = online.subscriber.array_iterator(ArrayMessage, kinsub)
+
+        #sigmoid = lambda X: 1 / (1 + np.exp(X))
+        identity = lambda X: X
+
+        model = online.regression.LinReg(
+                dim_in=ArrayMessage.duration * emgs.samplingrate * 5,
+                dim_out=ArrayMessage.duration * kins.samplingrate * 3,
+                dim_basis=ArrayMessage.duration * emgs.samplingrate * 5,
+                basis_fcts=identity
+                )
+
+        while True:
+            Z = kiniter.next()
+            X = emgiter.next()
+            X = np.mean(X.reshape(Z.shape[0], -1, X.shape[1]), axis=1)
+            Z = Z.flatten().reshape(1, -1)
+            X = X.flatten().reshape(1, -1)
+            model.train(X,Z)
+            print model.loss(X, Z)
 
 if __name__ == '__main__':
     test_online_regression()
