@@ -77,8 +77,15 @@ def plot3d(Z, Y):
 
 def setup_emg_eeg_dataset():
     metadata = data.read_meta_file('data/P1/P1_AllLifts.mat')
-    session_data = data.read_session('data/P1/HS_P1_S1.mat')
-    experiment = kb.create_emg_eeg_kb(meta=metadata, sessions=[session_data], markers=None)
+    session_data = [
+            data.read_session('data/P1/HS_P1_S1.mat'),
+            data.read_session('data/P1/HS_P1_S2.mat'),
+            data.read_session('data/P1/HS_P1_S3.mat'),
+            data.read_session('data/P1/HS_P1_S4.mat'),
+            data.read_session('data/P1/HS_P1_S5.mat'),
+            data.read_session('data/P1/HS_P1_S6.mat')
+            ]
+    experiment = kb.create_emg_eeg_kb(meta=metadata, sessions=session_data, markers=None)
     dat = abs(experiment.Sessions['session_1'].Recordings['emg_data'].get_data(pandas=False))
     experiment.Sessions['session_1'].Recordings['emg_data'].set_data(dat)
     kinr = experiment.Sessions['session_1'].Recordings['kin_data']
@@ -105,11 +112,18 @@ def setup_emg_eeg_dataset():
 class TestLinearRegression(object):
     def _fit(self, model, X, Z, batchsize=10, valeval=50, alpha=0.01):
         iter = 0
+        best_loss = 1000000
+        best_W = None
         while iter + batchsize < X.shape[0]:
             model.train(X[iter:iter+batchsize], Z[iter:iter+batchsize],alpha)
             if iter/batchsize % 50 == 0:
-                print model.loss(X[iter:iter+batchsize], Z[iter:iter+batchsize])
+                loss = model.loss(X[iter:iter+batchsize], Z[iter:iter+batchsize])
+                if loss < best_loss:
+                    best_loss = loss
+                    best_W = model._W
+                print 'best loss: {} -- current loss: {}'.format(best_loss, loss)
             iter += batchsize
+        model._W = best_W
 
     def test_parabula_set(self):
         X,Z,Z_corrupt = setup_parabula_set()
@@ -185,20 +199,20 @@ class TestLinearRegression(object):
                 basis_fcts=idendity
                 )
         print 'Shape X {}, Shape Z: {}'.format(X.shape, Z.shape)
-        self._fit(model, X, Z, batchsize=1)
+        self._fit(model, X, Z, batchsize=10, alpha=0.1)
         Y = model.predict(X)
         display.predict_report(X, Y, Z, True)
 
     def test_learn_online(self):
         e = threading.Event()
         try:
-            urlemg = 'inproc://test_emg'
+            urlemg = 'tcp://192.168.0.16:5555'
             emgp = online.publisher.EmgPublisher(urlemg, abort=e)
             emgs = online.sources.FileSource(emgp, 4000, 'emg_data', abort=e)
             emgsub = online.subscriber.EmgSubscriber(urlemg, abort=e)
             emgiter = online.subscriber.array_iterator(ArrayMessage, emgsub)
 
-            urlkin = 'inproc://test_kin'
+            urlkin = 'tcp://192.168.0.16:5556'
             kinp = online.publisher.KinPublisher(urlkin, abort=e)
             kins = online.sources.FileSource(kinp, 500, 'kin_data', abort=e)
             kinsub = online.subscriber.KinSubscriber(urlkin, abort=e)
