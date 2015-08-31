@@ -10,13 +10,13 @@
     The model servers than as interface to the DataFrame.
 
     Experiment:
-        Main class.  Contains references to Subject, Session and Subject. This class
+        Main class.  Contains references to Subject, session and Subject. This class
         bundles all resources and makes them available to other components
 
     Subject:
         This class defines a subject participating in an experiment.
 
-    Session:
+    session:
         This class defines a through setup, subjcet and time defined production of one
         or multiple recordings. Naturally it has a reference to the subjects and setup
         it is defined by and the experiment it belongs to.
@@ -24,7 +24,7 @@
     Setup:
         Defines the conditions a session is conducted by. Especially, the different
         groups of sensors employed are defined.
-        The class contains a reference to Session and Experiment.
+        The class contains a reference to session and Experiment.
 
     Subject:
         A subject participating in an experiment by going through one or multiple sessions
@@ -33,7 +33,7 @@
         Group(s) of sensors. A modality could for example be all the sensors located
         on the arm and a second one all those on the stomach.
 
-    Sample:
+    Channel:
         A sensor measuring one specific muscle.
 
     Recording:
@@ -115,7 +115,7 @@ class Experiment:
         Attributes:
             setups (Dictionary): Dictionary of Setup objects. Contains all technical
                 specification with which EMG measurements were undertaken
-            sessions (Dictionary): Dictionary of Session objects. Contains all sessions
+            sessions (Dictionary): Dictionary of session objects. Contains all sessions
                 conducted during the course of this experiment.
             subjects (Dictionary): Dictionary of Subject objects. Contains all subjects
                 having participated in this experiment.
@@ -130,15 +130,15 @@ class Experiment:
         self._session_order = []
 
     @property
-    def Setups(self):
+    def setups(self):
         return self._setups
 
     @property
-    def Sessions(self):
+    def sessions(self):
         return self._sessions
 
     @property
-    def Subjects(self):
+    def subjects(self):
         return self._subjects
 
     def get_data(self, modality, sessions=None, from_=None, to=None):
@@ -182,7 +182,7 @@ class Experiment:
         df = None
         for s in sessions:
             offset = offset + s_dur
-            s_dur = self.Sessions[s].get_duration(modality=modality)
+            s_dur = self.sessions[s].get_duration(modality=modality)
             if from_ > offset + s_dur:
                 # Start point of interval larget than duration of first n recocdings
                 # exclude recording and continue
@@ -205,7 +205,7 @@ class Experiment:
             else:
                 to_pass = None
 
-            tmp = self.Sessions[s].get_data(modality=modality, begin=from_pass, end=to_pass)
+            tmp = self.sessions[s].get_data(modality=modality, begin=from_pass, end=to_pass)
 
             if df is None:
                 df = tmp
@@ -230,7 +230,7 @@ class Experiment:
 
             Returns:
                 sequences, List, Pandas data frame or numpy ndarray
-                labels, List, Pandas data frame or numpy ndarray 
+                labels, List, Pandas data frame or numpy ndarray
         """
         if sessions is None:
             sessions = self._session_order
@@ -239,7 +239,7 @@ class Experiment:
         labels = None
         for session in sessions:
             if session in self._session_order:
-                d, l = self.Sessions[session].get_data_by_labels(
+                d, l = self.sessions[session].get_data_by_labels(
                         labels=labels,
                         recordings=recordings,
                         as_list=as_list,
@@ -273,13 +273,13 @@ class Experiment:
         """
 
         data = []
-        classLabels = []
+        class_labels = []
         for idx in self._session_order:
-            dat, clbl = self.Sessions[idx].get_data_for_breeze(labels=labels)
+            dat, clbl = self.sessions[idx].get_data_for_breeze(labels=labels)
             data.extend(dat)
-            classLabels.extend(clbl)
+            class_labels.extend(clbl)
 
-        return data, classLabels
+        return data, class_labels
 
     def get_frequency(self, setup=None, modality=None):
         """ Returns frequency of one modality of one session.
@@ -302,21 +302,21 @@ class Experiment:
         """
         f = None
         if setup is None:
-            if len(self.Setups) > 1:
+            if len(self.setups) > 1:
                 raise ValueError((
                     'More than one Setup defined but none specified. Specify ' +
                     'setup to retrieve frequency'
                 ))
             else:
-                f = self.Setups[self.Setups.keys()[0]].getFrequency(modality)
+                f = self.setups[self.setups.keys()[0]].get_frequency(modality)
         else:
-            f = self.Setups[setup].getFrequency(modality)
+            f = self.setups[setup].get_frequency(modality)
 
         return f
-        for setup in self.Setups.itervalues():
+        for setup in self.setups.itervalues():
             if f == 0:
-                f = setup.Frequency
-            if f != setup.Frequency:
+                f = setup.frequency
+            if f != setup.frequency:
                 raise ValueError('Different frequencies used during Experiment')
 
         return f
@@ -349,7 +349,7 @@ class Experiment:
         """
         labels = []
         for t in self._session_order:
-            labels.extend(self.Sessions[t].get_labels())
+            labels.extend(self.sessions[t].get_labels())
 
         return labels
 
@@ -398,7 +398,7 @@ class Experiment:
         for s in sessions:
             to_pass = 0
             from_pass = 0
-            s_dur = self.Sessions[s].get_duration(modality=modality)
+            s_dur = self.sessions[s].get_duration(modality=modality)
             if from_ > offset + s_dur:
                 # Start point of interval larget than duration of first n recocdings
                 # exclude recording and continue
@@ -417,7 +417,7 @@ class Experiment:
                 # markers until relative point of time in recording
                 to_pass = to - offset
 
-            markers = self.Sessions[s].get_marker(from_=from_pass, to=to_pass)
+            markers = self.sessions[s].get_marker(from_=from_pass, to=to_pass)
             for t, l in markers:
                 ret.append(((t + offset), l))
             offset = s_dur + offset
@@ -440,7 +440,7 @@ class Experiment:
         """
         recording = None
         if session is None:
-            for s in self.Sessions.iteritems():
+            for s in self.sessions.iteritems():
                 try:
                     recording = s.get_recording(identifier)
                 except IndexError:
@@ -453,10 +453,10 @@ class Experiment:
                     'of any session' % (identifier)
                 ))
         else:
-            if session not in self.Sessions:
+            if session not in self.sessions:
                 raise IndexError('Experiment has no session %s', (session))
             else:
-                recording = self.Sessions[session].get_recording(identifier)
+                recording = self.sessions[session].get_recording(identifier)
         return recording
 
     def get_trial(self, identifier, session, recording = None):
@@ -468,22 +468,22 @@ class Experiment:
                 recording (string, optional): Identifier of recording trial belongs to
 
             Note:
-                Session is mandatory, since trials might have duplicate names across
+                session is mandatory, since trials might have duplicate names across
                 sessions.
 
             Returns:
                 Trial object if successful
 
             Raises:
-                IndexError: If there does not exist a Session, Recording or Trial with
+                IndexError: If there does not exist a session, Recording or Trial with
                 Identifier ``session``, ``recording`` or ``trial``
         """
         trial = None
-        if session not in self.Sessions:
+        if session not in self.sessions:
             raise IndexError('Experiment has no session with identifier %s' % (session))
         elif recoding is None:
-            for rc in self.Sessions[session].Recordings.iteritems():
-                if identifier in rc.Trials:
+            for rc in self.sessions[session].recordings.iteritems():
+                if identifier in rc.trials:
                     trial = rc.get_trial(identifier)
             if trial is None:
                 raise IndexError((
@@ -498,50 +498,50 @@ class Experiment:
         return trial
 
     def put_setup(self, setup):
-        if setup.Identifier not in self.Setups:
-            self.Setups[setup.Identifier] = setup
+        if setup.identifier not in self.setups:
+            self.setups[setup.identifier] = setup
         else:
             raise IndexError((
-                'Setup with identifier ' + setup.Identifier + ' already exists in ' +
+                'Setup with identifier ' + setup.identifier + ' already exists in ' +
                 ' experiment'
             ))
 
     def put_session(self, session):
-        if session.Identifier not in self.Sessions:
-            self.Sessions[session.Identifier] = session
-            self._session_order.append(session.Identifier)
+        if session.identifier not in self.sessions:
+            self.sessions[session.identifier] = session
+            self._session_order.append(session.identifier)
         else:
             raise IndexError((
-                'Session with identifier ' + session.Identifier + ' already exists in ' +
+                'session with identifier ' + session.identifier + ' already exists in ' +
                 ' experiment'
             ))
 
     def put_subject(self, subject):
-        if subject.Identifier not in self.Subjects:
-            self.Subjects[subject.Identifier] = subject
+        if subject.identifier not in self.subjects:
+            self.subjects[subject.identifier] = subject
         else:
             raise IndexError((
-                'Subject with identifier ' + subject.Identifier + ' already exists in ' +
+                'Subject with identifier ' + subject.identifier + ' already exists in ' +
                 ' experiment'
             ))
 
     def to_string(self):
         return (
-            'Experiment: %d Setups, %d Sessions, %d Subjects' %
-            (len(self.Setups), len(self.Sessions), len(self.Subjects))
+            'Experiment: %d Setups, %d sessions, %d Subjects' %
+            (len(self.setups), len(self.sessions), len(self.subjects))
         )
 
     def recursive_to_string(self):
         string = self.to_string() + '\n'
         string =  string + 'Subjects:\n'
-        for s in self.Subjects.itervalues():
+        for s in self.subjects.itervalues():
             string = string + '\t' + s.to_string() + '\n'
         string = string + 'Setups:\n'
-        for s in self.Setups.itervalues():
+        for s in self.setups.itervalues():
             tmp = s.recursive_to_string()
             string = string + '\t' + tmp.replace('\n','\n\t') + '\n'
-        string = string + 'Sessions:\n'
-        for s in self.Sessions.itervalues():
+        string = string + 'sessions:\n'
+        for s in self.sessions.itervalues():
             tmp = s.recursive_to_string()
             string = string + '\t' + tmp.replace('\n', '\n\t') + '\n'
         return string
@@ -557,11 +557,11 @@ class Subject:
         self._identifier = identifier
 
     @property
-    def Identifier(self):
+    def identifier(self):
         return self._identifier
 
     def to_string(self):
-        return self.Identifier
+        return self.identifier
 
 
 class Setup:
@@ -574,14 +574,14 @@ class Setup:
         self._modalities = {}
         self._experiment = experiment
         self._features = 0
-        self._modalityOrder = []
+        self._modality_order = []
 
         if self._identifier is None:
-            self._identifier = 'setup' + str(len(self._experiment.Setups))
+            self._identifier = 'setup' + str(len(self._experiment.setups))
 
         self._experiment.put_setup(self)
 
-    def getFrequency(self, modality = None):
+    def get_frequency(self, modality = None):
         """ Returns the frequency of a specified modality.
 
             Args:
@@ -597,65 +597,65 @@ class Setup:
                     not set.
 
             Returns:
-                frequency (int): Frequency (SamplingRate) of a modality
+                frequency (int): frequency (SamplingRate) of a modality
         """
 
         f = None
         if modality is None:
-            if len(self.Modalities) > 1:
+            if len(self.modalities) > 1:
                 raise ValueError((
                     'More than one modality defined. Specify modality for which' +
                     'to retrieve frequency'
                 ))
             else:
-                f = self.Modalities[self._modalityOrder[0]].Frequency
+                f = self.modalities[self._modality_order[0]].frequency
         else:
-                f = self.Modalities[modality].Frequency
+                f = self.modalities[modality].frequency
 
         return f
 
     @property
-    def Identifier(self):
+    def identifier(self):
         return self._identifier
 
     @property
-    def Modalities(self):
+    def modalities(self):
         return self._modalities
 
     @property
-    def Features(self):
+    def features(self):
         return self._features
 
-    @Features.setter
-    def Features(self, features):
+    @features.setter
+    def features(self, features):
         self._features = features
 
-    def get_sample_order(self):
+    def get_channel_order(self):
         order = []
-        for idx in self._modalityOrder:
-            order.extend(self.Modalities[idx].Sample_Order)
+        for idx in self._modality_order:
+            order.extend(self.modalities[idx].channel_order)
         return order
 
     def put_modality(self, modality):
-        if modality.Identifier not in self.Modalities:
-            self.Modalities[modality.Identifier] = modality
-            self._modalityOrder.append(modality.Identifier)
+        if modality.identifier not in self.modalities:
+            self.modalities[modality.identifier] = modality
+            self._modality_order.append(modality.identifier)
         else:
             raise IndexError((
-                'Modality with identifier ' + modality.Identifier + ' already exists ' +
-                'in Setup ' + self.Identifier
+                'Modality with identifier ' + modality.identifier + ' already exists ' +
+                'in Setup ' + self.identifier
             ))
 
     def to_string(self):
         return (
-            'Setup %s: %d Modalities' %
-            (self.Identifier, len(self.Modalities))
+            'Setup %s: %d modalities' %
+            (self.identifier, len(self.modalities))
         )
         return string
 
     def recursive_to_string(self):
         string = self.to_string() +'\n'
-        for m in self.Modalities.itervalues():
+        for m in self.modalities.itervalues():
             tmp = m.recursive_to_string().replace('\n', '\n\t')
             string = string + '\t' + tmp + '\n'
         return string
@@ -676,60 +676,60 @@ class Modality:
             setup (Setup): Setup this modality is specified in
             identifier (string): Identifier for this modality. Later usable to select one
                 specific instanace
-            samples (Dictionary): Dictionary of samples i.e. sensors making up modality
-            frequency (int): Frequency (Sampling-Rate) at which data points are taken
+            channels (Dictionary): Dictionary of channels i.e. sensors making up modality
+            frequency (int): frequency (Sampling-Rate) at which data points are taken
     """
 
     def __init__(self, setup, frequency, identifier = None):
         self._setup = setup
         self._identifier = identifier
         self._frequency = frequency
-        self._samples = {}
-        self._sampleOrder = []
+        self._channels = {}
+        self._channel_order = []
 
         if self._identifier is None:
-            self._identifier = 'modality' + str(len(self._setup.Modalities))
+            self._identifier = 'modality' + str(len(self._setup.modalities))
 
         self._setup.put_modality(self)
 
     @property
-    def Identifier(self):
+    def identifier(self):
         return self._identifier
 
     @property
-    def Frequency(self):
+    def frequency(self):
         return self._frequency
 
     @property
-    def Samples(self):
-        return self._samples
+    def channels(self):
+        return self._channels
 
     @property
-    def Setup(self):
+    def setup(self):
         return self._setup
 
     @property
-    def num_samples(self):
-        """ Returns number of defined samples
+    def num_channels(self):
+        """ Returns number of defined channels
 
             Returns:
                 int
         """
-        return len(self._samples)
+        return len(self._channels)
 
     @property
-    def Sample_Order(self):
+    def channel_order(self):
         """ Returns List of identifiers in order in which they were added
 
             returns:
                 List of Strings
         """
-        return self._sampleOrder
+        return self._channel_order
 
-    def get_sample_index(self, identifier=None):
-        """ Returns index of samples specified in ``identifier``
+    def get_channel_index(self, identifier=None):
+        """ Returns index of channels specified in ``identifier``
 
-            if ``identifier`` is None values 0..num Samples are returned
+            if ``identifier`` is None values 0..num Channels are returned
 
             Args:
                 identifier (List, String): Either string or list of strings
@@ -741,52 +741,52 @@ class Modality:
                 ValueError if one of the specified identifier is not found
         """
         if identifier is None:
-            return range(len(self.Sample_Order))
+            return range(len(self.channel_order))
 
         if (type(identifier) == str) or (type(identifier) == unicode):
             identifier = [identifier]
 
         indices = []
         for id in identifier:
-            indices.append(self.Sample_Order.index(id))
+            indices.append(self.channel_order.index(id))
         return indices
 
-    def put_sample(self, sample):
-        if sample.Identifier not in self.Samples:
-            self.Samples[sample.Identifier] = sample
-            self.Setup.Features = self.Setup.Features + 1
-            self._sampleOrder.append(sample.Identifier)
+    def put_channel(self, channel):
+        if channel.identifier not in self.channels:
+            self.channels[channel.identifier] = channel
+            self.setup.features = self.setup.features + 1
+            self._channel_order.append(channel.identifier)
         else:
             raise IndexError((
-                'Sample with identifier ' + sample.Identifier + ' already exists ' +
-                'in Modality ' + self.Identifier
+                'Channel with identifier ' + channel.identifier + ' already exists ' +
+                'in Modality ' + self.identifier
             ))
 
     def to_string(self):
         string = (
-            'Modality %s: %d Samples, %d Hz' % (self.Identifier, len(self.Samples), self.Frequency)
+            'Modality %s: %d Channels, %d Hz' % (self.identifier, len(self.channels), self.frequency)
         )
         return string
 
     def recursive_to_string(self):
         string = self.to_string() + '\n'
-        for s in self.Samples.itervalues():
+        for s in self.channels.itervalues():
             string = string + '\t' + s.to_string() + '\n'
         return string
 
 
-class Sample:
-    """ Represents a sample i.e. sensor.
+class Channel:
+    """ Represents a channel i.e. sensor.
 
         Args:
-            modality (Modality): Modality this sample belongs to
-            identifier (string, optional): Identifier for this sample. If not set a
+            modality (Modality): Modality this channel belongs to
+            identifier (string, optional): Identifier for this channel. If not set a
                 generic one will be used. It is strongly recommended to use a identifier
                 here.
 
         Attributes:
-            modality (Modality): Modality this sample belongs to
-            identifier (string): Identifier for this sample
+            modality (Modality): Modality this channel belongs to
+            identifier (string): Identifier for this channel
     """
 
     def __init__(self, modality, identifier = None):
@@ -794,16 +794,16 @@ class Sample:
         self._identifier = identifier
 
         if self._identifier is None:
-            self._identifier = 'sample' + str(len(self._modality.Samples))
+            self._identifier = 'channel' + str(len(self._modality.channels))
 
-        self._modality.put_sample(self)
+        self._modality.put_channel(self)
 
     @property
-    def Identifier(self):
+    def identifier(self):
         return self._identifier
 
     def to_string(self):
-        return 'Sample: ' + self.Identifier
+        return 'Channel: ' + self.identifier
 
 
 class Session:
@@ -826,7 +826,7 @@ class Session:
             recordings (Dictionary): Dictionary of all recordings produced durint the
                 session.
             recording_order (List): Stores order in which recordings were added
-            samples (int): Count of samples of all recordings and trials part of
+            channels (int): Count of channels of all recordings and trials part of
                 a session
     """
 
@@ -837,15 +837,15 @@ class Session:
         self._experiment = experiment
         self._recordings = {}
         self._recording_order = []
-        self._samples = 0 # If a trial is added to a recording this count is alsoc incremented
+        self._channels = 0 # If a trial is added to a recording this count is alsoc incremented
 
         if self._identifier is None:
-            self._identifier = 'session' + str(len(self._experiment.Sessions))
+            self._identifier = 'session' + str(len(self._experiment.sessions))
 
         self._experiment.put_session(self)
 
     @property
-    def Subject(self):
+    def subject(self):
         """ Returns subject object associated with session
 
             Returns:
@@ -854,16 +854,16 @@ class Session:
         return self._subject
 
     @property
-    def Setup(self):
+    def setup(self):
         """ Returns setup associated with session
 
             Returns:
-                model.model.Session
+                model.model.session
         """
         return self._setup
 
     @property
-    def Experiment(self):
+    def experiment(self):
         """ Returns experiment session belongs to
 
             Returns:
@@ -872,7 +872,7 @@ class Session:
         return self._experiment
 
     @property
-    def Recordings(self):
+    def recordings(self):
         """ Returns recordings for this session
 
             Returns:
@@ -881,7 +881,7 @@ class Session:
         return self._recordings
 
     @property
-    def Identifier(self):
+    def identifier(self):
         """ Returns identifier of this session
 
             Returns:
@@ -898,9 +898,9 @@ class Session:
         df = None
         for idx in self._recording_order:
             if df is None:
-                df = self.Recordings[idx].get_all_data()
+                df = self.recordings[idx].get_all_data()
             else:
-                df = pd.concat([df, self.Recordings[idx].get_all_data()])
+                df = pd.concat([df, self.recordings[idx].get_all_data()])
         return df
 
     def get_data_by_labels(self, recordings=None, labels=None, as_list=True,
@@ -918,7 +918,7 @@ class Session:
 
             Returns:
                 sequences, List, Pandas data frame or numpy ndarray
-                labels, List, Pandas data frame or numpy ndarray 
+                labels, List, Pandas data frame or numpy ndarray
         """
         if recordings is None:
             recordings = self._recording_order
@@ -927,7 +927,7 @@ class Session:
         labels = None
         for recording in recordings:
             if recording in self._recording_order:
-                d, l = self.Recordings[recording].get_data_by_labels(
+                d, l = self.recordings[recording].get_data_by_labels(
                         labels=labels,
                         as_list=as_list,
                         pandas=pandas
@@ -958,11 +958,11 @@ class Session:
                 duration (float): Sum of duration of all recordings as duration of session
         """
         duration = 0
-        for r in self.Recordings.itervalues():
+        for r in self.recordings.itervalues():
             if modality is None:
-                duration = duration + r.Duration
-            elif r.Modality == modality:
-                duration = duration + r.Duration
+                duration = duration + r.duration
+            elif r.modality == modality:
+                duration = duration + r.duration
         return duration
 
     def get_data_for_breeze(self, labels=None):
@@ -976,17 +976,17 @@ class Session:
         """
 
         data = []
-        classLabels = []
+        class_labels = []
         for idx in self._recording_order:
-            dat, clbl = self.Recordings[idx].get_data_for_breeze(labels=labels)
+            dat, clbl = self.recordings[idx].get_data_for_breeze(labels=labels)
             data.extend(dat)
-            classLabels.extend(clbl)
+            class_labels.extend(clbl)
 
-        return data, classLabels
+        return data, class_labels
 
     def get_data(self, modality=None, begin=None, end=None):
-        """ Returns the data of all recordings and trials associated with one Session.
-            Only the concatenated data of the trials is returned. Samples not contained
+        """ Returns the data of all recordings and trials associated with one session.
+            Only the concatenated data of the trials is returned. Channels not contained
             in trials are skipped.
             If `begin` and `end` are specified only data of this time interval is
             returned from recording.
@@ -1007,11 +1007,11 @@ class Session:
             Returns:
                 pandas.DataFrame
         """
-        if (len(self.Setup.Modalities) > 1) and (modality is None):
+        if (len(self.setup.modalities) > 1) and (modality is None):
             raise ValueError((
                 'More than one modality present in setup {a} of session ' +
                 '{s} but modality argument was not defined'
-                ).format(a=self.Setup.Identifier, s=self.Identifier)
+                ).format(a=self.setup.identifier, s=self.identifier)
             )
 
         df = None
@@ -1020,10 +1020,10 @@ class Session:
         stop = 0
 
         for idx in self._recording_order:
-            if (self.Recordings[idx].Modality == modality) or (modality is None):
+            if (self.recordings[idx].modality == modality) or (modality is None):
                 offset = stop # Offset has to be set here to ensure its set
                               # even if continue clause is executed!
-                stop = self.Recordings[idx].Duration + offset
+                stop = self.recordings[idx].duration + offset
 
                 if begin is not None:
                     if begin > stop:
@@ -1045,26 +1045,26 @@ class Session:
                     else:
                         end_pass = None
 
-                tmp = self.Recordings[idx].get_data(begin=begin_pass, end=end_pass)
+                tmp = self.recordings[idx].get_data(begin=begin_pass, end=end_pass)
 
                 if df is None:
                     df = tmp
                 else:
                     df = pd.concat([df, tmp])
 
-        df['sessions'] = self.Identifier
+        df['sessions'] = self.identifier
         df.set_index('sessions', inplace = True, append = True)
-        df = df.reorder_levels(['sessions', 'recordings', 'trials', 'samples'])
+        df = df.reorder_levels(['sessions', 'recordings', 'trials', 'channels'])
 
         return df
 
     def get_frequency(self, modality):
-        """ Returns Frequency of setup
+        """ Returns frequency of setup
 
             Args:
                 Modality for which frequency is going to be retrieved
         """
-        return self.Setup.getFrequency(modality=modality)
+        return self.setup.get_frequency(modality=modality)
 
     def get_labels(self):
         """ Returns a list of labels for all relevant data points.
@@ -1074,7 +1074,7 @@ class Session:
         """
         labels = []
         for t in self._recording_order:
-            labels.extend(self.Recordings[t].get_labels())
+            labels.extend(self.recordings[t].get_labels())
 
         return labels
 
@@ -1105,11 +1105,11 @@ class Session:
 
         for rec in recordings:
             if rec in self._recording_order:
-                duration = duration + self.Recordings[rec].Duration
+                duration = duration + self.recordings[rec].duration
             else:
                 raise IndexError(
-                    'No recording with identifier %s in Session %s' %
-                    (rec, self.Identifier)
+                    'No recording with identifier %s in session %s' %
+                    (rec, self.identifier)
                 )
 
         if from_ is None:
@@ -1128,7 +1128,7 @@ class Session:
         for rec in recordings:
             to_pass = 0
             from_pass = 0
-            rec_dur = self.Recordings[rec].Duration
+            rec_dur = self.recordings[rec].duration
             if from_ > offset + rec_dur:
                 # Start point of interval larget than duration of first n recocdings
                 # exclude recording and continue
@@ -1147,7 +1147,7 @@ class Session:
                 # markers until relative point of time in recording
                 to_pass = to - offset
 
-            markers = self.Recordings[rec].get_marker(from_=from_pass, to=to_pass)
+            markers = self.recordings[rec].get_marker(from_=from_pass, to=to_pass)
 
             for t, l in markers:
                 ret.append(((t + offset), l))
@@ -1167,16 +1167,16 @@ class Session:
         """
         ret = []
         for rid in self._recording_order:
-            if modality == self.Recordings[rid].Modality:
-                ret.append(self.Recordings[rid])
+            if modality == self.recordings[rid].modality:
+                ret.append(self.recordings[rid])
 
         if len(ret) == 0:
             warnings.warn('No recording found recorded with modality %s' % modality)
 
         return ret
     @property
-    def Samples(self):
-        return self._samples
+    def channels(self):
+        return self._channels
 
     def set_data(self, data):
        """ Sets the data of all trials in all recordings belonging to this session.
@@ -1185,17 +1185,17 @@ class Session:
                 data (pandas.DataFrame): New data for session
 
             Raises:
-                ValueError: Raised if number of samples/features does not match
+                ValueError: Raised if number of channels/features does not match
         """
 
-       if (data.shape[0] != self.Samples) or (data.shape[1] != self.Setup.Features):
+       if (data.shape[0] != self.channels) or (data.shape[1] != self.setup.features):
             raise ValueError((
                 'Input has wrong dimensions for session %s. Expected data of ' +
                 'dimensionality (%s,%s), instead got (%s, %s)' %
                 (
-                    self.Identifier,
-                    self.Samples,
-                    self.Setup.Features,
+                    self.identifier,
+                    self.channels,
+                    self.setup.features,
                     data.shape[0],
                     data.shape[1]
                 )
@@ -1203,22 +1203,22 @@ class Session:
        else:
             offset = 0
             for idx in self._recording_order:
-                end = self.Recordings[idx].Samples + offset
-                self.Recordings[idx].set_data(data[offset : end])
+                end = self.recordings[idx].channels + offset
+                self.recordings[idx].set_data(data[offset : end])
                 offset = end
 
-    @Samples.setter
-    def Samples(self, samples):
-        self._samples = samples
+    @channels.setter
+    def channels(self, channels):
+        self._channels = channels
 
     def get_recording(self, identifier):
-        if identifier not in self.Recordings:
+        if identifier not in self.recordings:
             raise IndexError(
                 'No recording with identifier %s in session %s' %
-                (identifier, self.Identifier)
+                (identifier, self.identifier)
             )
         else:
-            return self.Recordings[identifier]
+            return self.recordings[identifier]
 
     def put_recording(self, recording):
         """ Appends one recording to object attribute *recordings*
@@ -1226,13 +1226,13 @@ class Session:
             Params:
                 recording (Recording): Recording to associate with session
         """
-        if recording.Identifier not in self.Recordings:
-            self.Recordings[recording.Identifier] = recording
-            self._recording_order.append(recording.Identifier)
+        if recording.identifier not in self.recordings:
+            self.recordings[recording.identifier] = recording
+            self._recording_order.append(recording.identifier)
         else:
             raise IndexError((
-                'Recording with identifier ' + recording.Identifier + ' already exists' +
-                ' in session ' + self.Identifier
+                'Recording with identifier ' + recording.identifier + ' already exists' +
+                ' in session ' + self.identifier
             ))
 
     def put_recordings(self, recordings):
@@ -1246,19 +1246,19 @@ class Session:
 
     def to_string(self):
         string = (
-            'Session %s: Subject %s, Setting %s, %d recordings' %
+            'session %s: Subject %s, Setting %s, %d recordings' %
             (
-                self.Identifier,
-                self.Subject.Identifier,
-                self.Setup.Identifier,
-                len(self.Recordings)
+                self.identifier,
+                self.subject.identifier,
+                self.setup.identifier,
+                len(self.recordings)
             )
         )
         return string
 
     def recursive_to_string(self):
         string = self.to_string() + '\n'
-        for r in self.Recordings.itervalues():
+        for r in self.recordings.itervalues():
             tmp = r.recursive_to_string().replace('\n','\n\t')
             string = string + '\t' + tmp + '\n'
         return string
@@ -1269,10 +1269,10 @@ class Recording:
         tasks.
 
         Args:
-            session (Session): The session in which recording was recorded
+            session (session): The session in which recording was recorded
             location (string, optional): Path to a file containing the record. If this
                 parameter is set and no data is given, data will be retrieved from file.
-            data (pandas.DataFrame, optional): DataFrame with samples of this recording.
+            data (pandas.DataFrame, optional): DataFrame with channels of this recording.
             identifier (string, optional): Identifier of one instance
             modality (String, optional): Modality recording is associated with. Set if
                 multiple modalities (e.g. eeg, emg) are used
@@ -1282,12 +1282,12 @@ class Recording:
             is ignored, data is not read from file.
 
         Attributes:
-            session (Session): The session in which recording was recorded
+            session (session): The session in which recording was recorded
             location (string, optional): Path to a file containing the record. If this
                 parameter is set and no data is given, data will be retrieved from file.
-            data (pandas.DataFrame, optional): DataFrame with samples of this recording.
-            duration (float): Duration of recording in data in seconds
-            samples (int): Number of samples in this recording. The sum of all sample
+            data (pandas.DataFrame, optional): DataFrame with channels of this recording.
+            duration (float): duration of recording in data in seconds
+            channels (int): Number of channels in this recording. The sum of all channel
                 counts of trials being part of this recording
             trials (Dictionary): Trials included in this recording.
             identifier (string): Identifier of one specific instance
@@ -1305,8 +1305,8 @@ class Recording:
             identifier = None):
         self._session = session
         self._location = location
-        self._samples = 0
-        self._features = self.Session.Setup.Modalities[modality].num_samples
+        self._channels = 0
+        self._features = self.session.setup.modalities[modality].num_channels
         self._trials = {}
         self._identifier = identifier
         self._trial_order = []
@@ -1314,7 +1314,7 @@ class Recording:
         self._markers = []
 
         if self._identifier is None:
-            self._identifier = 'recording' + str(len(self._session.Recordings))
+            self._identifier = 'recording' + str(len(self._session.recordings))
 
         if (data is None) and (location is None):
             raise ValueError('Neither location nor data set in Recording')
@@ -1332,21 +1332,21 @@ class Recording:
                         '"numpy.ndarray or pandas.core.DataFrame. Got {}'
                         .format(type(data))
                         )
-        f = self.Session.Setup.Modalities[self._modality].Frequency
+        f = self.session.setup.modalities[self._modality].frequency
         self._duration = self._data.shape[0] / f
         self._session.put_recording(self)
 
     @property
-    def Session(self):
+    def session(self):
         """ Returns session recording belongs to
 
             Returns:
-                model.model.Session
+                model.model.session
         """
         return self._session
 
     @property
-    def Location(self):
+    def location(self):
         """ Returns path to file data for recording is stored
 
             Returns:
@@ -1355,7 +1355,7 @@ class Recording:
         return self._location
 
     @property
-    def Trials(self):
+    def trials(self):
         """ Returns Trials defined for Recording
 
             Returns:
@@ -1364,7 +1364,7 @@ class Recording:
         return self._trials
 
     @property
-    def Features(self):
+    def features(self):
         """ Return number of features
 
             Returns:
@@ -1373,7 +1373,7 @@ class Recording:
         return self._features
 
     @property
-    def Identifier(self):
+    def identifier(self):
         """ Returns identifier of this recording
 
             Returns:
@@ -1382,7 +1382,7 @@ class Recording:
         return self._identifier
 
     @property
-    def Modality(self):
+    def modality(self):
         """ Returns Modality associated with this recording
 
             Returns:
@@ -1440,12 +1440,12 @@ class Recording:
         """
         if from_ is None:
             from_ = 0
-        elif from_ >= self.Duration:
+        elif from_ >= self.duration:
             raise IndexError('Start point of interval higher than duration of recording')
 
         if to is None:
-            to = self.Duration
-        elif to > self.Duration:
+            to = self.duration
+        elif to > self.duration:
             raise IndexError('End point of interval higher than duration of recording')
 
         duration = 0
@@ -1455,7 +1455,7 @@ class Recording:
         ret = []
         for trial in self._trial_order:
             offset = offset + duration
-            duration = self.Trials[trial].Duration
+            duration = self.trials[trial].duration
 
             if from_ > offset + duration:
                 continue
@@ -1471,7 +1471,7 @@ class Recording:
             else:
                 to_pass = None
 
-            tmp = self.Trials[trial].get_marker(from_=from_pass, to=to_pass)
+            tmp = self.trials[trial].get_marker(from_=from_pass, to=to_pass)
             for t, l in tmp:
                 ret.append((t + offset, l))
 
@@ -1500,8 +1500,8 @@ class Recording:
             Example:
                 Sampling rate of 4000Hz, recording is 60s long. Trial one goes from
                 second 10 to second 30, and trial02 from second 35 to second 50.
-                Then this function only yields the samples in the intervals 10..30 and
-                35..50. So a total of (20 + 15) * 4000 samples instead of 60 * 4000 samples
+                Then this function only yields the channels in the intervals 10..30 and
+                35..50. So a total of (20 + 15) * 4000 channels instead of 60 * 4000 channels
 
             Returns:
                 pandas.DataFrame
@@ -1512,17 +1512,17 @@ class Recording:
                 'end was {e}'
                 ).format(beg=begin, e=end)
             )
-        elif begin >= self.Duration:
+        elif begin >= self.duration:
             raise ValueError((
                 'Beginning of time interval larger than duration of recording {rec}. ' +
                 'Start point of interval was at {a}s, duration is {b}s'
-                ).format(a=begin, b=self.Duration)
+                ).format(a=begin, b=self.duration)
             )
-        elif end > self.Duration:
+        elif end > self.duration:
             raise ValueError((
                 'End of time interval larger than duration of recording {rec}. ' +
                 'Start point of interval was at {a}s, duration is {b}s'
-                ).format(a=end, b=self.Duration)
+                ).format(a=end, b=self.duration)
             )
         # New data frame is created
         df = None
@@ -1533,7 +1533,7 @@ class Recording:
         for idx in self._trial_order:
             offset = stop # Offset has to be set here to ensure its set
                           # even if continue clause is executed!
-            stop = offset + self.Trials[idx].Duration
+            stop = offset + self.trials[idx].duration
 
             if begin is not None:
                 if begin > stop:
@@ -1551,7 +1551,7 @@ class Recording:
                 else:
                     end_pass = None
 
-            tmp = self.Trials[idx].get_data(begin=begin_pass, end=end_pass)
+            tmp = self.trials[idx].get_data(begin=begin_pass, end=end_pass)
             if df is None:
                 df = tmp
             elif pandas:
@@ -1560,16 +1560,16 @@ class Recording:
                 df = np.row_stack([df, tmp])
 
         if pandas:
-            df['recordings'] = self.Identifier
+            df['recordings'] = self.identifier
             df.set_index('recordings', append = True, inplace = True)
             # Returns a new object and there is no inplace option
-            df = df.reorder_levels(['recordings', 'trials', 'samples'])
+            df = df.reorder_levels(['recordings', 'trials', 'channels'])
         return df
 
     def _label_to_data_pandas(self, trials, labels):
         """ Given a list of trials and a list of labels returns one DataFrame
             containing all the data of trials and one DataFrame with a label
-            for each sample in the trial's DataFrame.
+            for each channel in the trial's DataFrame.
 
             I.e. The first axis of the returned DataFrames is the same.
 
@@ -1596,9 +1596,9 @@ class Recording:
         return pd_trials, pd_labels
 
     def _label_to_data_numpy(self, trials, labels):
-        """ Given a list of trials and a list of labels returns one ndarray 
+        """ Given a list of trials and a list of labels returns one ndarray
             containing all the data of trials and one ndarray with a label
-            for each sample in the trial's ndarray.
+            for each channel in the trial's ndarray.
 
             I.e. The first axis of the returned ndarrays is the same.
 
@@ -1636,7 +1636,7 @@ class Recording:
             Note:
                 If `as_list=False` trials are stacked to one big DataFrame/array.
                 Labels are also returned as one big DataFrame/Array and repeated
-                as often as trial has samples.
+                as often as trial has channels.
                 So the first dimension of `labels` and `data is the same.
 
                 If `as_list=True` trials are in one list (as DataFrame or array
@@ -1655,15 +1655,15 @@ class Recording:
         ret_labels = []
 
         for idx in self._trial_order:
-            if self.Trials[idx].Label in labels:
-                trials.append(self.Trials[idx].get_data(pandas=pandas))
-                ret_labels.append(self.Trials[idx].Label)
+            if self.trials[idx].Label in labels:
+                trials.append(self.trials[idx].get_data(pandas=pandas))
+                ret_labels.append(self.trials[idx].Label)
 
         for lbl in ret_labels:
             if lbl not in ret_labels:
                 warnings.warn(
                     'Label %s was not found in any trial of recording %s' %
-                    (str(lbl), str(self.Identifier))
+                    (str(lbl), str(self.identifier))
                 )
 
         if not as_list:
@@ -1673,25 +1673,25 @@ class Recording:
                 trials, ret_labels = self._label_to_data_numpy(trials, ret_labels)
         return trials, ret_labels
 
-    def get_trials_as_list(self, pandas=True, samples=None):
+    def get_trials_as_list(self, pandas=True, channels=None):
         """ Returns data in format to directly feed it to
             .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
             That is a list of two dimensional arrays where each array represents a trial.
 
             Args:
                 pandas (Boolean, optional): True return dataframe, false array
-                samples (List): List of sample ids. If set only those samples
+                channels (List): List of channel ids. If set only those channels
                     are returned
-            
+
             Raises:
-                KeyError one of identifiers in samples not found
+                KeyError one of identifiers in channels not found
 
             Returns:
                 data (List): List of two dimensional numpy.ndarrays
         """
         data = []
         for idx in self._trial_order:
-            tmp = self.Trials[idx].get_data(pandas=pandas, samples=samples)
+            tmp = self.trials[idx].get_data(pandas=pandas, channels=channels)
             data.append(tmp)
 
         return data
@@ -1704,17 +1704,17 @@ class Recording:
         """
         labels = []
         for t in self._trial_order:
-            if self.Trials[t].Label is not None:
-                labels.append(self.Trials[t].Label)
+            if self.trials[t].label is not None:
+                labels.append(self.trials[t].label)
         return labels
 
     def get_frequency(self):
         """ Returns frequency of setup used for session this recording was recorded in
         """
-        return self.Session.get_frequency(modality = self._modality)
+        return self.session.get_frequency(modality = self._modality)
 
     @property
-    def Duration(self):
+    def duration(self):
         """ Returns duartion (sum of duarion of trials) of recording in seconds
 
             Returns:
@@ -1723,14 +1723,14 @@ class Recording:
         return self._duration
 
     @property
-    def Samples(self):
-        """ Returns number of samples (sum of samples of trials) recording
+    def channels(self):
+        """ Returns number of channels (sum of channels of trials) recording
             contains.
 
             Returns:
                 Integer
         """
-        return self._samples
+        return self._channels
 
     def set_data(self, data):
         """ Sets only the **relevant** data of the recording, i.e. the data specified
@@ -1747,26 +1747,26 @@ class Recording:
                 accessing data though this classes properties, the updated data is
                 returned, though.
         """
-        if (data.shape[0] != self.Samples) or (data.shape[1] != self.Features):
+        if (data.shape[0] != self.channels) or (data.shape[1] != self.features):
             raise ValueError(
                 'Dimension missmatch while trying to set data for recording {}. ' + \
                 'Expected data of form ({},{}), instead got {}'.format(
-                    self.Identifier,
-                    self.Samples,
-                    self.Features,
+                    self.identifier,
+                    self.channels,
+                    self.features,
                     data.shape
                 )
             )
         else:
-            samples = 0 # Use it as soffset
+            channels = 0 # Use it as soffset
             for idnt in self._trial_order:
-                end = samples + self.Trials[idnt].Samples
-                self.Trials[idnt].set_data(data[samples : end])
-                samples = end
+                end = channels + self.trials[idnt].channels
+                self.trials[idnt].set_data(data[channels : end])
+                channels = end
 
-    @Samples.setter
-    def Samples(self, samples):
-        self._samples = samples
+    @channels.setter
+    def channels(self, channels):
+        self._channels = channels
 
     def get_all_data(self):
         """ In contrast to the Data propery, this function will return the whole DataFrame
@@ -1780,12 +1780,12 @@ class Recording:
         return self._data
 
     def set_all_data(self, data):
-        if (data.shape[0] == self.Samples) and (data.shape[1] == self.Features):
+        if (data.shape[0] == self.channels) and (data.shape[1] == self.features):
             self.Data = data
         else:
             raise ValueError((
-                'Shape missmatch replacing data in recording ' + self.Identifier + '. ' +
-                '\nExpected shape(' + self.Samples + ',' + self.Features + ', got ' +
+                'Shape missmatch replacing data in recording ' + self.identifier + '. ' +
+                '\nExpected shape(' + self.channels + ',' + self.features + ', got ' +
                 'shape' + str(data.shape)
             ))
 
@@ -1801,12 +1801,12 @@ class Recording:
             Raises:
                 IndexError: If not trial specified by index exists in recording
         """
-        if identifier in self.Trials:
-            return self.Trials[identifier]
+        if identifier in self.trials:
+            return self.trials[identifier]
         else:
             raise IndexError((
                 'Recording %s has no trial with identifier %s' %
-                (self.Identifier, identifier)
+                (self.identifier, identifier)
             ))
 
     def put_trial(self, trial):
@@ -1820,22 +1820,22 @@ class Recording:
             Raises:
                 IndexError: Raised if trial with duplicate name is added to *trials*
         """
-        if trial.Identifier not in self.Trials:
-            self.Trials[trial.Identifier] = trial
-            self._trial_order.append(trial.Identifier)
-            self.Samples = self.Samples + trial.Samples
-            self.Session.Samples = self.Session.Samples + trial.Samples
+        if trial.identifier not in self.trials:
+            self.trials[trial.identifier] = trial
+            self._trial_order.append(trial.identifier)
+            self.channels = self.channels + trial.channels
+            self.session.channels = self.Session.channels + trial.channels
         else:
-            raise IndexError('Trial with name ' + trial.Identifier + ' already member of recording')
+            raise IndexError('Trial with name ' + trial.identifier + ' already member of recording')
 
     def to_string(self):
         string = (
-            'Recording %s: %ds duration, %d samples, %d Trials' %
+            'Recording %s: %ds duration, %d channels, %d Trials' %
             (
-                self.Identifier,
-                self.Duration,
-                self.Samples,
-                len(self.Trials)
+                self.identifier,
+                self.duration,
+                self.channels,
+                len(self.trials)
             )
         )
         return string
@@ -1843,7 +1843,7 @@ class Recording:
     def recursive_to_string(self):
         string = self.to_string() + '\n'
         for t in self._trial_order:
-            ts = self.Trials[t].to_string().replace('\n','\n\t')
+            ts = self.trials[t].to_string().replace('\n','\n\t')
             string = string + '\t' + ts + '\n'
         return string
 
@@ -1853,7 +1853,7 @@ class Trial:
         to accept or reject a hypothesis.
         A trial belongs to a recording. Consequently the data associated with a trial object
         is a subset of the data of the recording. Given the start and end point (in
-        seconds, relative to start of recording) and the setting, i.e. sample frequency,
+        seconds, relative to start of recording) and the setting, i.e. channel frequency,
         this class calculates the indices marking start and end.
 
         Attributes:
@@ -1865,7 +1865,7 @@ class Trial:
                 relative to the start of the trial
             recording (Recording): The recording this trial belongs to. Necessary to
                 retrieve informations about the setting.
-            samples (int): Number of data points in this trial
+            channels (int): Number of data points in this trial
             start (float): Start point of trial in seconds relative to the start point
                 of the recording.
             startIdx (int): Offset relative to beginning of recording of trial. Index
@@ -1892,22 +1892,22 @@ class Trial:
         self._startIdx = 0
         self._stopIdx = 0
         self._identifier = identifier
-        self._samples = 0
+        self._channels = 0
         self._label = label
         self._marker = []
 
         if self._identifier is None:
-            self._name = 'trial' + str(len(self._recording.Trials))
+            self._name = 'trial' + str(len(self._recording.trials))
 
         f = self._recording.get_frequency()
         self._startIdx = int(self._start * f)
         self._stopIdx = int(self._startIdx + self._duration * f)
-        self._samples = self._stopIdx - self._startIdx
+        self._channels = self._stopIdx - self._startIdx
 
         self._recording.put_trial(self)
 
     @property
-    def Identifier(self):
+    def identifier(self):
         """ Getter Property for identifier attributes
 
             Returns:
@@ -1916,7 +1916,7 @@ class Trial:
         return self._identifier
 
     @property
-    def Recording(self):
+    def recording(self):
         """ Getter Property for recording attribute
 
             Returns:
@@ -1931,7 +1931,7 @@ class Trial:
         return self._start
 
     @property
-    def StartIdx(self):
+    def start_idx(self):
         """ Getter property of attribute _startIdx.
 
             Returns start index of trial in the whole data
@@ -1942,13 +1942,13 @@ class Trial:
         return self._startIdx
 
     @property
-    def Duration(self):
+    def duration(self):
         """ Duration of Trial in seconds
         """
         return self._duration
 
     @property
-    def Label(self):
+    def label(self):
         """ Getter property for attribute label
 
             Returns:
@@ -1968,16 +1968,16 @@ class Trial:
         return self._stopIdx
 
     @property
-    def Samples(self):
-        """ Getter property for attributes samples
+    def channels(self):
+        """ Getter property for attributes channels
 
             Returns:
                 int
         """
-        return self._samples
+        return self._channels
 
-    @Label.setter
-    def Label(self, label):
+    @label.setter
+    def label(self, label):
         """ Setter property for attribute label
 
             Args:
@@ -1996,7 +1996,7 @@ class Trial:
         """
         time, label = marker
         time = time + self.Start
-        self.Recording.add_marker((time, label))
+        self.recording.add_marker((time, label))
         self._marker.append(marker)
 
     def get_marker(self, from_=None, to=None):
@@ -2018,18 +2018,18 @@ class Trial:
         """
         if from_ is None:
             from_ = 0
-        elif from_ >= self.Duration:
+        elif from_ >= self.duration:
             raise IndexError('Beginning of time interval out of range (greater than duration)')
 
         if to is None:
-            to = self.Duration
-        elif to > self.Duration:
+            to = self.duration
+        elif to > self.duration:
             raise IndexError('End of time interval out of range (greater than duration)')
 
         #from_ = from_ + self.Start
         #to = to + self.Start
         ret = []
-        #markers = self.Recording.get_all_marker()
+        #markers = self.recording.get_all_marker()
         ## TODO: Use binary search to find start of range
 
         for t, l in self._marker:
@@ -2039,11 +2039,11 @@ class Trial:
             elif (t > from_) and (t < to):
                 # Substract offset of trial
                 ret.append((t, l))
-            elif t > self.Start + self.Duration:
+            elif t > self.Start + self.duration:
                 break
         return ret
 
-    def get_data(self, begin=None, end=None, pandas=True, samples=None):
+    def get_data(self, begin=None, end=None, pandas=True, channels=None):
         """ Returns data within specified interval borders. If no border set start/end
             index of Trial is used respectively.
 
@@ -2053,12 +2053,12 @@ class Trial:
                 end (float): End point of interval for which to retrieve data.
                     Relative to beginning of trial
                 pandas (Boolean): Returning data as pandas.core.DataFrame (``True``)
-                samples (List): List of Sample Idenfiers. Only those specified
+                channels (List): List of Channel Idenfiers. Only those specified
                     are returned. If none specified all are returned
 
             Note:
-                If samples is specified, columns of returned dataframe/array
-                are in the order as samples were listed
+                If channels is specified, columns of returned dataframe/array
+                are in the order as channels were listed
 
             Returns:
                 data (pandas.core.DataFrame)
@@ -2068,59 +2068,59 @@ class Trial:
                 IndexError: If either `begin` or `end` larger than duration of trial
         """
         if begin is None:
-            begin = self.StartIdx
-        elif begin >= self.Start + self.Duration:
+            begin = self.start_idx
+        elif begin >= self.Start + self.duration:
             raise IndexError((
                 'Beginning of time interval out of range. Start point of data retrieval ' +
                 ' was {start} but Trial {trial} only of length {length}'
-                ).format(start=begin, trial=self.Identifier, length=self.Identifieri)
+                ).format(start=begin, trial=self.identifier, length=self.identifieri)
             )
         else:
-            begin = begin * self.Recording.get_frequency() + self.StartIdx
+            begin = begin * self.recording.get_frequency() + self.start_idx
 
         if end is None:
             end = self.StopIdx
-        elif end > self.Duration:
+        elif end > self.duration:
             raise IndexError((
                 'End of time interval out of range. Start point of data retrieval ' +
                 ' was {start} but Trial {trial} only of length {length}'
-                ).format(start=end, trial=self.Identifier, length=self.Identifieri)
+                ).format(start=end, trial=self.identifier, length=self.identifieri)
             )
         else:
-            end = end * self.Recording.get_frequency() + self.StartIdx
+            end = end * self.recording.get_frequency() + self.start_idx
 
-        sample_indices = self.Recording.Session.Setup.Modalities[
-                self.Recording.Modality].get_sample_index(identifier=samples)
+        channel_indices = self.recording.session.setup.modalities[
+                self.recording.modality].get_channel_index(identifier=channels)
 
         tmp = None
         begin = int(begin)
         end = int(end)
         if pandas:
             tmp = pd.DataFrame(
-                    self.Recording.get_all_data()[begin:end, sample_indices]
+                    self.recording.get_all_data()[begin:end, channel_indices]
                     )
-            tmp['samples'] = np.arange(tmp.shape[0])
-            tmp['trials'] = self.Identifier
+            tmp['channels'] = np.arange(tmp.shape[0])
+            tmp['trials'] = self.identifier
             tmp.set_index('trials', inplace = True, append = False)
-            tmp.set_index('samples', inplace = True, append = True)
+            tmp.set_index('channels', inplace = True, append = True)
 
-            if samples is None:
-                tmp.columns = self.Recording.Session.Setup.Modalities[
-                        self.Recording.Modality
-                        ].Sample_Order
+            if channels is None:
+                tmp.columns = self.recording.session.setup.modalities[
+                        self.recording.modality
+                        ].channel_order
             else:
-                tmp.columns = samples
+                tmp.columns = channels
         else:
-            tmp = np.copy(self.Recording.get_all_data()[begin:end, sample_indices])
+            tmp = np.copy(self.recording.get_all_data()[begin:end, channel_indices])
         return tmp
 
     def get_frequency(self):
         """ Returns frequency of recording trial belongs to
         """
-        return self.Recording.get_frequency()
+        return self.recording.get_frequency()
 
     def set_data(self, data):
-        """ Sets the samples in reference.data this trial is referencing.
+        """ Sets the channels in reference.data this trial is referencing.
 
             Args:
                 data (pandas.DataFrame): New data
@@ -2132,145 +2132,145 @@ class Trial:
         """
         if type(data) == pd.core.frame.DataFrame:
             data = data.values()
-        if (data.shape[0] == self.Samples) and (data.shape[1] == self.Recording.Features):
-            self.Recording.get_all_data()[self.StartIdx : self.StopIdx] = data
+        if (data.shape[0] == self.channels) and (data.shape[1] == self.recording.features):
+            self.recording.get_all_data()[self.start_idx : self.StopIdx] = data
         else:
             raise ValueError((
-                'Shape missmatch replacing data in trial ' + self.Identifier + '. ' +
-                '\nExpected shape(' + self.Samples + ',' + self.Features + ', got ' +
+                'Shape missmatch replacing data in trial ' + self.identifier + '. ' +
+                '\nExpected shape(' + self.channels + ',' + self.features + ', got ' +
                 'shape' + str(data.shape)
             ))
 
     def to_string(self):
-        string = 'Trial {}: {}s duration, {} samples, label {}'.format(
-                self.Identifier, self.Duration, self.Samples, self.Label
-                )
-        marker = self.get_marker()
-        for t, l in marker:
-            string = string + '\n\tMarker {a} at {b:.3f}s'.format(a=l, b=t)
-        return string
+        string = 'Trial {}: {}s duration, {} channels, label {}'.format(
+            self.identifier, self.duration, self.channels, self.label
+            )
+    marker = self.get_marker()
+    for t, l in marker:
+        string = string + '\n\tMarker {a} at {b:.3f}s'.format(a=l, b=t)
+    return string
 
 
 class DataController:
     """ Handles reading and writing EMG data from file
     """
 
-    def read_data_from_file(self, path):
-        """ Given path identifies file type and calls respective method
+def read_data_from_file(self, path):
+    """ Given path identifies file type and calls respective method
 
-            Args:
-                path (String): Path to file from which data should be retrieved
+        Args:
+            path (String): Path to file from which data should be retrieved
 
-            Raises:
-                IOError if file specified in path does not exist
-                NotImplementedError if file type not recognized
-        """
-        if path.endswith('.txt'):
-            return self.read_data_from_file(path)
-        elif path.endswith('.pkl'):
-            return self.read_pickled_data(path)
-        else:
-            raise NotImplementedError(
-                'File type of file  %s not supported' % path
-            )
+        Raises:
+            IOError if file specified in path does not exist
+            NotImplementedError if file type not recognized
+    """
+    if path.endswith('.txt'):
+        return self.read_data_from_file(path)
+    elif path.endswith('.pkl'):
+        return self.read_pickled_data(path)
+    else:
+        raise NotImplementedError(
+            'File type of file  %s not supported' % path
+        )
 
-    def read_data_from_text(self, path, delimiter = '\t', asNumpy = False, debug = False):
-        """ Reads EMG data from a textfile
+def read_data_from_text(self, path, delimiter = '\t', asNumpy = False, debug = False):
+    """ Reads EMG data from a textfile
 
-            Args:
-                path (String): Path to the text file which should be read
-                delimiter (String, optional): Delimiter of columns
-                asNumpy (Boolean, optional): If set to true numpy array is returned
-                    instead of Pandas DataFrame
-                debug (boolean): If set to true only first 100 Lines are considered
+        Args:
+            path (String): Path to the text file which should be read
+            delimiter (String, optional): Delimiter of columns
+            asNumpy (Boolean, optional): If set to true numpy array is returned
+                instead of Pandas DataFrame
+            debug (boolean): If set to true only first 100 Lines are considered
 
-            Returns:
-                pandas.core.DataFrame
-                numpy.ndarray
-        """
+        Returns:
+            pandas.core.DataFrame
+            numpy.ndarray
+    """
 
-        with open(path, 'r') as f:
-            count = 0
-            start = 0
-            arr = None
-            for line in f:
-                count = count + 1
+    with open(path, 'r') as f:
+        count = 0
+        start = 0
+        arr = None
+        for line in f:
+            count = count + 1
 
-                line = line.strip()
+            line = line.strip()
 
-                if re.match('[a-zA-Z]', line) is not None:
-                    # Skip all lines containing text characters
-                    print 'Warning - skipped line %d:%s' % (count, line)
-                    continue
+            if re.match('[a-zA-Z]', line) is not None:
+                # Skip all lines containing text characters
+                print 'Warning - skipped line %d:%s' % (count, line)
+                continue
 
-                start = line.index('\t')
-                    # Skip the first column. Contains only time values (in case of PowerLab
-                    # export
-                line = line.replace(',', '.')
+            start = line.index('\t')
+                # Skip the first column. Contains only time values (in case of PowerLab
+                # export
+            line = line.replace(',', '.')
 
-                values = line[start + 1: len(line)].split('\t')
-                if arr is None:
-                    arr = np.array(values, dtype = 'float').reshape(1, len(values))
-                else:
-                    try:
-                        arr = np.row_stack((
-                            arr,
-                            np.array(values, dtype = 'float').reshape(1, len(values))
-                        ))
-                    except ValueError as e:
-                        print (
-                                'Error reading line %i in file %s. Line was %s' %
-                                (count, path, line)
-                              )
-                if (count % 10000) == 0:
-                    print '%d lines already read' % count
-                if debug:
-                    if count > 99:
-                        break
+            values = line[start + 1: len(line)].split('\t')
+            if arr is None:
+                arr = np.array(values, dtype = 'float').reshape(1, len(values))
+            else:
+                try:
+                    arr = np.row_stack((
+                        arr,
+                        np.array(values, dtype = 'float').reshape(1, len(values))
+                    ))
+                except ValueError as e:
+                    print (
+                            'Error reading line %i in file %s. Line was %s' %
+                            (count, path, line)
+                          )
+            if (count % 10000) == 0:
+                print '%d lines already read' % count
+            if debug:
+                if count > 99:
+                    break
 
-        if type(arr) is pd.DataFrame:
-            arr = arr.values
-        elif type(arr) is np.ndarray:
-            pass
-        else:
-            raise ValueError('Error loading data from pickled file. Encountered ' + \
-                    'unsupported data type. Expected pandas.core.DataFrame or ' + \
-                    'numpy.ndarray. Instead got {}'.format(type(arr))
-                    )
+    if type(arr) is pd.DataFrame:
+        arr = arr.values
+    elif type(arr) is np.ndarray:
+        pass
+    else:
+        raise ValueError('Error loading data from pickled file. Encountered ' + \
+                'unsupported data type. Expected pandas.core.DataFrame or ' + \
+                'numpy.ndarray. Instead got {}'.format(type(arr))
+                )
 
-        return arr
+    return arr
 
-    def read_from_file_and_pickle(self, source, target, debug = False):
-        """ Reads EMG data from file and creates a numpy array and pickles it to target
+def read_from_file_and_pickle(self, source, target, debug = False):
+    """ Reads EMG data from file and creates a numpy array and pickles it to target
 
-            Args:
-                source (String): Path to data file
-                target (String): Path to pickle file
-        """
-        arr = self.read_data_from_text(path = source, asNumpy = True, debug = debug)
+        Args:
+            source (String): Path to data file
+            target (String): Path to pickle file
+    """
+    arr = self.read_data_from_text(path = source, asNumpy = True, debug = debug)
 
-        with open(target, 'wb') as f:
-            pkl.dump(arr, f)
+    with open(target, 'wb') as f:
+        pkl.dump(arr, f)
 
-    def read_pickled_data(self, source):
-        """ Reads EMG data from a pickled numpy ndarray
+def read_pickled_data(self, source):
+    """ Reads EMG data from a pickled numpy ndarray
 
-            Args
-                source (String): Path to pickled numpy.ndarray
+        Args
+            source (String): Path to pickled numpy.ndarray
 
-            Returns:
-                pandas.core.DataFrame
-        """
-        with open(source, 'rb') as f:
-            arr = pkl.load(f)
+        Returns:
+            pandas.core.DataFrame
+    """
+    with open(source, 'rb') as f:
+        arr = pkl.load(f)
 
-        if type(arr) is pd.DataFrame:
-            arr = arr.values
-        elif type(arr) is np.ndarray:
-            pass
-        else:
-            raise ValueError('Error loading data from pickled file. Encountered ' + \
-                    'unsupported data type. Expected pandas.core.DataFrame or ' + \
-                    'numpy.ndarray. Instead got {}'.format(type(arr))
-                    )
-        return arr
+    if type(arr) is pd.DataFrame:
+        arr = arr.values
+    elif type(arr) is np.ndarray:
+        pass
+    else:
+        raise ValueError('Error loading data from pickled file. Encountered ' + \
+                'unsupported data type. Expected pandas.core.DataFrame or ' + \
+                'numpy.ndarray. Instead got {}'.format(type(arr))
+                )
+    return arr

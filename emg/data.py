@@ -230,215 +230,215 @@ def align_and_label_recordings(session, target_modality, split=(.5, .25, .25),
         if recording.Modality == target_modality:
             target_recording = recording
         elif include is not None:
-            if recording.Identifier in include:
+            if recording.identifier in include:
                 data_recordings.append(recording)
         elif exclude is not None:
-            if recording.Identifier not in exclude:
-                data_recordings.append(recording)
-        else:
-            data_recordings.append(recording)
+                if recording.identifier not in exclude:
+                    data_recordings.append(recording)
+                else:
+                    data_recordings.append(recording)
 
-    if len(data_recordings) == 0:
-        raise ValueError('Could not find any of the trials included ' + \
-                'in "include". Error occured in emg.data.' + \
-                'train_valid_test_from_modalities'
-                )
-
-    if target_recording is None:
-        raise ValueError('Could not find target modality. Modality was {}. ' + \
-                'Error occured in emg.data.train_valid_test_from_modalities'
-                .format(target_modality)
-                )
-
-    # Reduce length of all arrays to the length of the target array
-    target_done = False
-    aligned = {}
-    for recording in data_recordings:
-        if alignment_method == 'mean':
-            aligned[recording.Identifier] = align_by_mean(
-                    recording,
-                    target_recording
+        if len(data_recordings) == 0:
+            raise ValueError('Could not find any of the trials included ' + \
+                    'in "include". Error occured in emg.data.' + \
+                    'train_valid_test_from_modalities'
                     )
-        elif alignment_method == 'median':
-            aligned[recording.Identifier] = align_by_median(
-                    recording,
-                    target_recording
+
+        if target_recording is None:
+            raise ValueError('Could not find target modality. Modality was {}. ' + \
+                    'Error occured in emg.data.train_valid_test_from_modalities'
+                    .format(target_modality)
                     )
-        elif alignment_method == 'collapse':
-            aligned[recording.Identifier] = align_by_collapse(
-                    recording,
-                    target_recording
-                    )
-        else:
-            raise ValueError('Unknown value for keyword "alignment_method" ' + \
-                    'encountered. Value was: {}'.format(alignment_method)
-                    )
-    train_X = None
-    val_X = None
-    test_X = None
-    train_Y = None
-    val_Y = None
-    test_Y = None
-    target_trials = target_recording.get_trials_as_list()
-    target_done = False
 
-    # Create test, training and validation set
-    for rec in data_recordings:
-        start = 0
-        end = target_recording.shape[0] * p_train
-        train_tmp = rec[start:int(end-skip/2), :]
-        if not target_done:
-            train_Y = target_recording[start:int(end-skip/2), :]
+        # Reduce length of all arrays to the length of the target array
+        target_done = False
+        aligned = {}
+        for recording in data_recordings:
+            if alignment_method == 'mean':
+                aligned[recording.identifier] = align_by_mean(
+                        recording,
+                        target_recording
+                        )
+            elif alignment_method == 'median':
+                aligned[recording.identifier] = align_by_median(
+                        recording,
+                        target_recording
+                        )
+            elif alignment_method == 'collapse':
+                aligned[recording.identifier] = align_by_collapse(
+                        recording,
+                        target_recording
+                        )
+            else:
+                raise ValueError('Unknown value for keyword "alignment_method" ' + \
+                        'encountered. Value was: {}'.format(alignment_method)
+                        )
+        train_X = None
+        val_X = None
+        test_X = None
+        train_Y = None
+        val_Y = None
+        test_Y = None
+        target_trials = target_recording.get_trials_as_list()
+        target_done = False
 
-        start = end
-        end = end + target_recording.shape[0] * p_val
-        val_tmp = rec[int(start + skip/2):int(end - skip/2), :]
-        if not target_done:
-            val_Y = target_recording[int(start + skip/2):int(end - skip/2), :]
+        # Create test, training and validation set
+        for rec in data_recordings:
+            start = 0
+            end = target_recording.shape[0] * p_train
+            train_tmp = rec[start:int(end-skip/2), :]
+            if not target_done:
+                train_Y = target_recording[start:int(end-skip/2), :]
 
-        start = end
-        test_tmp = rec[int(start + skip/2):rec.shape[0], :]
-        if not target_done:
-            test_Y = target_recording[int(start + skip/2):rec.shape[0], :]
-            target_done = True
+            start = end
+            end = end + target_recording.shape[0] * p_val
+            val_tmp = rec[int(start + skip/2):int(end - skip/2), :]
+            if not target_done:
+                val_Y = target_recording[int(start + skip/2):int(end - skip/2), :]
 
-        if train_X is None:
-            train_X = train_tmp
-            val_X = val_tmp
-            test_X = test_tmp
-        else:
-            train_X = np.column_stack(train_X, train_tmp)
-            val_X = np.column_stack(val_X, val_tmp)
-            test_X = np.column_stack(test_X, test_tmp)
+            start = end
+            test_tmp = rec[int(start + skip/2):rec.shape[0], :]
+            if not target_done:
+                test_Y = target_recording[int(start + skip/2):rec.shape[0], :]
+                target_done = True
 
-    return (train_X, train_Y, val_X, val_Y, test_X, test_Y)
+            if train_X is None:
+                train_X = train_tmp
+                val_X = val_tmp
+                test_X = test_tmp
+            else:
+                train_X = np.column_stack(train_X, train_tmp)
+                val_X = np.column_stack(val_X, val_tmp)
+                test_X = np.column_stack(test_X, test_tmp)
 
-def get_min_length(data_sets):
-    """ Returns the size of the smalles data set along the first axis
+        return (train_X, train_Y, val_X, val_Y, test_X, test_Y)
 
-        Args:
-            data_set (List): List of np.ndarrays or anything with ``.shape``
-                property
+    def get_min_length(data_sets):
+        """ Returns the size of the smalles data set along the first axis
 
-        Returns:
-            min_length (int)
-    """
-    min_length = -1
-    for e in data_sets:
-        if min_length == -1:
-            min_length = e.shape[0]
-        elif e.shape[0] < min_length:
-            min_length = e.shape[0]
-    return min_length
+            Args:
+                data_set (List): List of np.ndarrays or anything with ``.shape``
+                    property
 
-def align_by_mean(to_align, align_on):
-    """ Aligns trials of two recordings by taking the mean.
+            Returns:
+                min_length (int)
+        """
+        min_length = -1
+        for e in data_sets:
+            if min_length == -1:
+                min_length = e.shape[0]
+            elif e.shape[0] < min_length:
+                min_length = e.shape[0]
+        return min_length
 
-        Example:
-            If recording ``to_align`` was recorded using 4000Hz and ``align_on``
-            recorded with 500Hz, when the mean over 8 samples of ``to_align``
-            is taken
+    def align_by_mean(to_align, align_on):
+        """ Aligns trials of two recordings by taking the mean.
 
-        Args:
-            to_align (model.model.Recording): Recording on which mean should
-                be applied (needs to have larger sampling rate)
-            align_on (model.model.Recording): Recording to align on
+            Example:
+                If recording ``to_align`` was recorded using 4000Hz and ``align_on``
+                recorded with 500Hz, when the mean over 8 samples of ``to_align``
+                is taken
 
-        Returns:
-            List of np.ndarrays
+            Args:
+                to_align (model.model.Recording): Recording on which mean should
+                    be applied (needs to have larger sampling rate)
+                align_on (model.model.Recording): Recording to align on
 
-        Raises:
-            AssertionError if ``to_align`` has smaller sampling rate/frequency
-            than ``align_on''
-    """
-    assert to_align.get_frequency() > align_on.get_frequency(), 'Frequency ' + \
-            'of recording for which first dimension of trials should be ' + \
-            'reduced has higher frequency than recording it should be ' + \
-            'aligned to. {}: {}Hz, {}: {}Hz'.format(
-                    to_align.Identifier, to_align.get_frequency(),
-                    align_on.Identifier, align_on.get_frequency()
-                    )
-    ret = []
-    arr, n = _get_settings_for_alignment(to_align, align_on)
-    trials = arr.get_trials_as_list(pandas=False)
-    for trial in trials:
-        steps, remainder = divmod(trial.shape[0], n)
-        tmp = np.mean(trial[0:n, :], axis=0)
+            Returns:
+                List of np.ndarrays
 
-        for step in range(1, steps):
-            start = step * n
-            stop = (step + 1) * n
-            tmp = np.row_stack([tmp, np.mean(trial[start:stop, :], axis=0)])
-        ret.append(tmp)
-    return ret
+            Raises:
+                AssertionError if ``to_align`` has smaller sampling rate/frequency
+                than ``align_on''
+        """
+        assert to_align.get_frequency() > align_on.get_frequency(), 'Frequency ' + \
+                'of recording for which first dimension of trials should be ' + \
+                'reduced has higher frequency than recording it should be ' + \
+                'aligned to. {}: {}Hz, {}: {}Hz'.format(
+                        to_align.identifier, to_align.get_frequency(),
+                        align_on.identifier, align_on.get_frequency()
+                        )
+        ret = []
+        arr, n = _get_settings_for_alignment(to_align, align_on)
+        trials = arr.get_trials_as_list(pandas=False)
+        for trial in trials:
+            steps, remainder = divmod(trial.shape[0], n)
+            tmp = np.mean(trial[0:n, :], axis=0)
 
-def align_by_median(to_align, align_on):
-    """ Aligns trials of two recordings by taking the median.
+            for step in range(1, steps):
+                start = step * n
+                stop = (step + 1) * n
+                tmp = np.row_stack([tmp, np.mean(trial[start:stop, :], axis=0)])
+            ret.append(tmp)
+        return ret
 
-        Example:
-            If recording ``to_align`` was recorded using 4000Hz and ``align_on``
-            recorded with 500Hz, when the median over 8 samples of ``to_align``
-            is taken
+    def align_by_median(to_align, align_on):
+        """ Aligns trials of two recordings by taking the median.
 
-        Args:
-            to_align (model.model.Recording): Recording on which median should
-                be applied (needs to have larger sampling rate)
-            align_on (model.model.Recording): Recording to align on
+            Example:
+                If recording ``to_align`` was recorded using 4000Hz and ``align_on``
+                recorded with 500Hz, when the median over 8 samples of ``to_align``
+                is taken
 
-        Returns:
-            List of np.ndarrays
+            Args:
+                to_align (model.model.Recording): Recording on which median should
+                    be applied (needs to have larger sampling rate)
+                align_on (model.model.Recording): Recording to align on
 
-        Raises:
-            AssertionError if ``to_align`` has smaller sampling rate/frequency
-            than ``align_on''
-    """
-    assert to_align.get_frequency() > align_on.get_frequency(), 'Frequency ' + \
-            'of recording for which first dimension of trials should be ' + \
-            'reduced has higher frequency than recording it should be ' + \
-            'aligned to. {}: {}Hz, {}: {}Hz'.format(
-                    to_align.Identifier, to_align.get_frequency(),
-                    align_on.Identifier, align_on.get_frequency()
-                    )
-    ret = []
-    arr, n = _get_settings_for_alignment(to_align, align_on)
-    trials = arr.get_trials_as_list(pandas=False)
-    for trial in trials:
-        steps, remainder = divmod(trial.shape[0], n)
-        tmp = np.median(trial[0:n, :], axis=0)
+            Returns:
+                List of np.ndarrays
 
-        for step in range(1, steps):
-            start = step * n
-            stop = (step + 1) * n
-            tmp = np.row_stack([tmp, np.median(trial[start:stop, :], axis=0)])
-        ret.append(tmp)
-    return ret
+            Raises:
+                AssertionError if ``to_align`` has smaller sampling rate/frequency
+                than ``align_on''
+        """
+        assert to_align.get_frequency() > align_on.get_frequency(), 'Frequency ' + \
+                'of recording for which first dimension of trials should be ' + \
+                'reduced has higher frequency than recording it should be ' + \
+                'aligned to. {}: {}Hz, {}: {}Hz'.format(
+                        to_align.identifier, to_align.get_frequency(),
+                        align_on.identifier, align_on.get_frequency()
+                        )
+        ret = []
+        arr, n = _get_settings_for_alignment(to_align, align_on)
+        trials = arr.get_trials_as_list(pandas=False)
+        for trial in trials:
+            steps, remainder = divmod(trial.shape[0], n)
+            tmp = np.median(trial[0:n, :], axis=0)
 
-def align_by_collapse(to_align, align_on):
-    """ Given two recordings aligns all trials to have the same first
-        dimension by collapsing rows of the trial recorded with higher
-        frequencies into second dimension.
+            for step in range(1, steps):
+                start = step * n
+                stop = (step + 1) * n
+                tmp = np.row_stack([tmp, np.median(trial[start:stop, :], axis=0)])
+            ret.append(tmp)
+        return ret
 
-        If size of first dimension in a trial is not a multiple of
-        ``columns * factor`` trial is cut of. ``factor`` is the ration
-        between frequencies.
+    def align_by_collapse(to_align, align_on):
+        """ Given two recordings aligns all trials to have the same first
+            dimension by collapsing rows of the trial recorded with higher
+            frequencies into second dimension.
 
-        Example:
-            Trial has shape ``(20, 2)``, ``factor=3`` then
-            20 * 2 / (2 * 3) = 40 / 6 = 6 rest 4 --> 4 samples are ommitted
+            If size of first dimension in a trial is not a multiple of
+            ``columns * factor`` trial is cut of. ``factor`` is the ration
+            between frequencies.
 
-        Args:
-            to_align (model.model.Recording): First recording to align
-            align_on (model.model.Recording): Second recording to align
+            Example:
+                Trial has shape ``(20, 2)``, ``factor=3`` then
+                20 * 2 / (2 * 3) = 40 / 6 = 6 rest 4 --> 4 samples are ommitted
 
-        Returns:
-            List of numpy.ndarray
-    """
-    assert to_align.get_frequency() > align_on.get_frequency(), 'Frequency ' + \
-            'of recording for which first dimension of trials should be ' + \
-            'reduced has higher frequency than recording it should be ' + \
-            'aligned to. {}: {}Hz, {}: {}Hz'.format(
-                    to_align.Identifier, to_align.get_frequency(),
-                    align_on.Identifier, align_on.get_frequency()
+            Args:
+                to_align (model.model.Recording): First recording to align
+                align_on (model.model.Recording): Second recording to align
+
+            Returns:
+                List of numpy.ndarray
+        """
+        assert to_align.get_frequency() > align_on.get_frequency(), 'Frequency ' + \
+                'of recording for which first dimension of trials should be ' + \
+                'reduced has higher frequency than recording it should be ' + \
+                'aligned to. {}: {}Hz, {}: {}Hz'.format(
+                        to_align.identifier, to_align.get_frequency(),
+                    align_on.identifier, align_on.get_frequency()
                     )
 
     to_collapse, n = _get_settings_for_alignment(to_align, align_on)

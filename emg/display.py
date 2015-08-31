@@ -21,7 +21,7 @@ def predict_report(inpt, output, target, plot=False):
 
     axs[0][0].legend()
     if plot:
-        plt.plot()
+        plt.show()
 
 def visualize_modality(model, start, stop, modality=None):
     """ Creates a visualization of the modality signals contained in model
