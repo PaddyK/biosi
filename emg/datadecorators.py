@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.join(
     os.path.pardir
     )))
 from model.model import DataHoldingElement
+from model.model import DataContainer
 
 class AbstractDataDecorator(DataHoldingElement):
     """ Abstract base class for all concrete decorators
@@ -176,4 +177,91 @@ class SamplingDecorator(DataHoldingElement):
             return self._iterate(data_list)
         else:
             return self._return(data_list)
+
+
+class WindowDecorator(DataHoldingElement):
+    def _calc_num_windows(self, timesteps, windowsize, stride):
+        """ Based on duration of data element, windowsize and stride
+            calculates number of windows.
+
+            Args:
+                timesteps (int): Number of timesteps (samples) of data
+                windowsize (int): Size of window in timesteps
+                stride (int): Size of stride in timesteps
+
+            Returns:
+                int
+        """
+        windows, remainder = divmod(timesteps - windowsize, stride)
+        return windows
+
+    def _expand_time(self, time, frequency):
+        """ Calculates index from time in seconds and returns it
+
+            Args:
+                time (float): Time in seconds
+                frequency (int): Sampling Rate of signal
+
+            Returns:
+                int
+        """
+        tmp = time * frequency
+        point = int(tmp)
+        if tmp - point != 0:
+            warnings.warn('Time {} did not result in integer index for ' + \
+                    'frequency {} in emg.datadecorators.WindowDecorator' + \
+                    '._expand_time'
+                    )
+        return point
+
+    def _iterate(self, windowsize, stride, datalist):
+        for container in datalist:
+            data = container.data
+            counter = 0
+            start = stride * num
+            stop = windowsize + start
+
+            while stop <= container.duration:
+                yield container[start:stop]
+                start = stride * num
+                stop = windowsize + start
+
+    def _return(self):
+        result = []
+        for container in datalist:
+            data = container.data
+            counter = 0
+            start = stride * num
+            stop = windowsize + start
+
+            while stop <= container.duration:
+                result.append(container[start:stop])
+                start = stride * num
+                stop = windowsize + start
+        return result
+
+    def get_data(windowsize, stride, **kwargs):
+        """ Windowfies data. Returns them as list of iterator depending on
+            attribute ``is_iterator``
+
+            Args:
+                windowsize (float): Size of windows in seconds
+                stride (float): Difference between the beginning of two
+                    consecutive windows in seconds
+                kwargs (Dictionary): arguments for other methods
+
+            Note:
+                If ``windowsize * frequency`` results not in a natural number,
+                value will be truncated. The same goes for stride.
+
+            Returns:
+                Iterator or List
+        """
+        dataelement = self._element.get_data(*kwargs)
+
+        if self._is_iterator:
+            return self._iterate(windowsize, stride, dataelement)
+        else:
+            return self._return(windowsize, stride, dataelement)
+
 

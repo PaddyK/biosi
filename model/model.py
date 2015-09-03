@@ -167,7 +167,7 @@ class DataContainer(object):
 
     @property
     def duration(self):
-        """ Returns duration of data
+        """ Returns duration of data in seconds
         """
         return self._duration
 
