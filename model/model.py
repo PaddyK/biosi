@@ -104,11 +104,143 @@ import numpy as np
 import pandas as pd
 import sys
 import cPickle as pkl
-import re
 import warnings
 
+class DataContainer(object):
+    """ Wrapper for a pandas.core.DataFrame to support additional
+        functionality
+    """
 
-class Experiment:
+    def __init__(self, dataframe, frequency):
+        """ Initialises object. For alternative constuctors see classemthods
+
+            Args:
+                dataframe (pandas.core.DataFrame): Frame containing data
+                frequency (int): Sampling-Rate with which data was recorded
+        """
+        self._dataframe = dataframe
+        self._frequency = frequency
+        self._duration = float(self.dataframe.shape[0]) / float(self.frequency)
+
+    @classmethod
+    def from_array(array, frequency, columns=None):
+        """ Alternative constructor, creates element from numpy array
+
+            Args:
+                array (numpy.ndarray): Array containing data
+                frequency (int): Frequency with wich data was recorded
+                columns (List, optional): Names of features
+
+            Returns:
+                model.model.DataContainer
+        """
+        df = pd.DataFrame(array)
+        if columns is not None:
+            df.columns = columns
+        return DataContainer(df, frequency)
+
+    @property
+    def columns(self):
+        """ Returns headers of data
+
+            Returns:
+                List
+        """
+        return self._dataframe.columns
+
+    @property
+    def data(self):
+        """ Returns data as numpy array
+
+            Returns:
+                numpy.ndarray
+        """
+        return self._dataframe.values
+
+    @property
+    def dataframe(self):
+        """ Returns wrapped dataframe
+
+            Returns:
+                pandas.core.DataFrame
+        """
+
+    @property
+    def duration(self):
+        """ Returns duration of data
+        """
+        return self._duration
+
+    @property
+    def frequency(self):
+        """ Return frequency
+
+            Returns:
+                int
+        """
+        return self._frequency
+
+    def __getitem__(self, slice):
+        """ Returns slice along first dimension
+
+            Args:
+                slice (float, Slice): Integer (point in time) or slice (duration).
+                    values are expected in seconds.
+
+            Note:
+                Values of slic is expected in seconds. Floating point numbers
+                are accepted, however the true indices are calculated using the
+                frequency of this container and then cast to integer.
+                Step argument is ignored
+
+            Returns:
+                model.model.DataContainer
+
+            Raises:
+                TypeError if argument ``slice`` is/contains negative values
+                    or is larger than duration of data
+        """
+        if type(slice) is int:
+            start = int(slice * self.frequency)
+            stop = start + 1
+        elif slice.start is None and slice.stop is None:
+            start = 0
+            stop = int(self.duration * self.frequency)
+        else:
+            start = int(slice.start * self.frequency)
+            stop = int(slice.stop * self.frequency)
+
+        assert slice >= 0, 'model.model.DataContainer.__getitem__: ' + \
+                'negative value for slice encountered. Must be positive'
+        assert slice <= self.duration, 'model.model.DataContainer.' + \
+                '__getitem__: Requested Timestamp larger than duration. ' + \
+                'duration is: {}, requested was time: {}'.format(
+                        self.duration,stop
+                        )
+        dat = self.data[start:stop, :]
+        return DataContainer.from_array(dat, self.frequency, self.columns)
+
+
+class DataHoldingElement(object):
+    def __getitem__(self, key):
+        """ Returns data over time. Start, Stop, Step in seconds
+        """
+        pass
+
+    def aslist(**kwargs):
+        """ Returns all trials contained as list
+        """
+        pass
+
+    def get_data(**kwargs):
+        """ Returns result of Decorator operation.
+
+            By default result of aslist() is returned.
+        """
+        return self.aslist(**kwargs)
+
+
+class Experiment(DataHoldingElement):
     """ Representation of an EMG experiment. This class pools all information to reject
         or accept a hypothesis.
 
@@ -141,7 +273,7 @@ class Experiment:
     def subjects(self):
         return self._subjects
 
-    def get_data(self, modality, sessions=None, from_=None, to=None):
+    def get_data(self, **kwargs):
         """ Returns all data in an specific interval from one/multiple/all
             sessions of this experiment.
 
@@ -162,15 +294,16 @@ class Experiment:
                 data (pandas.core.DataFrame)
         """
         duration = 0
-        if sessions is None:
+        modality = kwargs['modality']
+        if kwargs['sessions'] is None:
             sessions = self._session_order
 
-        if from_ is None:
+        if kwargs['from'] is None:
             from_ = 0
         elif from_ < 0:
             raise IndexError('Start point of time interval out of bounds')
 
-        if to is None:
+        if kwargs['to'] is None:
             to = duration
         elif to < 0:
             raise IndexError('End point of time interval out of bounds')
@@ -547,7 +680,7 @@ class Experiment:
         return string
 
 
-class Subject:
+class Subject(object):
     """ Represents subjects having paricipated in the course of an EMG experiment.
 
         Attributes:
@@ -564,7 +697,7 @@ class Subject:
         return self.identifier
 
 
-class Setup:
+class Setup(object):
     """ Represents a setup for an session. Specifies the amount and
         grouping of sensors of different recording systems.
     """
@@ -661,7 +794,7 @@ class Setup:
         return string
 
 
-class Modality:
+class Modality(object):
     """ Represents a modality. A modality in the context of EMG is a group of sensors, for
         example on the hand. Another modality would be a second set of sensors on the breast.
 
@@ -775,7 +908,7 @@ class Modality:
         return string
 
 
-class Channel:
+class Channel(object):
     """ Represents a channel i.e. sensor.
 
         Args:
@@ -806,7 +939,7 @@ class Channel:
         return 'Channel: ' + self.identifier
 
 
-class Session:
+class Session(DataHoldingElement):
     """ Implements a session of an experiment. A session is defined by the subject
         participating, the used setup and the time it takes place.
 
@@ -965,7 +1098,7 @@ class Session:
                 duration = duration + r.duration
         return duration
 
-    def get_data_for_breeze(self, labels=None):
+    def aslist(self, labels=None):
         """ Returns data in format to directly feed it to
             .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
             That is a list of two dimensional arrays where each array represents a trial.
@@ -984,7 +1117,7 @@ class Session:
 
         return data, class_labels
 
-    def get_data(self, modality=None, begin=None, end=None):
+    def get_data(self, **kwargs):
         """ Returns the data of all recordings and trials associated with one session.
             Only the concatenated data of the trials is returned. Channels not contained
             in trials are skipped.
@@ -1007,6 +1140,10 @@ class Session:
             Returns:
                 pandas.DataFrame
         """
+        begin = kwargs['begin'] if 'begin' in kwargs.keys() else None
+        end = kwargs['end'] if 'end' in kwargs.keys() else None
+        modality = kwargs['modality'] if 'modality' in kwargs.keys() else None
+
         if (len(self.setup.modalities) > 1) and (modality is None):
             raise ValueError((
                 'More than one modality present in setup {a} of session ' +
@@ -1018,6 +1155,8 @@ class Session:
         begin_pass = None
         end_pass = None
         stop = 0
+        begin = kwargs['begin'] if 'begin' in kwargs.keys() else None
+        end = kwargs['end'] if 'end' in kwargs.keys() else None
 
         for idx in self._recording_order:
             if (self.recordings[idx].modality == modality) or (modality is None):
@@ -1264,18 +1403,18 @@ class Session:
         return string
 
 
-class Recording:
+class Recording(DataHoldingElement):
     """ Represents one recording of a session. May contain multiply trials, i.e. performed
         tasks.
 
         Args:
             session (session): The session in which recording was recorded
+            modality (model.model.Modality): Modality recording is associated
+                with. Set if multiple modalities (e.g. eeg, emg) are used
             location (string, optional): Path to a file containing the record. If this
                 parameter is set and no data is given, data will be retrieved from file.
             data (pandas.DataFrame, optional): DataFrame with channels of this recording.
             identifier (string, optional): Identifier of one instance
-            modality (String, optional): Modality recording is associated with. Set if
-                multiple modalities (e.g. eeg, emg) are used
 
         Note:
             Either ``data`` or ``location`` has to be set. If both are set, ``location``
@@ -1306,7 +1445,6 @@ class Recording:
         self._session = session
         self._location = location
         self._channels = 0
-        self._features = self.session.setup.modalities[modality].num_channels
         self._trials = {}
         self._identifier = identifier
         self._trial_order = []
@@ -1321,19 +1459,22 @@ class Recording:
 
         if data is None:
             datactrl = DataController()
-            self._data = datactrl.read_data_from_file(location)
+            data = datactrl.read_data_from_file(location)
         else:
             if type(data) is pd.DataFrame:
-                self._data = data.values
+                data = data.values
             elif type(data) is np.ndarray:
-                self._data = data
+                pass
             else:
                 raise ValueError('Data is of unsupported type. Expected ' + \
                         '"numpy.ndarray or pandas.core.DataFrame. Got {}'
                         .format(type(data))
                         )
-        f = self.session.setup.modalities[self._modality].frequency
-        self._duration = self._data.shape[0] / f
+        self._data = DataContainer.from_array(
+                data,
+                self._modality.channels,
+                self._modality.frequency
+                )
         self._session.put_recording(self)
 
     @property
@@ -1370,7 +1511,7 @@ class Recording:
             Returns:
                 int
         """
-        return self._features
+        return self._data.shape[1]
 
     @property
     def identifier(self):
@@ -1485,7 +1626,7 @@ class Recording:
         """
         return self._markers
 
-    def get_data(self, begin=None, end=None, pandas=True):
+    def get_data(self, begin=None, end=None, pandas=False):
         """ Returns the **relevant** data of a recording object. In especially, this
             property yields only the data specified in the trials belonging to the
             recording.
@@ -1506,6 +1647,7 @@ class Recording:
             Returns:
                 pandas.DataFrame
         """
+        return_list = []
         if begin > end:
             raise ValueError((
                 'Beginning of time interval larger than ending. Beginning was {beg},' +
@@ -1525,7 +1667,6 @@ class Recording:
                 ).format(a=end, b=self.duration)
             )
         # New data frame is created
-        df = None
         begin_pass = None
         end_pass = None
         stop = 0
@@ -1551,20 +1692,8 @@ class Recording:
                 else:
                     end_pass = None
 
-            tmp = self.trials[idx].get_data(begin=begin_pass, end=end_pass)
-            if df is None:
-                df = tmp
-            elif pandas:
-                df = pd.concat([df, tmp])
-            else:
-                df = np.row_stack([df, tmp])
-
-        if pandas:
-            df['recordings'] = self.identifier
-            df.set_index('recordings', append = True, inplace = True)
-            # Returns a new object and there is no inplace option
-            df = df.reorder_levels(['recordings', 'trials', 'channels'])
-        return df
+            return_list.append(self.trials[idx].get_data(begin=begin_pass, end=end_pass))
+        return return_list
 
     def _label_to_data_pandas(self, trials, labels):
         """ Given a list of trials and a list of labels returns one DataFrame
@@ -1673,29 +1802,6 @@ class Recording:
                 trials, ret_labels = self._label_to_data_numpy(trials, ret_labels)
         return trials, ret_labels
 
-    def get_trials_as_list(self, pandas=True, channels=None):
-        """ Returns data in format to directly feed it to
-            .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
-            That is a list of two dimensional arrays where each array represents a trial.
-
-            Args:
-                pandas (Boolean, optional): True return dataframe, false array
-                channels (List): List of channel ids. If set only those channels
-                    are returned
-
-            Raises:
-                KeyError one of identifiers in channels not found
-
-            Returns:
-                data (List): List of two dimensional numpy.ndarrays
-        """
-        data = []
-        for idx in self._trial_order:
-            tmp = self.trials[idx].get_data(pandas=pandas, channels=channels)
-            data.append(tmp)
-
-        return data
-
     def get_labels(self):
         """ Returns a list of labels for all relevant data points.
 
@@ -1711,7 +1817,7 @@ class Recording:
     def get_frequency(self):
         """ Returns frequency of setup used for session this recording was recorded in
         """
-        return self.session.get_frequency(modality = self._modality)
+        return self._modality.frequency
 
     @property
     def duration(self):
@@ -1720,7 +1826,7 @@ class Recording:
             Returns:
                 float
         """
-        return self._duration
+        return self._data.duration
 
     @property
     def channels(self):
@@ -1730,7 +1836,7 @@ class Recording:
             Returns:
                 Integer
         """
-        return self._channels
+        return self._data.shape[1]
 
     def set_data(self, data):
         """ Sets only the **relevant** data of the recording, i.e. the data specified
@@ -1747,7 +1853,7 @@ class Recording:
                 accessing data though this classes properties, the updated data is
                 returned, though.
         """
-        if (data.shape[0] != self.channels) or (data.shape[1] != self.features):
+        if data.shape[0] != self.samples:
             raise ValueError(
                 'Dimension missmatch while trying to set data for recording {}. ' + \
                 'Expected data of form ({},{}), instead got {}'.format(
@@ -1758,15 +1864,10 @@ class Recording:
                 )
             )
         else:
-            channels = 0 # Use it as soffset
             for idnt in self._trial_order:
-                end = channels + self.trials[idnt].channels
-                self.trials[idnt].set_data(data[channels : end])
-                channels = end
-
-    @channels.setter
-    def channels(self, channels):
-        self._channels = channels
+                start = int(self.trials[idnt].start * self.frequency)
+                end = start + int(self.trials[idnt].duration * self.frequency)
+                self.trials[idnt].set_data(data[start : end])
 
     def get_all_data(self):
         """ In contrast to the Data propery, this function will return the whole DataFrame
@@ -1775,13 +1876,13 @@ class Recording:
             data have been performed.
 
             Returns:
-                DataFrame
+                model.model.DataContainer
         """
         return self._data
 
     def set_all_data(self, data):
         if (data.shape[0] == self.channels) and (data.shape[1] == self.features):
-            self.Data = data
+            self._data = data
         else:
             raise ValueError((
                 'Shape missmatch replacing data in recording ' + self.identifier + '. ' +
@@ -1848,7 +1949,7 @@ class Recording:
         return string
 
 
-class Trial:
+class Trial(DataHoldingElement):
     """ Implements one trial of an EMG experiment. A trial is the smallest amount of data
         to accept or reject a hypothesis.
         A trial belongs to a recording. Consequently the data associated with a trial object
@@ -1889,20 +1990,12 @@ class Trial:
         self._recording = recording
         self._start = start
         self._duration = duration
-        self._startIdx = 0
-        self._stopIdx = 0
         self._identifier = identifier
-        self._channels = 0
         self._label = label
         self._marker = []
 
         if self._identifier is None:
             self._name = 'trial' + str(len(self._recording.trials))
-
-        f = self._recording.get_frequency()
-        self._startIdx = int(self._start * f)
-        self._stopIdx = int(self._startIdx + self._duration * f)
-        self._channels = self._stopIdx - self._startIdx
 
         self._recording.put_trial(self)
 
@@ -1925,21 +2018,10 @@ class Trial:
         return self._recording
 
     @property
-    def Start(self):
+    def start(self):
         """ Start of Trial relative to beginning of recording in seconds
         """
         return self._start
-
-    @property
-    def start_idx(self):
-        """ Getter property of attribute _startIdx.
-
-            Returns start index of trial in the whole data
-
-            Returns:
-                int
-        """
-        return self._startIdx
 
     @property
     def duration(self):
@@ -2026,24 +2108,19 @@ class Trial:
         elif to > self.duration:
             raise IndexError('End of time interval out of range (greater than duration)')
 
-        #from_ = from_ + self.Start
-        #to = to + self.Start
         ret = []
-        #markers = self.recording.get_all_marker()
-        ## TODO: Use binary search to find start of range
 
         for t, l in self._marker:
-        #    t = t - self.Start
             if t < 0 :
                 continue
             elif (t > from_) and (t < to):
                 # Substract offset of trial
                 ret.append((t, l))
-            elif t > self.Start + self.duration:
+            elif t > self.start + self.duration:
                 break
         return ret
 
-    def get_data(self, begin=None, end=None, pandas=True, channels=None):
+    def get_data(self, begin=None, end=None, pandas=False, channels=None):
         """ Returns data within specified interval borders. If no border set start/end
             index of Trial is used respectively.
 
@@ -2067,52 +2144,20 @@ class Trial:
             Raises:
                 IndexError: If either `begin` or `end` larger than duration of trial
         """
-        if begin is None:
-            begin = self.start_idx
-        elif begin >= self.Start + self.duration:
-            raise IndexError((
-                'Beginning of time interval out of range. Start point of data retrieval ' +
-                ' was {start} but Trial {trial} only of length {length}'
-                ).format(start=begin, trial=self.identifier, length=self.identifieri)
-            )
-        else:
-            begin = begin * self.recording.get_frequency() + self.start_idx
-
         if end is None:
-            end = self.StopIdx
-        elif end > self.duration:
-            raise IndexError((
-                'End of time interval out of range. Start point of data retrieval ' +
-                ' was {start} but Trial {trial} only of length {length}'
-                ).format(start=end, trial=self.identifier, length=self.identifieri)
-            )
+            end = self.start + self.duration
         else:
-            end = end * self.recording.get_frequency() + self.start_idx
+            end = self.start + end
 
-        channel_indices = self.recording.session.setup.modalities[
-                self.recording.modality].get_channel_index(identifier=channels)
-
-        tmp = None
-        begin = int(begin)
-        end = int(end)
-        if pandas:
-            tmp = pd.DataFrame(
-                    self.recording.get_all_data()[begin:end, channel_indices]
-                    )
-            tmp['channels'] = np.arange(tmp.shape[0])
-            tmp['trials'] = self.identifier
-            tmp.set_index('trials', inplace = True, append = False)
-            tmp.set_index('channels', inplace = True, append = True)
-
-            if channels is None:
-                tmp.columns = self.recording.session.setup.modalities[
-                        self.recording.modality
-                        ].channel_order
-            else:
-                tmp.columns = channels
+        if begin is None:
+            begin = self.start
         else:
-            tmp = np.copy(self.recording.get_all_data()[begin:end, channel_indices])
-        return tmp
+            begin = self.start + begin
+
+        container = self.recording.data[begin:end]
+        if channels is not None:
+            container.dataframe = container.dataframe.loc[:, channels]
+        return container
 
     def get_frequency(self):
         """ Returns frequency of recording trial belongs to
@@ -2130,16 +2175,7 @@ class Trial:
                 to create a new object behind the scenes and the data object in Record
                 class is not changed!
         """
-        if type(data) == pd.core.frame.DataFrame:
-            data = data.values()
-        if (data.shape[0] == self.channels) and (data.shape[1] == self.recording.features):
-            self.recording.get_all_data()[self.start_idx : self.StopIdx] = data
-        else:
-            raise ValueError((
-                'Shape missmatch replacing data in trial ' + self.identifier + '. ' +
-                '\nExpected shape(' + self.channels + ',' + self.features + ', got ' +
-                'shape' + str(data.shape)
-            ))
+        self.recording.data[self.start, self.start + self.duration] = data
 
     def to_string(self):
         string = 'Trial {}: {}s duration, {} channels, label {}'.format(
@@ -2151,126 +2187,126 @@ class Trial:
     return string
 
 
-class DataController:
+class DataController(object):
     """ Handles reading and writing EMG data from file
     """
 
-def read_data_from_file(self, path):
-    """ Given path identifies file type and calls respective method
+    def read_data_from_file(self, path):
+        """ Given path identifies file type and calls respective method
 
-        Args:
-            path (String): Path to file from which data should be retrieved
+            Args:
+                path (String): Path to file from which data should be retrieved
 
-        Raises:
-            IOError if file specified in path does not exist
-            NotImplementedError if file type not recognized
-    """
-    if path.endswith('.txt'):
-        return self.read_data_from_file(path)
-    elif path.endswith('.pkl'):
-        return self.read_pickled_data(path)
-    else:
-        raise NotImplementedError(
-            'File type of file  %s not supported' % path
-        )
+            Raises:
+                IOError if file specified in path does not exist
+                NotImplementedError if file type not recognized
+        """
+        if path.endswith('.txt'):
+            return self.read_data_from_file(path)
+        elif path.endswith('.pkl'):
+            return self.read_pickled_data(path)
+        else:
+            raise NotImplementedError(
+                'File type of file  %s not supported' % path
+            )
 
-def read_data_from_text(self, path, delimiter = '\t', asNumpy = False, debug = False):
-    """ Reads EMG data from a textfile
+    def read_data_from_text(self, path, delimiter = '\t', asNumpy = False, debug = False):
+        """ Reads EMG data from a textfile
 
-        Args:
-            path (String): Path to the text file which should be read
-            delimiter (String, optional): Delimiter of columns
-            asNumpy (Boolean, optional): If set to true numpy array is returned
-                instead of Pandas DataFrame
-            debug (boolean): If set to true only first 100 Lines are considered
+            Args:
+                path (String): Path to the text file which should be read
+                delimiter (String, optional): Delimiter of columns
+                asNumpy (Boolean, optional): If set to true numpy array is returned
+                    instead of Pandas DataFrame
+                debug (boolean): If set to true only first 100 Lines are considered
 
-        Returns:
-            pandas.core.DataFrame
-            numpy.ndarray
-    """
+            Returns:
+                pandas.core.DataFrame
+                numpy.ndarray
+        """
 
-    with open(path, 'r') as f:
-        count = 0
-        start = 0
-        arr = None
-        for line in f:
-            count = count + 1
+        with open(path, 'r') as f:
+            count = 0
+            start = 0
+            arr = None
+            for line in f:
+                count = count + 1
 
-            line = line.strip()
+                line = line.strip()
 
-            if re.match('[a-zA-Z]', line) is not None:
-                # Skip all lines containing text characters
-                print 'Warning - skipped line %d:%s' % (count, line)
-                continue
+                if re.match('[a-zA-Z]', line) is not None:
+                    # Skip all lines containing text characters
+                    print 'Warning - skipped line %d:%s' % (count, line)
+                    continue
 
-            start = line.index('\t')
-                # Skip the first column. Contains only time values (in case of PowerLab
-                # export
-            line = line.replace(',', '.')
+                start = line.index('\t')
+                    # Skip the first column. Contains only time values (in case of PowerLab
+                    # export
+                line = line.replace(',', '.')
 
-            values = line[start + 1: len(line)].split('\t')
-            if arr is None:
-                arr = np.array(values, dtype = 'float').reshape(1, len(values))
-            else:
-                try:
-                    arr = np.row_stack((
-                        arr,
-                        np.array(values, dtype = 'float').reshape(1, len(values))
-                    ))
-                except ValueError as e:
-                    print (
-                            'Error reading line %i in file %s. Line was %s' %
-                            (count, path, line)
-                          )
-            if (count % 10000) == 0:
-                print '%d lines already read' % count
-            if debug:
-                if count > 99:
-                    break
+                values = line[start + 1: len(line)].split('\t')
+                if arr is None:
+                    arr = np.array(values, dtype = 'float').reshape(1, len(values))
+                else:
+                    try:
+                        arr = np.row_stack((
+                            arr,
+                            np.array(values, dtype = 'float').reshape(1, len(values))
+                        ))
+                    except ValueError as e:
+                        print (
+                                'Error reading line %i in file %s. Line was %s' %
+                                (count, path, line)
+                              )
+                if (count % 10000) == 0:
+                    print '%d lines already read' % count
+                if debug:
+                    if count > 99:
+                        break
 
-    if type(arr) is pd.DataFrame:
-        arr = arr.values
-    elif type(arr) is np.ndarray:
-        pass
-    else:
-        raise ValueError('Error loading data from pickled file. Encountered ' + \
-                'unsupported data type. Expected pandas.core.DataFrame or ' + \
-                'numpy.ndarray. Instead got {}'.format(type(arr))
-                )
+        if type(arr) is pd.DataFrame:
+            arr = arr.values
+        elif type(arr) is np.ndarray:
+            pass
+        else:
+            raise ValueError('Error loading data from pickled file. Encountered ' + \
+                    'unsupported data type. Expected pandas.core.DataFrame or ' + \
+                    'numpy.ndarray. Instead got {}'.format(type(arr))
+                    )
 
-    return arr
+        return arr
 
-def read_from_file_and_pickle(self, source, target, debug = False):
-    """ Reads EMG data from file and creates a numpy array and pickles it to target
+    def read_from_file_and_pickle(self, source, target, debug = False):
+        """ Reads EMG data from file and creates a numpy array and pickles it to target
 
-        Args:
-            source (String): Path to data file
-            target (String): Path to pickle file
-    """
-    arr = self.read_data_from_text(path = source, asNumpy = True, debug = debug)
+            Args:
+                source (String): Path to data file
+                target (String): Path to pickle file
+        """
+        arr = self.read_data_from_text(path = source, asNumpy = True, debug = debug)
 
-    with open(target, 'wb') as f:
-        pkl.dump(arr, f)
+        with open(target, 'wb') as f:
+            pkl.dump(arr, f)
 
-def read_pickled_data(self, source):
-    """ Reads EMG data from a pickled numpy ndarray
+    def read_pickled_data(self, source):
+        """ Reads EMG data from a pickled numpy ndarray
 
-        Args
-            source (String): Path to pickled numpy.ndarray
+            Args
+                source (String): Path to pickled numpy.ndarray
 
-        Returns:
-            pandas.core.DataFrame
-    """
-    with open(source, 'rb') as f:
-        arr = pkl.load(f)
+            Returns:
+                pandas.core.DataFrame
+        """
+        with open(source, 'rb') as f:
+            arr = pkl.load(f)
 
-    if type(arr) is pd.DataFrame:
-        arr = arr.values
-    elif type(arr) is np.ndarray:
-        pass
-    else:
-        raise ValueError('Error loading data from pickled file. Encountered ' + \
-                'unsupported data type. Expected pandas.core.DataFrame or ' + \
-                'numpy.ndarray. Instead got {}'.format(type(arr))
-                )
-    return arr
+        if type(arr) is pd.DataFrame:
+            arr = arr.values
+        elif type(arr) is np.ndarray:
+            pass
+        else:
+            raise ValueError('Error loading data from pickled file. Encountered ' + \
+                    'unsupported data type. Expected pandas.core.DataFrame or ' + \
+                    'numpy.ndarray. Instead got {}'.format(type(arr))
+                    )
+        return arr
