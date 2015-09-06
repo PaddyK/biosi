@@ -242,6 +242,24 @@ class DataContainer(object):
         dat = self.data[start:stop, :]
         return DataContainer.from_array(dat, self.frequency, self.columns)
 
+    @property
+    def num_channels(self):
+        """ Returns number of channels
+
+            Returns:
+                int
+        """
+        return self.dataframe.shape[1]
+
+    @property
+    def samples(self):
+        """ Returns number of samples (timesteps)
+
+            Returns:
+                int
+        """
+        return self.dataframe.shape[0]
+
 
 class DataHoldingElement(object):
     def __getitem__(self, key):
