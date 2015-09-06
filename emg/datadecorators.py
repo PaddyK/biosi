@@ -215,6 +215,18 @@ class WindowDecorator(DataHoldingElement):
         return point
 
     def _iterate(self, windowsize, stride, datalist):
+        """ Returns one window at a time
+
+            Args:
+                windowsize (float): Duration of window in seconds
+                stride (float): Time difference between beginning of windows
+                    in seconds
+                datalist (iterable): Iterable yielding elements of type
+                    model.model.DataContainer
+
+            Yields:
+                model.model.DataContainer
+        """
         for container in datalist:
             data = container.data
             counter = 0
@@ -226,7 +238,19 @@ class WindowDecorator(DataHoldingElement):
                 start = stride * num
                 stop = windowsize + start
 
-    def _return(self):
+    def _return(self, windowsize, stride, datalist):
+        """ Returns one window at a time
+
+            Args:
+                windowsize (float): Duration of window in seconds
+                stride (float): Time difference between beginning of windows
+                    in seconds
+                datalist (iterable): Iterable yielding elements of type
+                    model.model.DataContainer
+
+            Returns:
+                List of model.model.DataContainer
+        """
         result = []
         for container in datalist:
             data = container.data
