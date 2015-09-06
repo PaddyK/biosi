@@ -120,7 +120,6 @@ class DataContainer(object):
         """
         self._dataframe = dataframe
         self._frequency = frequency
-        self._duration = float(self.dataframe.shape[0]) / float(self.frequency)
 
     @classmethod
     def from_array(array, frequency, columns=None):
@@ -157,6 +156,27 @@ class DataContainer(object):
         """
         return self._dataframe.values
 
+    @data.setter
+    def data(self, values):
+        """ Sets data of wrapped pandas.core.DataFrame. Requires values to have
+            the same dimension on the second axis as original values
+
+            Args:
+                values (np.ndarray): New values
+
+            Raises:
+                AssertionError, if ``values`` has wrong second dimension
+        """
+        assert values.ndim == 2, 'model.model.DataContainer.data (setter): ' + \
+                'Argument ``values`` has wrong number of dimensions. ' + \
+                'Two dimensions are expected, {} dimensions are received'.format(
+                     values.ndim)
+        assert values.shape[1] == self.dataframe.shape[1], 'model.model.' + \
+                'DataContainer.data (setter): Second axis has wrong number of' + \
+                'dimensions. Expcted are {}, received are {}'.format(
+                        self.dataframe.shape[1], values.shape[1])
+        self.dataframe.values = values
+
     @property
     def dataframe(self):
         """ Returns wrapped dataframe
@@ -169,7 +189,9 @@ class DataContainer(object):
     def duration(self):
         """ Returns duration of data in seconds
         """
-        return self._duration
+        # calculate duration anew every time since duration might change depending
+        # on applied data transformations
+        return float(self.dataframe.shape[0]) / float(self.frequency)
 
     @property
     def frequency(self):

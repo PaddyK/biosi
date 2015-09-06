@@ -10,6 +10,7 @@
 
 import os
 import sys
+import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.join(
     os.path.realpath(__file__),
     os.path.pardir
@@ -49,7 +50,7 @@ class AbstractDataDecorator(DataHoldingElement):
         pass
 
 
-class SamplingDecorator(DataHoldingElement):
+class SamplingDecorator(AbstractDataDecorator):
     def calculate_factor(self, recording):
         """ Calculates samling factor
 
@@ -179,7 +180,7 @@ class SamplingDecorator(DataHoldingElement):
             return self._return(data_list)
 
 
-class WindowDecorator(DataHoldingElement):
+class WindowDecorator(AbstractDataDecorator):
     def _calc_num_windows(self, timesteps, windowsize, stride):
         """ Based on duration of data element, windowsize and stride
             calculates number of windows.
@@ -288,4 +289,201 @@ class WindowDecorator(DataHoldingElement):
         else:
             return self._return(windowsize, stride, dataelement)
 
+
+class RmsDecorator(AbstractDataDecorator):
+    def _rms(self, windowsize, container):
+        """ Applies Root-Mean-Square filter to data
+
+            Args:
+                windowsize (int): Size of window in samples
+                container (model.model.DataContainer): Container holding data
+                    to filter
+
+            Raises:
+                AssertionError if windowsize is not an Integer of windowsize
+                larger than number of samples in container
+
+            Returns:
+                numpy.ndarray
+        """
+        values = container.data
+        sum_of_squares = np.sum(np.square(values[:windowsize]), axis=1)
+        filtered = np.sqrt(sum_of_squares)
+
+        for i in range(windowsize, values.shape[0]):
+            # To make filtering more performant, subtract first element of
+            # previous windows from sum and add next value.
+            # This corresponds to sliding the window one sample but does not
+            # require to calculate the bulk of the window again, since it stays
+            # the same.
+            sum_of_squares = np.subtract(
+                    sum_of_squares,
+                    np.square(values[i - windowsize, :])
+                    )
+            sum_of_squares = np.add(sum_of_squares, np.square(values[i, :]))
+            filtered = np.row_stack((filtered, np.sqrt(sum_of_squares)))
+        return filtered
+
+    def _iterate(self, windowsize, datalist):
+        """ Yields data containers whose data has been filtered
+
+            Args:
+                windowsize (float): Size of windows in seconds
+                datalist (iterable): Yielding model.model.DataContainer
+
+            Yields:
+                model.model.DataContainer
+        """
+        for container in datalist:
+            filtered = self._rms(int(windowsize * container.frequency), container)
+            container.data = filtered
+            yield container
+
+    def _return(self, windowsize, datalist):
+        """ Returns List of data containers whose data has been filtered
+
+            Args:
+                windowsize (float): Size of windows in seconds
+                datalist (iterable): Yielding model.model.DataContainer
+
+            Returns:
+                List of model.model.DataContainer
+        """
+        for container in datalist:
+            filtered = self._rms(int(windowsize * container.frequency), container)
+            container.data = filtered
+        return datalist
+
+    def get_data(self, windowsize, **kwargs):
+        """ Returns iterator or list of model.model.DataContainer depending
+            on attribute ``is_iterator``.
+
+            Args:
+                windowsize (float): Size of window for filtering in seconds.
+
+            Note:
+                You will use ``windowsize * sampling rate`` datapoints when
+                applying RMS. So choose ``windowsize`` with care.
+
+            Returns:
+                List of iterator of model.model.DataContainer
+        """
+        datalist = self._element.get_data(*kwargs)
+
+        if self._is_iterator:
+            return self._iterate(windowsize, datalist)
+        else:
+            return self._iterate(windowsize, datalist)
+        pass
+
+
+class ArrayDecorator(AbstractDataDecorator):
+    """ Represents end point of decorator stack and returns a 3D Array.
+        Using iterator Decorator is pointless with this endpoint, since all
+        DataContainer will be used to create the array.
+    """
+    def __init__(self, iterator):
+        """ Initializes object
+        """
+        super(ArrayDecorator, self).__init__(self, iterator, False)
+
+    def _iterate(self):
+        raise NotImplementedError('Method _iterate not implemented ' + \
+                'for ArrayDecorator')
+
+    def _return(self, datalist):
+        """ Creates 3d array and returns it
+
+            Args:
+                datalist (Iterable): Iterable yielding elements of type
+                    model.model.DataContainer
+
+            Returns:
+                np.ndarray
+        """
+        array = None
+        for container in datalist:
+            if array is None:
+                array = container.data[np.newaxis, :, :]
+            else:
+                array = np.concatenate(
+                        (array, contaner.data[np.newaxis, :, :]),
+                        axis=0
+                        )
+        return array
+
+    def get_data(self, **kwargs):
+        """ Returns 3D array where first axis is number of trials, second
+            axis is time and third dimension is number of channels
+
+            Note:
+                Data stored in DataContainer needs to have the same first
+                dimension (same duration).
+                This can be achieved using either ``PadzeroDecorator`` or
+                ``WindowDecorator``.
+
+            Returns:
+                np.ndarray
+        """
+        datalist = self._element.get_data()
+        return self._return(datalist)
+
+
+class PadzeroDecorator(AbstractDataDecorator):
+    """ Paddes data with zeros s.t. they all have the same length i.e. same
+        duration.
+        For this, all DataContainers have to be known. Therefore it does
+        not make sense to use this decorator in context of iterable
+        decorators.
+    """
+    def __init__(self, data_holding_element, up_front=False):
+        super(AbstractDataDecorator, super).__init__(data_holding_element, False)
+        self.up_front = front
+
+    def _iterate(self):
+        raise NotImplementedError('Function ``iterate`` not implemented for ' + \
+                'class PadzeroDecorator')
+
+    def _return(self, datalist, max_length):
+        """ Returns list with padded DataContainer.
+
+            Args:
+                datalist (List): List containing model.model.DataContainer
+                max_length (int): Maximal length (duration) of data (in samples)
+
+            Returns:
+                List
+        """
+        for container in datalist:
+            to_pad = max_length - container.samples
+            if to_pad == 0:
+                continue
+            if self.up_front:
+                contaner.data = np.concatenate(
+                        (container.data, np.zeros((to_pad, container.num_channels))),
+                        axis=0
+                        )
+            else:
+                contaner.data = np.concatenate(
+                        axis=0,
+                        (container.data, np.zeros((to_pad, container.num_channels)))
+                        )
+        return datalist
+
+    def get_data(self, **kwargs):
+        """ Returns List with padded arrays. If given data holding element is
+            of type iterator, all elements will be polled.
+        """
+        datalist = self._element.get_data(*kwargs)
+        max_dur = 0
+
+        if type(datalist) == generator:
+            tmp = [container for container in datalist]
+            datalist = tmp
+
+        for container in datalist:
+            if container.samples > max_dur:
+                max_dur = container.samples
+
+        return self._return(datalist, max_dur)
 
