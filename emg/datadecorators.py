@@ -4,8 +4,8 @@
     For more information on the decorator pattern refer to
     `Wikipedia <https://en.wikipedia.org/wiki/Decorator_pattern>`_
 
-    All decorators manipulating data expect lists of 2D-Numpy arrays, where
-    the first dimension is the time.
+    All decorators manipulating data expect lists/generators of 2D-Numpy arrays,
+    where the first dimension is the time.
 """
 
 import os
