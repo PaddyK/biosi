@@ -230,14 +230,23 @@ class DataContainer(object):
             stop = int(self.duration * self.frequency)
         else:
             start = int(slice.start * self.frequency)
-            stop = int(slice.stop * self.frequency)
+            stop = int(slice.stop * self.frequency) - 1
+            # subtract 1 because counting starts at zero. Also allows slicing
+            # to the end of the data by giving the duration as endpoint
 
-        assert slice >= 0, 'model.model.DataContainer.__getitem__: ' + \
-                'negative value for slice encountered. Must be positive'
-        assert slice <= self.duration, 'model.model.DataContainer.' + \
+        assert start >= 0, 'model.model.DataContainer.__getitem__: ' + \
+                'negative value for start of slice encountered. Must be positive'
+        assert stop >= 0, 'model.model.DataContainer.__getitem__: ' + \
+                'negative value for stop of slice encountered. Must be positive'
+        assert start <= self.samples, 'model.model.DataContainer.' + \
                 '__getitem__: Requested Timestamp larger than duration. ' + \
-                'duration is: {}, requested was time: {}'.format(
-                        self.duration,stop
+                'duration is: {}, requested startpoint was: {}'.format(
+                        self.duration, float(start)/self.frequency
+                        )
+        assert stop <= self.samples, 'model.model.DataContainer.' + \
+                '__getitem__: Requested Timestamp larger than duration. ' + \
+                'duration is: {}, requested startpoint was: {}'.format(
+                        self.duration, float(stop)/self.frequency
                         )
         dat = self.data[start:stop, :]
         return DataContainer.from_array(dat, self.frequency, self.columns)
@@ -288,11 +297,11 @@ class Event(object):
         """
         return Event(event.name, time, event.duration)
 
-    @propery
+    @property
     def duration(self):
         return self._duration
 
-    @propery
+    @property
     def is_label(self):
         """ Indicates if event can be used as label
         """
@@ -301,11 +310,11 @@ class Event(object):
         else:
             return True
 
-    @propery
+    @property
     def name(self):
         return self._name
 
-    @propery
+    @property
     def start(self):
         return self._start
 
@@ -2370,9 +2379,9 @@ class Trial(DataHoldingElement):
         string = 'Trial {}: {}s duration, {} channels, label {}'.format(
             self.identifier, self.duration, self.channels, self.label
             )
-    for e in self._events:
-        string = string + '\n\tEvent {a} at {b:.3f}s'.format(a=e.name, b=e.start)
-    return string
+        for e in self._events:
+            string = string + '\n\tEvent {a} at {b:.3f}s'.format(a=e.name, b=e.start)
+        return string
 
 
 class DataController(object):
