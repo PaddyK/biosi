@@ -1594,6 +1594,91 @@ class Recording(DataHoldingElement):
                         self._markers.insert(i + 1, marker)
                         break
 
+    def add_events(self, events):
+        """ Convenience function to add multiple events to recording and
+            trials at once.
+
+            Args:
+                events (Dictionary like): Dictionary or pandas.core.DataFrame
+                    dictionary must use trial name as key and map to a 2D list
+                    of the form ``[[<event name>, <start>, <duration>], [...]]``.
+                    DataFrame must have trial identifier as column index.
+                    columns must be in order ``<event name>``, ``<start>``,
+                    ``<stop>``
+
+            Note:
+                start of each event must be relative to the **beginning of the
+                trial** it belongs to.
+        """
+        def get_keys(toplevel):
+            """ Returns trirals identifier as list """
+            if type(toplevel) is dict:
+                return dict.keys()
+            elif type(toplevel) is pd.DataFrame:
+                return toplevel.index.unique().tolist()
+            else:
+                raise AttributeError('Unknwon type encountered in model.model' + \
+                        '.Recording.add_events. Type {} not supported for ' + \
+                        'argument events'.format(type(toplevel)))
+
+        def yield_record(toplevel, key):
+            if type(toplevel) is dict:
+                for record in toplevel[key]:
+                    yield record
+            elif type(toplevel) is pd.DataFrame:
+                sliced = toplevel.loc[key, :]
+                for i in range(sliced.shape[0]):
+                    yield sliced.iloc[i, :].values.tolist()
+
+        for key in get_keys(events):
+            for record in yield_record(events, key):
+                self.trials[key].add_event(*record)
+
+    def add_trials(self, trials):
+        """ Convenience function to add multiple trials at once.
+
+            Args:
+                trials (Arraylike): Two dimensional list, dataframe of numpy
+                    array containing start, stop (or duration) and optional
+                    identifier of trial.
+
+            Note:
+                trials must have the following structure:
+                    (start, duration)
+                optional are a third field containing trial's identifier.
+                When using DataFrame, duration can be replaced by time trial
+                ends. This columns must then be named `stop`.
+        """
+
+        def yield_record(trials):
+            if type(trials) is list:
+                for trial in trials:
+                    yield trial
+            elif type(trials) is np.ndarray:
+                for i in range(trials.shape[0]):
+                    yield trials[i].tolist()
+            elif type(trials) is pd.DataFrame:
+                for i in range(trials.shape[0]):
+                    record = trials.loc[i, :].values.tolist()
+                    if 'stop' in trials.columns:
+                        # if column stop exists calculate duration of trial
+                        record[1] = record[2] - record[1]
+                    yield record
+            else:
+                raise AttributeError('Unsupported type for argument trials ' + \
+                        'in model.model.Recording.add_trials. Expected ' + \
+                        'numpy.ndarray, pandas.core.DataFrame or list. ' + \
+                        'ecountered {}'.format(type(trials)))
+
+        for rec in yield_record(trials):
+            if len(rec) == 2:
+                rec.append(None)
+            elif len(rec) != 3:
+                raise ArgumnentError('Wrong number of arguments given for ' + \
+                        'constructing trial in model.model.Recording.' + \
+                        'add_trials. Expected 2 or three, got {}'.format(len(rec)))
+            self.put_trial(Trial(record[0], record[1], record[2]))
+
     def get_marker(self, from_=None, to=None):
         """ Returns markers either for whole recording or for a specific time interval
 
@@ -2120,6 +2205,17 @@ class Trial(DataHoldingElement):
         time = time + self.Start
         self.recording.add_marker((time, label))
         self._marker.append(marker)
+
+    def add_event(self, name, start, duration):
+        """ Adds an event to the trial. Position of event is expected to be
+            relative to the beginning of the trial
+
+            Args:
+                name (string): Name of event
+                start (float): Start time relative to beginning of trial in seconds
+                duration (float): Duration of event in seconds
+        """
+        pass
 
     def get_marker(self, from_=None, to=None):
         """ Returns all markers contained in the given interval. If no interval borders
