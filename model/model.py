@@ -260,14 +260,33 @@ class DataContainer(object):
         """
         return self.dataframe.shape[0]
 
+
 class Event(object):
-    """ Models event in trial
+    """ Models event in trial. Can also be used to model labels.
+
+        Attributes:
+            name (String): Name of event
+            start (float): Starttime of event in seconds
+            duration (float): Duration of event in seconds
     """
 
     def __init__(self, name, start, duration=None):
         self._name = name
         self._start = start
         self._duration = duration
+
+    @classmethod
+    def new_time(event, time):
+        """ Adapts time of event ``event`` to ``time`` and returns new instance.
+
+            Args:
+                event (model.model.Event): Existing event
+                time (float): New starttime of event in seconds
+
+            Returns:
+                model.model.Event
+        """
+        return Event(event.name, time, event.duration)
 
     @propery
     def duration(self):
@@ -556,28 +575,28 @@ class Experiment(DataHoldingElement):
 
         return labels
 
-    def get_marker(self, modality, sessions=None, from_=None, to=None):
-        """ Returns all markers/markers in an specific interval from one/multiple/all
+    def get_event(self, modality, sessions=None, from_=None, to=None):
+        """ Returns all event in an specific interval from one/multiple/all
             sessions of this experiment.
-            If markers to multiple sessions are returned an offset is added to the time of each
-            marker according to the order in which each sessions is listed in `sessions`.
+            If event to multiple sessions are returned an offset is added to the time of each
+            event according to the order in which each sessions is listed in `sessions`.
             It is assumed, that data of sessions are retrieved in the same order.
 
             Args:
-                modality (String): Identifier of an modality. Only markers of recordings
+                modality (String): Identifier of an modality. Only events of recordings
                     with this modality are returned
-                sessions (List): List of Strings. If set markers for specified recordings
-                    are returned, else markers of all recordings are returned.
-                from_ (float): Start point from which on markers should be retrieved
-                to (float): End point of marker retrieval
+                sessions (List): List of Strings. If set events for specified recordings
+                    are returned, else events of all recordings are returned.
+                from_ (float): Start point from which on events should be retrieved
+                to (float): End point of event retrieval
 
             Note:
                 `from_` and `to` operate over the accumulated length of specified recordings.
-                So if markers from all recordings should be selected, but `from_` and `to`
+                So if events from all recordings should be selected, but `from_` and `to`
                 are very small recordings will be excluded.
 
             Returns:
-                markers (List): List of tuples containing `time, text` pairs
+                events (List): List of tuples containing obejcts of type Event
         """
         duration = 0
         recordings = None
@@ -613,16 +632,16 @@ class Experiment(DataHoldingElement):
 
             if to < offset:
                 # If accumulated duration of all recordings is larger than end point
-                # of time interval stop retrieving markers
+                # of time interval stop retrieving events
                 break
             elif (to > offset) and (to < offset + s_dur):
                 # If end of time interval lies within one recording retrieve only
-                # markers until relative point of time in recording
+                # events until relative point of time in recording
                 to_pass = to - offset
 
-            markers = self.sessions[s].get_marker(from_=from_pass, to=to_pass)
-            for t, l in markers:
-                ret.append(((t + offset), l))
+            events = self.sessions[s].get_event(from_=from_pass, to=to_pass)
+            for e in events:
+                ret.append(Event.new_time(e, e.start + offset))
             offset = s_dur + offset
         return ret
 
@@ -928,6 +947,20 @@ class Modality(object):
                 List of Strings
         """
         return self._channel_order
+
+    def add_channels(self, channels):
+        """ Convenience function to add multiple channesl to one modality at
+            once
+
+            Args:
+                channel (List): List of channel identifiers
+
+            Note:
+                order in which channels are defined is the order they are
+                expected to appear in the data.
+        """
+        for channel in channels:
+            Channel(self, channel)
 
     def get_channel_index(self, identifier=None):
         """ Returns index of channels specified in ``identifier``
@@ -1287,26 +1320,26 @@ class Session(DataHoldingElement):
 
         return labels
 
-    def get_marker(self, recordings=None, from_=None, to=None):
-        """ Returns all markers/markers in an specific interval from one/multiple/all
+    def get_event(self, recordings=None, from_=None, to=None):
+        """ Returns all events in an specific interval from one/multiple/all
             recordings of this session.
             If multiple recordings are returned an offset is added to the time of each
-            marker according to the order in which each recording is listed in `recordings`.
+            event according to the order in which each recording is listed in `recordings`.
             It is assumed, that data of recordings are retrieved in the same order.
 
             Args:
-                recordings (List): List of Strings. If set markers for specified recordings
-                    are returned, else markers of all recordings are returned.
-                from_ (float): Start point from which on markers should be retrieved
-                to (float): End point of marker retrieval
+                recordings (List): List of Strings. If set events for specified recordings
+                    are returned, else events of all recordings are returned.
+                from_ (float): Start point from which on events should be retrieved
+                to (float): End point of event retrieval
 
             Note:
                 `from_` and `to` operate over the accumulated length of specified recordings.
-                So if markers from all recordings should be selected, but `from_` and `to`
+                So if event from all recordings should be selected, but `from_` and `to`
                 are very small recordings will be excluded.
 
             Returns:
-                markers (List): List of tuples containing `time, text` pairs
+                events (List): List of tuples containing objects of type Event
         """
         duration = 0
         if recordings is None:
@@ -1349,17 +1382,17 @@ class Session(DataHoldingElement):
 
             if to < offset:
                 # If accumulated duration of all recordings is larger than end point
-                # of time interval stop retrieving markers
+                # of time interval stop retrieving event
                 break
             elif (to > offset) and (to < offset + rec_dur):
                 # If end of time interval lies within one recording retrieve only
-                # markers until relative point of time in recording
+                # event until relative point of time in recording
                 to_pass = to - offset
 
-            markers = self.recordings[rec].get_marker(from_=from_pass, to=to_pass)
+            events = self.recordings[rec].get_event(from_=from_pass, to=to_pass)
 
-            for t, l in markers:
-                ret.append(((t + offset), l))
+            for e in events:
+                ret.append(Event.new_time(e, e.start + offset))
 
             offset = offset + rec_dur
 
@@ -1383,6 +1416,7 @@ class Session(DataHoldingElement):
             warnings.warn('No recording found recorded with modality %s' % modality)
 
         return ret
+
     @property
     def channels(self):
         return self._channels
@@ -1503,7 +1537,7 @@ class Recording(DataHoldingElement):
             features (int): Number of features in data set
             trial_order (List): Stores order in which trials were added
             modality (String): Modality recording is associated with
-            markers (List): Sorted list of tuples. First element of tuple is time of marker
+            events (List): Sorted list of Events.
                 in seconds. Second element is label. List is sorted after time
 
         Raises:
@@ -1519,7 +1553,7 @@ class Recording(DataHoldingElement):
         self._identifier = identifier
         self._trial_order = []
         self._modality = modality
-        self._markers = []
+        self._events = []
 
         if self._identifier is None:
             self._identifier = 'recording' + str(len(self._session.recordings))
@@ -1601,27 +1635,30 @@ class Recording(DataHoldingElement):
         """
         return self._modality
 
-    def add_marker(self, marker):
-        """ Adds a tuple (time, text) to list of recordings markers
+    def add_event(self, name, start, duration=None):
+        """ Adds an event to list of recordings events
 
             Args:
-                marker (Tuple): Mark to add. Must have form `(time, text)` where `time` is
-                    point of time in seconds relative to start of recording where mark
-                    should be set and `text` the label of the mark
+                name (string): Name of event
+                start (float): Start of time in seconds relative to beginning
+                    of recording
+                duration (float): Duration of event in seconds
         """
-        time, label = marker
-        if len(self._markers) == 0:
-            self._markers.append(marker)
+        time = start
+        label = name
+        event = Event(name, start, duration)
+        if len(self._events) == 0:
+            self._events.append(event)
         else:
-            max = self._markers[len(self._markers) - 1][0]
+            max = self._events[len(self._events) - 1][0]
             if time >= max:
-                self._markers.append(marker)
+                self._events.append(event)
             else:
-                for i in range(len(self._markers) - 1, -1, -1):
-                    t = self._markers[i][0]
+                for i in range(len(self._events) - 1, -1, -1):
+                    t = self._events[i].start
                     if time > t:
                         # Must be inserted after that element
-                        self._markers.insert(i + 1, marker)
+                        self._events.insert(i + 1, event)
                         break
 
     def add_events(self, events):
@@ -1707,10 +1744,10 @@ class Recording(DataHoldingElement):
                 raise ArgumnentError('Wrong number of arguments given for ' + \
                         'constructing trial in model.model.Recording.' + \
                         'add_trials. Expected 2 or three, got {}'.format(len(rec)))
-            self.put_trial(Trial(record[0], record[1], record[2]))
+            Trial(self, record[0], record[1], record[2])
 
-    def get_marker(self, from_=None, to=None):
-        """ Returns markers either for whole recording or for a specific time interval
+    def get_event(self, from_=None, to=None):
+        """ Returns events either for whole recording or for a specific time interval
 
             Note:
                 The time slice is specified with respect to the duration of the
@@ -1723,12 +1760,12 @@ class Recording(DataHoldingElement):
                 of trial2 --> $$[5;10)\cup[10;15)$$
 
             Args:
-                from_ (float, optional): Start of time interval for which marks should be retrieved
-                to (float, optional): End of time interval for which marks should be retrieved
+                from_ (float, optional): Start of time interval for which events should be retrieved
+                to (float, optional): End of time interval for which event should be retrieved
 
             Note:
-                If either `from` or `to` is set alone, all markers from `start` until
-                end of recording or all markers from beginning of recording until `to`
+                If either `from` or `to` is set alone, all events from `start` until
+                end of recording or all events from beginning of recording until `to`
                 are returned.
 
             Raises:
@@ -1767,19 +1804,19 @@ class Recording(DataHoldingElement):
             else:
                 to_pass = None
 
-            tmp = self.trials[trial].get_marker(from_=from_pass, to=to_pass)
-            for t, l in tmp:
-                ret.append((t + offset, l))
+            tmp = self.trials[trial].get_event(from_=from_pass, to=to_pass)
+            for e in tmp:
+                ret.append(Event.new_time(e, e.start + offset))
 
         return ret
 
-    def get_all_marker(self):
-        """ Returns all markers defined for this recording
+    def get_all_events(self):
+        """ Returns all events defined for this recording
 
             Returns:
                 List of (float, String) tuples
         """
-        return self._markers
+        return self._events
 
     def get_data(self, begin=None, end=None, pandas=False):
         """ Returns the **relevant** data of a recording object. In especially, this
@@ -2110,14 +2147,14 @@ class Trial(DataHoldingElement):
         A trial belongs to a recording. Consequently the data associated with a trial object
         is a subset of the data of the recording. Given the start and end point (in
         seconds, relative to start of recording) and the setting, i.e. channel frequency,
-        this class calculates the indices marking start and end.
+        this class calculates the indices event start and end.
 
         Attributes:
             duration (float): Stop point of trial in seconds relative to the stop point of
                 the recording.
             identifier (string): Identifier of the trial. For example *bizeps_curl*
             label (String): Class Label
-            marker (List): List of (time, string) tuples specifying some event
+            events (List): List of Event objects
                 relative to the start of the trial
             recording (Recording): The recording this trial belongs to. Necessary to
                 retrieve informations about the setting.
@@ -2147,7 +2184,7 @@ class Trial(DataHoldingElement):
         self._duration = duration
         self._identifier = identifier
         self._label = label
-        self._marker = []
+        self._events = []
 
         if self._identifier is None:
             self._name = 'trial' + str(len(self._recording.trials))
@@ -2222,21 +2259,7 @@ class Trial(DataHoldingElement):
         """
         self._label = label
 
-    def add_marker(self, marker):
-        """ Adds a merker to the trial. Position of marker is expected to be
-            relative to the beginning of the trial
-
-            Args:
-                marker (Tuple): Tuple specifying position of marker in seconds and label
-                    of marker: `(time, label)`. `time` is relative to the beginning of
-                    the trial
-        """
-        time, label = marker
-        time = time + self.Start
-        self.recording.add_marker((time, label))
-        self._marker.append(marker)
-
-    def add_event(self, name, start, duration):
+    def add_event(self, name, start, duration=None):
         """ Adds an event to the trial. Position of event is expected to be
             relative to the beginning of the trial
 
@@ -2245,16 +2268,16 @@ class Trial(DataHoldingElement):
                 start (float): Start time relative to beginning of trial in seconds
                 duration (float): Duration of event in seconds
         """
-        pass
+        self._events.append(Event(name, start, duration))
 
-    def get_marker(self, from_=None, to=None):
-        """ Returns all markers contained in the given interval. If no interval borders
-            are specified, they are set to beginning/end of trial. Thus all markers defined
+    def get_event(self, from_=None, to=None):
+        """ Returns all events contained in the given interval. If no interval borders
+            are specified, they are set to beginning/end of trial. Thus all events defined
             for trial are returned.
 
             Args:
-                from_ (float, optional): Start from where to retrieve markers
-                to (float, optional): End of interval for which markers should be retrieved
+                from_ (float, optional): Start from where to retrieve event 
+                to (float, optional): End of interval for which events should be retrieved
 
             Note:
                 Returns a copy of the data stored in ``Recording`` and referenced
@@ -2276,13 +2299,13 @@ class Trial(DataHoldingElement):
 
         ret = []
 
-        for t, l in self._marker:
-            if t < 0 :
+        for e in self._events:
+            if e.start < 0 :
                 continue
-            elif (t > from_) and (t < to):
+            elif (e.start > from_) and (t < to):
                 # Substract offset of trial
-                ret.append((t, l))
-            elif t > self.start + self.duration:
+                ret.append(e)
+            elif e.start  > self.start + self.duration:
                 break
         return ret
 
@@ -2347,9 +2370,8 @@ class Trial(DataHoldingElement):
         string = 'Trial {}: {}s duration, {} channels, label {}'.format(
             self.identifier, self.duration, self.channels, self.label
             )
-    marker = self.get_marker()
-    for t, l in marker:
-        string = string + '\n\tMarker {a} at {b:.3f}s'.format(a=l, b=t)
+    for e in self._events:
+        string = string + '\n\tEvent {a} at {b:.3f}s'.format(a=e.name, b=e.start)
     return string
 
 
@@ -2476,3 +2498,4 @@ class DataController(object):
                     'numpy.ndarray. Instead got {}'.format(type(arr))
                     )
         return arr
+
