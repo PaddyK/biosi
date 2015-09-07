@@ -260,6 +260,36 @@ class DataContainer(object):
         """
         return self.dataframe.shape[0]
 
+class Event(object):
+    """ Models event in trial
+    """
+
+    def __init__(self, name, start, duration=None):
+        self._name = name
+        self._start = start
+        self._duration = duration
+
+    @propery
+    def duration(self):
+        return self._duration
+
+    @propery
+    def is_label(self):
+        """ Indicates if event can be used as label
+        """
+        if self.duration is None:
+            return False
+        else:
+            return True
+
+    @propery
+    def name(self):
+        return self._name
+
+    @propery
+    def start(self):
+        return self._start
+
 
 class DataHoldingElement(object):
     def __getitem__(self, key):
