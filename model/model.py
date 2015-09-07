@@ -122,7 +122,7 @@ class DataContainer(object):
         self._frequency = frequency
 
     @classmethod
-    def from_array(array, frequency, columns=None):
+    def from_array(cls, array, frequency, columns=None):
         """ Alternative constructor, creates element from numpy array
 
             Args:
@@ -184,6 +184,7 @@ class DataContainer(object):
             Returns:
                 pandas.core.DataFrame
         """
+        return self._dataframe
 
     @property
     def duration(self):
@@ -230,9 +231,7 @@ class DataContainer(object):
             stop = int(self.duration * self.frequency)
         else:
             start = int(slice.start * self.frequency)
-            stop = int(slice.stop * self.frequency) - 1
-            # subtract 1 because counting starts at zero. Also allows slicing
-            # to the end of the data by giving the duration as endpoint
+            stop = int(slice.stop * self.frequency)
 
         assert start >= 0, 'model.model.DataContainer.__getitem__: ' + \
                 'negative value for start of slice encountered. Must be positive'
@@ -243,7 +242,9 @@ class DataContainer(object):
                 'duration is: {}, requested startpoint was: {}'.format(
                         self.duration, float(start)/self.frequency
                         )
-        assert stop <= self.samples, 'model.model.DataContainer.' + \
+        # subtract 1 because counting starts at zero. Also allows slicing
+        # to the end of the data by giving the duration as endpoint
+        assert stop - 1 <= self.samples, 'model.model.DataContainer.' + \
                 '__getitem__: Requested Timestamp larger than duration. ' + \
                 'duration is: {}, requested startpoint was: {}'.format(
                         self.duration, float(stop)/self.frequency
