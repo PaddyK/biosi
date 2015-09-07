@@ -12,7 +12,6 @@ import logging
 from nose.tools import with_setup
 
 class TestDataContainer(object):
-
     def __init__(self):
         self.logger = logging.getLogger('TestDataContainer')
         self.logger.setLevel(logging.DEBUG)
@@ -96,4 +95,11 @@ class TestDataContainer(object):
             self.logger.debug(e.message)
             self.logger.info('AssertionError for stop of slice out of bounds' + \
                     'occured')
+
+    def test_set_data(self):
+        new_data = np.arange(60).reshape(20,3)
+        self.container.data = new_data
+        assert self.container.data.shape[0] == 20
+        assert self.container.duration == 2
+        assert self.container.samples == 20
 

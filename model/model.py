@@ -175,7 +175,7 @@ class DataContainer(object):
                 'DataContainer.data (setter): Second axis has wrong number of' + \
                 'dimensions. Expcted are {}, received are {}'.format(
                         self.dataframe.shape[1], values.shape[1])
-        self.dataframe.values = values
+        self._dataframe = pd.DataFrame(values, columns=self.dataframe.columns)
 
     @property
     def dataframe(self):
