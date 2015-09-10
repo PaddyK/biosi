@@ -14,7 +14,7 @@ class ArrayMessage(object):
         During unpacking this attribute is used to separate data from auxialiary
         information
     """
-    duration = 0.15
+    duration = 1
     """ Duration the array represented by this message is representing
     """
     def __init__(self, data, timestamp=None, sr=None):

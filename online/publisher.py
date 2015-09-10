@@ -123,6 +123,7 @@ class EmgPublisher(AbstractPublisher):
         """
         super(EmgPublisher, self).__init__('emg', url, name, abort=abort)
 
+
 class KinPublisher(AbstractPublisher):
     """ Publisher for kinematic data
     """

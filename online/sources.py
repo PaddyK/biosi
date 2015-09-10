@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.join(
 import emg.data
 import logging
 import PyDAQmx as pydaq
+import numpy as np
+logging.basicConfig(level=logging.DEBUG)
 
 class AbstractSource(Thread):
     """ Abstract base class for sources
@@ -39,6 +41,8 @@ class AbstractSource(Thread):
         self._samplingrate = samplingrate
         self._publisher = publisher
         self._abort = abort
+        self._logger = logging.getLogger(name)
+        self._logger.setLevel(logging.DEBUG)
 
     def acquire_data(self):
         pass
@@ -135,7 +139,7 @@ class CdaqSource(AbstractSource):
             channels (List): List of strings specifying channel to grab data
                 from. Format of channel is <modulename>/ai<channel>.
             task_handle (pydaq.TaskHandle): Handle for data retieval task
-            read (pycdaq.int32): Some sort of Flag?
+            read (pydaq.int32): Some sort of Flag?
 
         Example for channel:
             cDAQ module was named ``emg`` in _NI MAX_ program and electrode
@@ -150,22 +154,24 @@ class CdaqSource(AbstractSource):
                 abort=abort
                 )
         self._channels = channels
-        self._task_handle = pycdaq.TaskHandle()
-        self._read = pycdaq.int32()
+        self._task_handle = pydaq.TaskHandle()
+        self._read = pydaq.int32()
 
     def _setup_channels(self):
         """ Setup channels to be channels measuring voltage """
-        for channel in self._channels:
-            pydaq.DAQmxCreateAIVoltageChan(
-                    self._task_handle,
-                    channel,    # Channel, <channel_name>/ai<channel_num> e.g. emg/ai0
-                    '',
-                    pydaq.DAQmx_Val_RSE,
-                    -10.0,  # Max value
-                    10.0,   # Min Value
-                    pydaq.DAQmx_Val_Volts, # Unit to measure
-                    None
-                    )
+        channels = ','.join(self._channels)
+
+        pydaq.DAQmxCreateAIVoltageChan(
+                self._task_handle,
+                channels,    # Channel, <channel_name>/ai<channel_num> e.g. emg/ai0
+                '',
+                pydaq.DAQmx_Val_RSE,
+                -10.0,  # Max value
+                10.0,   # Min Value
+                pydaq.DAQmx_Val_Volts, # Unit to measure
+                None
+                )
+
     def _setup_sampling(self, num_samples):
         """ Setup how, then and often measurements hould be taken """
         pydaq.DAQmxCfgSampClkTiming(
@@ -179,37 +185,42 @@ class CdaqSource(AbstractSource):
                 pydaq.DAQmx_Val_Rising, # Flank of clock, here rising
                 pydaq.DAQmx_Val_ContSamps,  # Continueous samples (also fixed
                 num_samples                 # number possible)
+                # num_samples must be over all channels (size of array)
                 )
 
     def acquire_data(self):
-        num_samples = int(ArrayMessage.duration * self.samplingrate)
+        num_samples = int(ArrayMessage.duration * self._samplingrate)
         try:
-            data = numpy.zeros(
-                (samplingrate, len(self._channels)),
-                dtype=numpy.float64
-                )
-            pydaq.DAQmxCreateTask('', byref(self._task_handle))
+            pydaq.DAQmxCreateTask('', pydaq.byref(self._task_handle))
             self._setup_channels()
-            self._setup_sampling()
+            self._setup_sampling(data.size)
             pydaq.DAQmxStartTask(self._task_handle)
 
             while True:
+                data = np.zeros(
+                    (num_samples * len(self._channels)),
+                    dtype=np.float64
+                    )
                 pydaq.DAQmxReadAnalogF64(
                         self._task_handle,
-                        num_samples,
-                        10.0,
+                        num_samples, # Numbe of samples to read per channel
+                        10.0,   # Wait 10 seconds until timeout occurs
                         pydaq.DAQmx_Val_GroupByChannel,
-                        data,
+                            # Group by channels interleaves samples of channels. So
+                            # samples are stored : sample_channel1, sample_channel2,
+                            # sample_channel_3, sample_channel1, ...
+                        data,   # Array to read data into
                         data.size,
-                        byref(self._read),
+                        pydaq.byref(self._read), # Number of samples read for
+                                                 # each channel
                         None
                         )
-                yield data
+                yield data.reshape(-1, len(self._channels))
         except pydaq.DAQError as err:
-            logging.error('PyCDAQmx error in CdaqSource. Error was {}'.format(
+            self._logger.error('PyCDAQmx error in CdaqSource. Error was {}'.format(
                 str(err)))
         except Exception as err:
-            logging.error('Unexpected error occured in CdaqSource. Error ' + \
+            self._logger.('Unexpected error occured in CdaqSource. Error ' + \
                     'was {}'.format(str(err)))
         finally:
             if self._abort is not None:
