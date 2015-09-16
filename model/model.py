@@ -2176,7 +2176,7 @@ class Trial(DataHoldingElement):
             stopIdx (int): End of trial relative to recording. Index to DataFrame
     """
 
-    def __init__(self, recording, start, duration, identifier, label = None):
+    def __init__(self, recording, start, duration, identifier=None, label = None):
         """ Initializes Object
 
             Args:
@@ -2191,13 +2191,13 @@ class Trial(DataHoldingElement):
         """
         self._recording = recording
         self._start = start
-        self._duration = duration
         self._identifier = identifier
+        self._duration = duration
         self._label = label
         self._events = []
 
         if self._identifier is None:
-            self._name = 'trial' + str(len(self._recording.trials))
+            self._identifier = 'trial' + str(len(self._recording.trials))
 
         self._recording.put_trial(self)
 
