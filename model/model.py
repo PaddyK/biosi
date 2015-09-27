@@ -2177,7 +2177,6 @@ class Trial(DataHoldingElement):
                 relative to the start of the trial
             recording (Recording): The recording this trial belongs to. Necessary to
                 retrieve informations about the setting.
-            channels (int): Number of data points in this trial
             start (float): Start point of trial in seconds relative to the start point
                 of the recording.
             startIdx (int): Offset relative to beginning of recording of trial. Index
@@ -2267,7 +2266,7 @@ class Trial(DataHoldingElement):
             Returns:
                 int
         """
-        return self._channels
+        return self._recording.channels
 
     @label.setter
     def label(self, label):
