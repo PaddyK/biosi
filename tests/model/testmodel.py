@@ -104,15 +104,18 @@ class TestDataContainer(object):
         assert self.container.samples == 20
 
 
-class AbstractModelTest(object):
+class ModelTest(object):
     @classmethod
     def setup(cls):
+        cls.logger = logging.getLogger('ModelTestLogger')
+        cls.logger.setLevel(logging.DEBUG)
+
         s1 = model.Subject('subject1')
         s2 = model.Subject('subject2')
 
         cls.expepriment = model.Experiment()
-        cls.expepriment.set_subject(s1)
-        cls.expepriment.set_subject(s2)
+        cls.expepriment.put_subject(s1)
+        cls.expepriment.put_subject(s2)
 
         setup1 = model.Setup(cls.expepriment)
         modality1 = model.Modality(setup1, 20, 'emg')
@@ -185,5 +188,8 @@ class AbstractModelTest(object):
         for i in range(5):
             model.Trial(recording1, i * 2, 2)
             model.Trial(recording2, i * 2, 2)
+
+    def test_model_definition(self):
+        self.logger.debug(self.expepriment.recursive_to_string())
 
 

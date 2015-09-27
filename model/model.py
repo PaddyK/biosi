@@ -1586,8 +1586,8 @@ class Recording(DataHoldingElement):
                         )
         self._data = DataContainer.from_array(
                 data,
-                self._modality.channels,
-                self._modality.frequency
+                self._modality.frequency,
+                self._modality.channels
                 )
         self._session.put_recording(self)
 
