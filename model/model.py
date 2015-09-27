@@ -253,6 +253,15 @@ class DataContainer(object):
         return DataContainer.from_array(dat, self.frequency, self.columns)
 
     @property
+    def shape(self):
+        """ Returns shape of underlying data structure
+
+            Returns:
+                Shape object
+        """
+        return self.dataframe.shape
+
+    @property
     def num_channels(self):
         """ Returns number of channels
 
