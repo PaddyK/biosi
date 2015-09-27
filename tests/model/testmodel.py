@@ -113,11 +113,11 @@ class ModelTest(object):
         s1 = model.Subject('subject1')
         s2 = model.Subject('subject2')
 
-        cls.expepriment = model.Experiment()
-        cls.expepriment.put_subject(s1)
-        cls.expepriment.put_subject(s2)
+        cls.experiment = model.Experiment()
+        cls.experiment.put_subject(s1)
+        cls.experiment.put_subject(s2)
 
-        setup1 = model.Setup(cls.expepriment)
+        setup1 = model.Setup(cls.experiment)
         modality1 = model.Modality(setup1, 20, 'emg')
         modality2 = model.Modality(setup1, 5, 'kin')
 
@@ -130,7 +130,7 @@ class ModelTest(object):
         model.Channel(modality2, 'Pos-Y')
         model.Channel(modality2, 'Pos-Z')
 
-        session1 = model.Session(cls.expepriment, setup1, s1, 'session1')
+        session1 = model.Session(cls.experiment, setup1, s1, 'session1')
         arr = np.column_stack((
                 np.tile(
                     np.concatenate((
@@ -166,17 +166,19 @@ class ModelTest(object):
         for i in range(5):
             model.Trial(recording1,i * 2, 2)
 
+
+        session2 = model.Session(cls.experiment, setup1, s2, 'session2')
         arr2 = np.column_stack((
-                np.mean(np.sum(arr, axis=1).reshape(-1, 4, 4), axis=1),
-                np.mean(np.prod(arr, axis=1).reshape(-1, 4, 4), axis=1),
-                np.mean(np.square(arr, axis=1).reshape(-1, 4, 4), axis=1)
+                np.sum(np.mean(arr.reshape(-1, 4, 4), axis=1), axis=1),
+                np.prod(np.mean(arr.reshape(-1, 4, 4), axis=1), axis=1),
+                np.square(np.sum(np.mean(arr.reshape(-1, 4, 4), axis=1), axis=1))
                 ))
         recording2 = model.Recording(session2, modality1, data=arr2,
                 identifier='kin_recording')
         for i in range(5):
             model.Trial(recording2, i * 2, 2)
 
-        session2 = model.Session(cls.expepriment, setup1, s2, 'session2')
+        session2 = model.Session(cls.experiment, setup1, s2, 'session2')
         arr = np.add(arr, np.random.randn(*arr.shape))
         recording1 = model.Recording(session2, modality1, data=arr,
                 identifier='emg_recording')
@@ -190,6 +192,6 @@ class ModelTest(object):
             model.Trial(recording2, i * 2, 2)
 
     def test_model_definition(self):
-        self.logger.debug(self.expepriment.recursive_to_string())
+        self.logger.debug(self.experiment.recursive_to_string())
 
 
