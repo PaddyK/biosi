@@ -1081,7 +1081,7 @@ class Session(DataHoldingElement):
             recordings (Dictionary): Dictionary of all recordings produced durint the
                 session.
             recording_order (List): Stores order in which recordings were added
-            channels (int): Count of channels of all recordings and trials part of
+            samples (int): Count of samples of all recordings and trials part of
                 a session
     """
 
@@ -1092,7 +1092,7 @@ class Session(DataHoldingElement):
         self._experiment = experiment
         self._recordings = {}
         self._recording_order = []
-        self._channels = 0 # If a trial is added to a recording this count is alsoc incremented
+        self._samples = 0 # If a trial is added to a recording this count is alsoc incremented
 
         if self._identifier is None:
             self._identifier = 'session' + str(len(self._experiment.sessions))
@@ -1437,11 +1437,16 @@ class Session(DataHoldingElement):
         return ret
 
     @property
-    def channels(self):
-        return self._channels
+    def samples(self):
+        return self._samples
+
+    @samples.setter
+    def samples(self, num_samples):
+        self._samples = num_samples
 
     def set_data(self, data):
-       """ Sets the data of all trials in all recordings belonging to this session.
+       """ Sets the data of all trials in all recordings belonging to this
+           session.
 
             Args:
                 data (pandas.DataFrame): New data for session
@@ -1468,10 +1473,6 @@ class Session(DataHoldingElement):
                 end = self.recordings[idx].channels + offset
                 self.recordings[idx].set_data(data[offset : end])
                 offset = end
-
-    @channels.setter
-    def channels(self, channels):
-        self._channels = channels
 
     def get_recording(self, identifier):
         if identifier not in self.recordings:
@@ -1549,7 +1550,7 @@ class Recording(DataHoldingElement):
                 parameter is set and no data is given, data will be retrieved from file.
             data (pandas.DataFrame, optional): DataFrame with channels of this recording.
             duration (float): duration of recording in data in seconds
-            channels (int): Number of channels in this recording. The sum of all channel
+            samples (int): Number of samples in this recording. The sum of all sample
                 counts of trials being part of this recording
             trials (Dictionary): Trials included in this recording.
             identifier (string): Identifier of one specific instance
@@ -1567,7 +1568,7 @@ class Recording(DataHoldingElement):
             identifier = None):
         self._session = session
         self._location = location
-        self._channels = 0
+        self._samples = 0
         self._trials = {}
         self._identifier = identifier
         self._trial_order = []
@@ -2040,14 +2041,23 @@ class Recording(DataHoldingElement):
         return self._data.duration
 
     @property
-    def channels(self):
-        """ Returns number of channels (sum of channels of trials) recording
+    def samples(self):
+        """ Returns number of samples (sum of channels of samples) recording
             contains.
 
             Returns:
                 Integer
         """
-        return self._data.shape[1]
+        return self._samples
+
+    @samples.setter
+    def samples(self, num_samples):
+        """ Sets number of samples recording holds (samples contained in Trials)
+
+            Args:
+                num_samples (int): New number of samples
+        """
+        self._samples = num_samples
 
     def set_data(self, data):
         """ Sets only the **relevant** data of the recording, i.e. the data specified
@@ -2135,8 +2145,8 @@ class Recording(DataHoldingElement):
         if trial.identifier not in self.trials:
             self.trials[trial.identifier] = trial
             self._trial_order.append(trial.identifier)
-            self.channels = self.channels + trial.channels
-            self.session.channels = self.Session.channels + trial.channels
+            self.samples = self.samples + trial.samples
+            self.session.samples = self.session.samples + trial.samples
         else:
             raise IndexError('Trial with name ' + trial.identifier + ' already member of recording')
 
@@ -2177,6 +2187,7 @@ class Trial(DataHoldingElement):
                 relative to the start of the trial
             recording (Recording): The recording this trial belongs to. Necessary to
                 retrieve informations about the setting.
+            samples (int): Number of samples (time steps) Trial contains
             start (float): Start point of trial in seconds relative to the start point
                 of the recording.
             startIdx (int): Offset relative to beginning of recording of trial. Index
@@ -2203,6 +2214,7 @@ class Trial(DataHoldingElement):
         self._duration = duration
         self._label = label
         self._events = []
+        self._samples = duration * self._recording.modality.frequency
 
         if self._identifier is None:
             self._identifier = 'trial' + str(len(self._recording.trials))
@@ -2260,13 +2272,13 @@ class Trial(DataHoldingElement):
         return self._stopIdx
 
     @property
-    def channels(self):
-        """ Getter property for attributes channels
+    def samples(self):
+        """ Getter property for attribute samples
 
             Returns:
                 int
         """
-        return self._recording.channels
+        return self._samples
 
     @label.setter
     def label(self, label):
@@ -2369,7 +2381,7 @@ class Trial(DataHoldingElement):
     def get_frequency(self):
         """ Returns frequency of recording trial belongs to
         """
-        return self.recording.get_frequency()
+        return self.recording.modality.frequency
 
     def set_data(self, data):
         """ Sets the channels in reference.data this trial is referencing.
