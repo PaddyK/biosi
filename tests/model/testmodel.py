@@ -241,4 +241,16 @@ class ExperimentTest(ModelTest):
 
 class TrialTest(ModelTest):
     def test_start(self):
-        recording = self.experiment.get_recording('emg_recording', 'session1')
+        trials = ['trial0', 'trial1', 'trial2', 'trial3', 'trial4']
+        start = 0
+        for tid in trials:
+            trial = self.experiment.get_trial(
+                    session='session1',
+                    recording='emg_recording1',
+                    identifier=tid
+                    )
+            assert trial.start == start, 'Start does not match. Start should' + \
+                    'be {} but is {}'.format(start, trial.start)
+            start += 2
+
+
