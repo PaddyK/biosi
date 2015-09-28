@@ -453,79 +453,30 @@ class Experiment(DataHoldingElement):
     def subjects(self):
         return self._subjects
 
-    def get_data(self, **kwargs):
-        """ Returns all data in an specific interval from one/multiple/all
-            sessions of this experiment.
+    def get_data(self, modality, sessions=None):
+        """ Returns all trials of a specific modality from all recordings of
+            all sessions of, if argument ``sessions`` is set, only from a
+            selection.
 
             Args:
                 modality (String): Identifier of an modality. Only data of recordings
                     with this modality are returned
-                sessions (List): List of Strings. If set data for specified recordings
+                sessions (List, optional): List of Strings. If set data for specified recordings
                     are returned, else data of all recordings are returned.
-                from_ (float): Start point from which on data should be retrieved
-                to (float): End point of data retrieval
-
-            Note:
-                `from_` and `to` operate over the accumulated length of specified recordings.
-                So if data from all recordings should be selected, but `from_` and `to`
-                are very small recordings will be excluded.
 
             Returns:
-                data (pandas.core.DataFrame)
+                List of model.model.DataContainer
         """
-        duration = 0
-        modality = kwargs['modality']
-        if kwargs['sessions'] is None:
+        trials = []
+        if sessions is None:
             sessions = self._session_order
 
-        if kwargs['from'] is None:
-            from_ = 0
-        elif from_ < 0:
-            raise IndexError('Start point of time interval out of bounds')
-
-        if kwargs['to'] is None:
-            to = duration
-        elif to < 0:
-            raise IndexError('End point of time interval out of bounds')
-
-        s_dur = 0
-        offset = 0
-        to_pass = None
-        from_pass = None
-        df = None
         for s in sessions:
-            offset = offset + s_dur
-            s_dur = self.sessions[s].get_duration(modality=modality)
-            if from_ > offset + s_dur:
-                # Start point of interval larget than duration of first n recocdings
-                # exclude recording and continue
+            session = self.sessions[s]
+            if modality not in session.setup.modalities.keys():
                 continue
-            elif (from_ > offset) and (from_ < offset + s_dur):
-                # If start point of interval lies within nth recording start retrieving
-                # from this point. Convert to relative start of recording
-                from_pass = from_ - offset
-            else:
-                from_pass = None
-
-            if to < offset:
-                # If accumulated duration of all recordings is larger than end point
-                # of time interval stop retrieving data
-                break
-            elif (to > offset) and (to < offset + s_dur):
-                # If end of time interval lies within one recording retrieve only
-                # data until relative point of time in recording
-                to_pass = to - offset
-            else:
-                to_pass = None
-
-            tmp = self.sessions[s].get_data(modality=modality, begin=from_pass, end=to_pass)
-
-            if df is None:
-                df = tmp
-            else:
-                df = pd.concat([df, tmp])
-
-        return df
+            trials.extend(session.get_data(modality=modality))
+        return trials
 
     def get_data_by_labels(self, sessions=None, recordings=None, labels=None, as_list=True,
             pandas=True):
