@@ -2190,9 +2190,6 @@ class Trial(DataHoldingElement):
             samples (int): Number of samples (time steps) Trial contains
             start (float): Start point of trial in seconds relative to the start point
                 of the recording.
-            startIdx (int): Offset relative to beginning of recording of trial. Index
-                to DataFrame
-            stopIdx (int): End of trial relative to recording. Index to DataFrame
     """
 
     def __init__(self, recording, start, duration, identifier=None, label = None):
@@ -2259,17 +2256,6 @@ class Trial(DataHoldingElement):
                 String
         """
         return self._label
-
-    @property
-    def StopIdx(self):
-        """ Getter property for attribute stopIdx.
-
-            Returns index to the recording's data at which trial ends
-
-            Returns:
-                int
-        """
-        return self._stopIdx
 
     @property
     def samples(self):

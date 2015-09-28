@@ -110,6 +110,36 @@ class TestDataContainer(object):
 class ModelTest(object):
     @classmethod
     def setup(cls):
+        """ Creates an Experiment with totaly artificial data. Experiment
+            has one setup with two modalities, EMG and kin. EMG has four channels,
+            KIN has three channels. Two sessions are "recorded" for two
+            different subjects.
+            All EMG recordings have sampling rate of 20Hz, all KIN recordings
+            sampling rate of 5Hz.
+            EMG recording of session1 consists of the following values:
+                0       0       0       0.5
+                0.1     1       0.01    0.6
+                ...     ...     ...     ...
+                0.9     9       0.09    1.4
+                1.0     10      0.1     1.5
+                0.9     9       0.09    1.4
+                ...     ...     ...     ...
+                0.1     1       0.01    0.6
+            Each column is repeated 10 times resulting in a recording of
+            20 * 10 = 200 <--> 10s.
+            EMG recording of session2 is created from this data by adding
+            gaussian noise.
+            KIN data for session1 is created from above array by taking the mean
+            of all consecutive 4 samples. First channel is the sum of all four
+            EMG channels, second channel is the product of all four EMG channels
+            along the columns and third channel is square of the first KIN
+            channel.
+            KIN data for session2 is based on noisy version of above array.
+            First channel is the sin of the sum of the four EMG channels along
+            the columns, second channel the cosine and third channel the tan.
+            As before mean over four samples was taken.
+            For each recording five Trials of duration 2s are defined.
+        """
         cls.logger = logging.getLogger('ModelTestLogger')
         cls.logger.setLevel(logging.DEBUG)
 
@@ -166,8 +196,6 @@ class ModelTest(object):
                 ))
         recording1 = model.Recording(session1, modality1, data=arr,
                 identifier='emg_recording')
-        for i in range(5):
-            model.Trial(recording1,i * 2, 2)
 
         arr2 = np.column_stack((
                 np.sum(np.mean(arr.reshape(-1, 4, 4), axis=1), axis=1),
@@ -189,6 +217,8 @@ class ModelTest(object):
             np.cos(np.mean(np.sum(arr.reshape(-1, 4, 4), axis=1))),
             np.tan(np.mean(np.sum(arr.reshape(-1, 4, 4), axis=1)))
             ))
+        recording2 = model.Recording(session2, modality2, data=arr2,
+                identifier='kin_recording')
         for i in range(5):
             model.Trial(recording1, i * 2, 2)
             model.Trial(recording2, i * 2, 2)
@@ -196,4 +226,9 @@ class ModelTest(object):
     def test_model_definition(self):
         self.logger.debug(self.experiment.recursive_to_string())
 
+
+class ExperimentTest(ModelTest):
+    def test_get_recording(self):
+        recording = self.experiment.get_recording('emg_recording', 'session1')
+        assert recording.identifier == 'emg_recording'
 
