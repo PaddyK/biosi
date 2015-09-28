@@ -243,6 +243,7 @@ class ExperimentTest(ModelTest):
         assert len(trials) == 10, 'Wrong number of trials returned, ' + \
                 'expected 10 got {}'.format(len(trials))
 
+
 class TrialTest(ModelTest):
     def test_start(self):
         trials = ['trial0', 'trial1', 'trial2', 'trial3', 'trial4']
@@ -377,4 +378,33 @@ class TrialTest(ModelTest):
         trial.set_data(new_data)
         assert np.mean(trial.get_data().data) == 1, ('Setting ' + \
                 'new data failed for trial')
+
+
+class RecordingTest(ModelTest):
+    def test_add_events(self):
+        dic = {
+                'trial0': [['single', 0.4], ['long', 1, 0.5]],
+                'trial1': [['single', 0.4], ['long', 1, 0.5]],
+                'trial2': [['single', 0.4], ['long', 1, 0.5]],
+                'trial3': [['single', 0.4], ['long', 1, 0.5]],
+                'trial4': [['single', 0.4], ['long', 1, 0.5]],
+              }
+        df = pd.DataFrame(
+                [
+                    ['trial0', 'single', 0.4, 0],
+                    ['trial0', 'long', 1, 0.5],
+                    ['trial1', 'single', 0.4, 0],
+                    ['trial1', 'long', 1, 0.5],
+                    ['trial2', 'single', 0.4, 0],
+                    ['trial2', 'long', 1, 0.5],
+                    ['trial3', 'single', 0.4, 0],
+                    ['trial3', 'long', 1, 0.5],
+                    ['trial4', 'single', 0.4, 0],
+                    ['trial4', 'long', 1, 0.5]
+                ])
+        recording = self.experiment.get_recording('emg_recording1', 'session1')
+        recording.add_events(dic)
+        self.logger.debug(recording.recursive_to_string())
+        recording.add_events(df)
+        self.logger.debug(recording.recursive_to_string())
 

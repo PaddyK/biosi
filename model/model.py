@@ -436,6 +436,11 @@ class Event(object):
         """
         self._start = start
 
+    def to_string(self):
+        str = 'Event {} at {}s'.format(self.name, self.start)
+        if self.duration is not None:
+            str += ' duration {}s'.format(self.duration)
+        return str
 
 class DataHoldingElement(object):
     def __getitem__(self, key):
@@ -1574,32 +1579,6 @@ class Recording(DataHoldingElement):
         """
         return self._modality
 
-    def add_event(self, name, start, duration=None):
-        """ Adds an event to list of recordings events
-
-            Args:
-                name (string): Name of event
-                start (float): Start of time in seconds relative to beginning
-                    of recording
-                duration (float): Duration of event in seconds
-        """
-        time = start
-        label = name
-        event = Event(name, start, duration)
-        if len(self._events) == 0:
-            self._events.append(event)
-        else:
-            max = self._events[len(self._events) - 1][0]
-            if time >= max:
-                self._events.append(event)
-            else:
-                for i in range(len(self._events) - 1, -1, -1):
-                    t = self._events[i].start
-                    if time > t:
-                        # Must be inserted after that element
-                        self._events.insert(i + 1, event)
-                        break
-
     def add_events(self, events):
         """ Convenience function to add multiple events to recording and
             trials at once.
@@ -1619,9 +1598,9 @@ class Recording(DataHoldingElement):
         def get_keys(toplevel):
             """ Returns trirals identifier as list """
             if type(toplevel) is dict:
-                return dict.keys()
+                return toplevel.keys()
             elif type(toplevel) is pd.DataFrame:
-                return toplevel.index.unique().tolist()
+                return toplevel.iloc[:, 0].unique().tolist()
             else:
                 raise AttributeError('Unknwon type encountered in model.model' + \
                         '.Recording.add_events. Type {} not supported for ' + \
@@ -1632,9 +1611,10 @@ class Recording(DataHoldingElement):
                 for record in toplevel[key]:
                     yield record
             elif type(toplevel) is pd.DataFrame:
-                sliced = toplevel.loc[key, :]
+                sliced = toplevel.loc[toplevel.iloc[:, 0] == key]
+                sliced = sliced.drop_duplicates()
                 for i in range(sliced.shape[0]):
-                    yield sliced.iloc[i, :].values.tolist()
+                    yield sliced.iloc[i, 1:].values.tolist()
 
         for key in get_keys(events):
             for record in yield_record(events, key):
@@ -2297,7 +2277,7 @@ class Trial(DataHoldingElement):
             self.identifier, self.duration, self.samples, self.label
             )
         for e in self._events:
-            string = string + '\n\tEvent {a} at {b:.3f}s'.format(a=e.name, b=e.start)
+            string = string + '\n\t' + e.to_string()
         return string
 
 
