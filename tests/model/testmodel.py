@@ -11,6 +11,9 @@ import model.model as model
 import logging
 from nose.tools import with_setup
 
+logging.basicConfig(level=logging.DEBUG)
+
+
 class TestDataContainer(object):
     def __init__(self):
         self.logger = logging.getLogger('TestDataContainer')

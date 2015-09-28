@@ -2152,11 +2152,11 @@ class Recording(DataHoldingElement):
 
     def to_string(self):
         string = (
-            'Recording %s: %ds duration, %d channels, %d Trials' %
+            'Recording %s: %ds duration, %d samples, %d Trials' %
             (
                 self.identifier,
                 self.duration,
-                self.channels,
+                self.samples,
                 len(self.trials)
             )
         )
@@ -2397,8 +2397,8 @@ class Trial(DataHoldingElement):
         self.recording.data[self.start, self.start + self.duration] = data
 
     def to_string(self):
-        string = 'Trial {}: {}s duration, {} channels, label {}'.format(
-            self.identifier, self.duration, self.channels, self.label
+        string = 'Trial {}: {}s duration, {} samples, label {}'.format(
+            self.identifier, self.duration, self.samples, self.label
             )
         for e in self._events:
             string = string + '\n\tEvent {a} at {b:.3f}s'.format(a=e.name, b=e.start)
