@@ -253,4 +253,15 @@ class TrialTest(ModelTest):
                     'be {} but is {}'.format(start, trial.start)
             start += 2
 
+    def test_duration(self):
+        trials = ['trial0', 'trial1', 'trial2', 'trial3', 'trial4']
+        duration = 2
+        for tid in trials:
+            trial = self.experiment.get_trial(
+                    session='session1',
+                    recording='emg_recording1',
+                    identifier=tid
+                    )
+            assert trial.duration == duration, 'Start does not match. Start should' + \
+                    'be {} but is {}'.format(start, trial.duration)
 
