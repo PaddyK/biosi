@@ -263,5 +263,24 @@ class TrialTest(ModelTest):
                     identifier=tid
                     )
             assert trial.duration == duration, 'Start does not match. Start should' + \
-                    'be {} but is {}'.format(start, trial.duration)
+                    'be {} but is {}'.format(duration, trial.duration)
+
+    def test_samples(self):
+        trials = ['trial0', 'trial1', 'trial2', 'trial3', 'trial4']
+        for tid in trials:
+            trial = self.experiment.get_trial(
+                    session='session1',
+                    recording='emg_recording1',
+                    identifier=tid
+                    )
+            assert trial.samples == 40, 'Start does not match. Start should' + \
+                    'be {} but is {} for emg rec'.format(40, trial.samples)
+
+            trial = self.experiment.get_trial(
+                    session='session1',
+                    recording='kin_recording1',
+                    identifier=tid
+                    )
+            assert trial.samples == 10, 'Start does not match. Start should' + \
+                    'be {} but is {} for kin rec'.format(5, trial.samples)
 
