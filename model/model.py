@@ -295,6 +295,53 @@ class DataContainer(object):
         """
         return self.dataframe.shape[1]
 
+    def __setitem__(self, slice, data):
+        """ Sets values of DataContainer defined by slice.
+
+            Args:
+                slice (float, Slice): Integer (point in time) or slice (duration).
+                    values are expected in seconds.
+                data (array like): New Data of the same shape as defined by
+                    slice and original data
+
+            Note:
+                Values of slic is expected in seconds. Floating point numbers
+                are accepted, however the true indices are calculated using the
+                frequency of this container and then cast to integer.
+                Step argument is ignored.
+
+            Raises:
+                TypeError if argument ``slice`` is/contains negative values
+                    or is larger than duration of data
+        """
+        if type(slice) is int:
+            start = int(slice * self.frequency)
+            stop = start + 1
+        elif slice.start is None and slice.stop is None:
+            start = 0
+            stop = int(self.duration * self.frequency)
+        else:
+            start = int(slice.start * self.frequency)
+            stop = int(slice.stop * self.frequency)
+
+        assert start >= 0, 'model.model.DataContainer.__setitem__: ' + \
+                'negative value for start of slice encountered. Must be positive'
+        assert stop >= 0, 'model.model.DataContainer.__setitem__: ' + \
+                'negative value for stop of slice encountered. Must be positive'
+        assert start <= self.samples, 'model.model.DataContainer.' + \
+                '__setitem__: Requested Timestamp larger than duration. ' + \
+                'duration is: {}, requested startpoint was: {}'.format(
+                        self.duration, float(start)/self.frequency
+                        )
+        # subtract 1 because counting starts at zero. Also allows slicing
+        # to the end of the data by giving the duration as endpoint
+        assert stop - 1 <= self.samples, 'model.model.DataContainer.' + \
+                '__setitem__: Requested Timestamp larger than duration. ' + \
+                'duration is: {}, requested startpoint was: {}'.format(
+                        self.duration, float(stop)/self.frequency
+                        )
+        self.dataframe.iloc[start:stop, :] = data
+
     @property
     def samples(self):
         """ Returns number of samples (timesteps)
@@ -2409,7 +2456,7 @@ class Trial(DataHoldingElement):
                 to create a new object behind the scenes and the data object in Record
                 class is not changed!
         """
-        self.recording.data[self.start, self.start + self.duration] = data
+        self.recording.data[self.start:self.start + self.duration] = data
 
     def to_string(self):
         string = 'Trial {}: {}s duration, {} samples, label {}'.format(

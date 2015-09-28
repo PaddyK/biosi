@@ -359,3 +359,18 @@ class TrialTest(ModelTest):
                     'Returned values for time slicing wrong for emg ' + \
                     'trial {}'.format(tid)
 
+    def test_set_data(self):
+        recording = self.experiment.get_recording(
+                    session='session1',
+                    identifier='kin_recording1'
+                    )
+        trial = self.experiment.get_trial(
+                session='session1',
+                recording='kin_recording1',
+                identifier='trial4'
+                )
+        new_data = np.ones(trial.get_data().shape)
+        trial.set_data(new_data)
+        assert np.mean(trial.get_data().data) == 1, ('Setting ' + \
+                'new data failed for trial')
+
