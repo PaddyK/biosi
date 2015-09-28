@@ -1269,44 +1269,6 @@ class Session(DataHoldingElement):
                     labels = np.concatenate([labels, l])
         return sequences, labels
 
-    def get_duration(self, modality=None):
-        """ Returns session's duration depending on recordings associated with
-            `modality`. If `modality` is not set, all recordings of session are
-            considered
-
-            Args:
-                modality (String): Identifier of a modality
-
-            Returns:
-                duration (float): Sum of duration of all recordings as duration of session
-        """
-        duration = 0
-        for r in self.recordings.itervalues():
-            if modality is None:
-                duration = duration + r.duration
-            elif r.modality == modality:
-                duration = duration + r.duration
-        return duration
-
-    def aslist(self, labels=None):
-        """ Returns data in format to directly feed it to
-            .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
-            That is a list of two dimensional arrays where each array represents a trial.
-
-            Returns:
-                data (List): List of two dimensional numpy.ndarrays
-                lbls (List): List with one dimenional arrays containing class labels
-        """
-
-        data = []
-        class_labels = []
-        for idx in self._recording_order:
-            dat, clbl = self.recordings[idx].get_data_for_breeze(labels=labels)
-            data.extend(dat)
-            class_labels.extend(clbl)
-
-        return data, class_labels
-
     def get_data(self, modality=None):
         """ Returns trials of all recordings associated with ``modality``
             defined for this session.
@@ -1456,44 +1418,6 @@ class Session(DataHoldingElement):
             warnings.warn('No recording found recorded with modality %s' % modality)
 
         return ret
-
-    @property
-    def samples(self):
-        return self._samples
-
-    @samples.setter
-    def samples(self, num_samples):
-        self._samples = num_samples
-
-    def set_data(self, data):
-       """ Sets the data of all trials in all recordings belonging to this
-           session.
-
-            Args:
-                data (pandas.DataFrame): New data for session
-
-            Raises:
-                ValueError: Raised if number of channels/features does not match
-        """
-
-       if (data.shape[0] != self.channels) or (data.shape[1] != self.setup.features):
-            raise ValueError((
-                'Input has wrong dimensions for session %s. Expected data of ' +
-                'dimensionality (%s,%s), instead got (%s, %s)' %
-                (
-                    self.identifier,
-                    self.channels,
-                    self.setup.features,
-                    data.shape[0],
-                    data.shape[1]
-                )
-            ))
-       else:
-            offset = 0
-            for idx in self._recording_order:
-                end = self.recordings[idx].channels + offset
-                self.recordings[idx].set_data(data[offset : end])
-                offset = end
 
     def get_recording(self, identifier):
         if identifier not in self.recordings:
