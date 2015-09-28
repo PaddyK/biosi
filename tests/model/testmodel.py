@@ -166,16 +166,15 @@ class ModelTest(object):
         for i in range(5):
             model.Trial(recording1,i * 2, 2)
 
-
-        session2 = model.Session(cls.experiment, setup1, s2, 'session2')
         arr2 = np.column_stack((
                 np.sum(np.mean(arr.reshape(-1, 4, 4), axis=1), axis=1),
                 np.prod(np.mean(arr.reshape(-1, 4, 4), axis=1), axis=1),
                 np.square(np.sum(np.mean(arr.reshape(-1, 4, 4), axis=1), axis=1))
                 ))
-        recording2 = model.Recording(session2, modality1, data=arr2,
+        recording2 = model.Recording(session1, modality2, data=arr2,
                 identifier='kin_recording')
         for i in range(5):
+            model.Trial(recording1, i * 2, 2)
             model.Trial(recording2, i * 2, 2)
 
         session2 = model.Session(cls.experiment, setup1, s2, 'session2')
@@ -183,9 +182,9 @@ class ModelTest(object):
         recording1 = model.Recording(session2, modality1, data=arr,
                 identifier='emg_recording')
         arr2 = np.column_stack((
-            np.mean(np.sin(np.sum(arr, axis=1)).reshape(-1, 4, 4)),
-            np.mean(np.cos(np.sum(arr, axis=1)).reshape(-1, 4, 4)),
-            np.mean(np.tan(np.sum(arr, axis=1)).reshape(-1, 4, 4))
+            np.sin(np.mean(np.sum(arr.reshape(-1, 4, 4), axis=1))),
+            np.cos(np.mean(np.sum(arr.reshape(-1, 4, 4), axis=1))),
+            np.tan(np.mean(np.sum(arr.reshape(-1, 4, 4), axis=1)))
             ))
         for i in range(5):
             model.Trial(recording1, i * 2, 2)
