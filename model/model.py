@@ -120,6 +120,7 @@ class DataContainer(object):
         """
         self._dataframe = dataframe
         self._frequency = frequency
+        self._events = None
 
     @classmethod
     def from_array(cls, array, frequency, columns=None):
@@ -193,6 +194,24 @@ class DataContainer(object):
         # calculate duration anew every time since duration might change depending
         # on applied data transformations
         return float(self.dataframe.shape[0]) / float(self.frequency)
+
+    @property
+    def events(self):
+        """ Returns list of events defined for data
+
+            Returns:
+                List of model.model.Event
+        """
+        return self._events
+
+    @events.setter
+    def events(self, events):
+        """ Sets ``events`` attribute of DataContainer
+
+            Args:
+                events (List): List of model.model.Event objects
+        """
+        self._events = events
 
     @property
     def frequency(self):
@@ -278,15 +297,6 @@ class DataContainer(object):
         return container
 
     @property
-    def shape(self):
-        """ Returns shape of underlying data structure
-
-            Returns:
-                Shape object
-        """
-        return self.dataframe.shape
-
-    @property
     def num_channels(self):
         """ Returns number of channels
 
@@ -294,6 +304,36 @@ class DataContainer(object):
                 int
         """
         return self.dataframe.shape[1]
+
+    def one_hot_event(self, event_name):
+        """ Returns a one-hot array with the same first dimension as DataContainer.
+            Time steps of the event are set to one.
+
+            Args:
+                event_name (String): Name of event
+
+            Returns:
+                numpy.ndarray
+
+            Raises:
+                AssertionError if no events are defined
+                KeyError if ``event_name`` could not be found
+        """
+        assert len(self.events) > 0, 'No events defined for DataContainer'
+        exists = False
+        onehot = np.zeros(self.samples, dtype=np.float)
+        for event in self.events:
+            if event.name == event_name:
+                exists = True
+                start = int(event.start * self.frequency)
+                if event.duration is None:
+                    stop = start + 1
+                else:
+                    stop = int((event.start + event.duration) * self.frequency)
+                onehot[start:stop] = 1
+        if not exists:
+            raise KeyError('Event with name {} could not be found'.format(event_name))
+        return onehot
 
     def __setitem__(self, slice, data):
         """ Sets values of DataContainer defined by slice.
@@ -351,6 +391,15 @@ class DataContainer(object):
         """
         return self.dataframe.shape[0]
 
+    @property
+    def shape(self):
+        """ Returns shape of underlying data structure
+
+            Returns:
+                Shape object
+        """
+        return self.dataframe.shape
+
 
 class Event(object):
     """ Models event in trial. Can also be used to model labels.
@@ -366,31 +415,9 @@ class Event(object):
         self._start = start
         self._duration = duration
 
-    @classmethod
-    def new_time(event, time):
-        """ Adapts time of event ``event`` to ``time`` and returns new instance.
-
-            Args:
-                event (model.model.Event): Existing event
-                time (float): New starttime of event in seconds
-
-            Returns:
-                model.model.Event
-        """
-        return Event(event.name, time, event.duration)
-
     @property
     def duration(self):
         return self._duration
-
-    @property
-    def is_label(self):
-        """ Indicates if event can be used as label
-        """
-        if self.duration is None:
-            return False
-        else:
-            return True
 
     @property
     def name(self):
@@ -399,6 +426,15 @@ class Event(object):
     @property
     def start(self):
         return self._start
+
+    @start.setter
+    def start(self, start):
+        """ Sets new start time of event.
+
+            Args:
+                start (float): Start point in seconds
+        """
+        self._start = start
 
 
 class DataHoldingElement(object):
@@ -1709,17 +1745,10 @@ class Recording(DataHoldingElement):
 
             tmp = self.trials[trial].get_event(from_=from_pass, to=to_pass)
             for e in tmp:
-                ret.append(Event.new_time(e, e.start + offset))
+                e.start = e.start + offset
+                ret.append(e)
 
         return ret
-
-    def get_all_events(self):
-        """ Returns all events defined for this recording
-
-            Returns:
-                List of (float, String) tuples
-        """
-        return self._events
 
     def get_data(self, begin=None, end=None):
         """ Returns the **relevant** data of a recording object. As a List of
