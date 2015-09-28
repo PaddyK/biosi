@@ -572,28 +572,6 @@ class Experiment(DataHoldingElement):
                     labels = np.concatenate([labels, l])
         return sequences, labels
 
-    def get_data_for_breeze(self, labels=None):
-        """ Returns data in format to directly feed it to
-            .. _Breeze: https://github.com/breze-no-salt/breze/blob/master/docs/source/overview.rst
-            That is a list of two dimensional arrays where each array represents a trial.
-
-            Args:
-                labels (List): List of strings containing labels of trials (not class labels
-                    but identifiers!)
-            Returns:
-                data (List): List of two dimensional numpy.ndarrays
-                lbls (List): List with one dimenional arrays containing class labels
-        """
-
-        data = []
-        class_labels = []
-        for idx in self._session_order:
-            dat, clbl = self.sessions[idx].get_data_for_breeze(labels=labels)
-            data.extend(dat)
-            class_labels.extend(clbl)
-
-        return data, class_labels
-
     def get_frequency(self, setup=None, modality=None):
         """ Returns frequency of one modality of one session.
 
