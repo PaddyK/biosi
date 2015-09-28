@@ -1226,7 +1226,7 @@ class Session(DataHoldingElement):
         stop = 0
 
         for idx in self._recording_order:
-            if (self.recordings[idx].modality.identifier != modality.identifier):
+            if (self.recordings[idx].modality.identifier != modality):
                 continue
             trials.extend(self.recordings[idx].get_data())
         return trials
@@ -2029,7 +2029,6 @@ class Recording(DataHoldingElement):
             self.trials[trial.identifier] = trial
             self._trial_order.append(trial.identifier)
             self.samples = self.samples + trial.samples
-            self.session.samples = self.session.samples + trial.samples
         else:
             raise IndexError('Trial with name ' + trial.identifier + ' already member of recording')
 

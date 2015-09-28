@@ -238,6 +238,10 @@ class ExperimentTest(ModelTest):
             t = self.experiment.get_trial(trial, 'session1', 'emg_recording1')
             assert t.identifier == trial
 
+    def test_get_data(self):
+        trials = self.experiment.get_data(modality='emg')
+        assert len(trials) == 10, 'Wrong number of trials returned, ' + \
+                'expected 10 got {}'.format(len(trials))
 
 class TrialTest(ModelTest):
     def test_start(self):
