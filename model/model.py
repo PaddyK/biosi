@@ -204,7 +204,9 @@ class DataContainer(object):
         return self._frequency
 
     def __getitem__(self, slice):
-        """ Returns slice along first dimension
+        """ Returns slice along first and second dimension. First dimension
+            must be a numeric slice object. Second dimension must be a list
+            of column names.
 
             Args:
                 slice (float, Slice): Integer (point in time) or slice (duration).
@@ -214,7 +216,12 @@ class DataContainer(object):
                 Values of slic is expected in seconds. Floating point numbers
                 are accepted, however the true indices are calculated using the
                 frequency of this container and then cast to integer.
-                Step argument is ignored
+                Step argument is ignored.
+
+            Example:
+                To retrieve data from second 5.2 to 8.6 of channels ``channel1``
+                and ``channel2`` of DataContainer ``container``:
+                >>> container[5.2:8.6, ['channel1', 'channel2']
 
             Returns:
                 model.model.DataContainer
@@ -223,6 +230,12 @@ class DataContainer(object):
                 TypeError if argument ``slice`` is/contains negative values
                     or is larger than duration of data
         """
+        columns = None
+        container = None
+
+        if type(slice) is tuple:
+            slice, columns = slice
+
         if type(slice) is int:
             start = int(slice * self.frequency)
             stop = start + 1
@@ -249,8 +262,20 @@ class DataContainer(object):
                 'duration is: {}, requested startpoint was: {}'.format(
                         self.duration, float(stop)/self.frequency
                         )
-        dat = self.data[start:stop, :]
-        return DataContainer.from_array(dat, self.frequency, self.columns)
+        if columns is not None:
+            for col in columns:
+                assert col in self.dataframe.columns, ('Column {} is not in ' + \
+                        'data container').format(col)
+
+        if columns is None:
+            dat = self.data[start:stop, :]
+            container = DataContainer.from_array(dat, self.frequency, self.columns)
+        else:
+            dat = self.dataframe.iloc[start:stop, :]
+            dat = dat.loc[:, columns]
+            dat.reset_index(inplace=True, drop=True)
+            container = DataContainer(dat, self.frequency)
+        return container
 
     @property
     def shape(self):
@@ -1625,6 +1650,15 @@ class Recording(DataHoldingElement):
         return self._trials
 
     @property
+    def data(self):
+        """ Property for data attribute
+
+            Returns:
+                model.model.DataContainer
+        """
+        return self._data
+
+    @property
     def features(self):
         """ Return number of features
 
@@ -1834,17 +1868,17 @@ class Recording(DataHoldingElement):
         """
         return self._events
 
-    def get_data(self, begin=None, end=None, pandas=False):
-        """ Returns the **relevant** data of a recording object. In especially, this
-            property yields only the data specified in the trials belonging to the
+    def get_data(self, begin=None, end=None):
+        """ Returns the **relevant** data of a recording object. As a List of
+            DataContainer objects.
+            In especially, yields only the data specified in the trials belonging to the
             recording.
-            If `begin` and `end` are specified onlyt data contained in time interval is
+            If `begin` and `end` are specified only data contained in time interval is
             returned.
 
             Args:
                 begin (float): Point of time in seconds of beginning of time interval
                 end (float): Point of time in seconds of ending of time interval
-                pandas (boolean): Whether or not to return as pandas.core.DataFrame
 
             Example:
                 Sampling rate of 4000Hz, recording is 60s long. Trial one goes from
@@ -1853,7 +1887,7 @@ class Recording(DataHoldingElement):
                 35..50. So a total of (20 + 15) * 4000 channels instead of 60 * 4000 channels
 
             Returns:
-                pandas.DataFrame
+                List of model.model.DataContainer
         """
         return_list = []
         if begin > end:
@@ -2321,7 +2355,7 @@ class Trial(DataHoldingElement):
                 break
         return ret
 
-    def get_data(self, begin=None, end=None, pandas=False, channels=None):
+    def get_data(self, begin=None, end=None, channels=None):
         """ Returns data within specified interval borders. If no border set start/end
             index of Trial is used respectively.
 
@@ -2330,7 +2364,6 @@ class Trial(DataHoldingElement):
                     Relative to start point of trial
                 end (float): End point of interval for which to retrieve data.
                     Relative to beginning of trial
-                pandas (Boolean): Returning data as pandas.core.DataFrame (``True``)
                 channels (List): List of Channel Idenfiers. Only those specified
                     are returned. If none specified all are returned
 
@@ -2339,8 +2372,7 @@ class Trial(DataHoldingElement):
                 are in the order as channels were listed
 
             Returns:
-                data (pandas.core.DataFrame)
-                data (numpy.ndarray)
+                model.model.DataContainer
 
             Raises:
                 IndexError: If either `begin` or `end` larger than duration of trial
@@ -2355,9 +2387,10 @@ class Trial(DataHoldingElement):
         else:
             begin = self.start + begin
 
-        container = self.recording.data[begin:end]
-        if channels is not None:
-            container.dataframe = container.dataframe.loc[:, channels]
+        if channels is None:
+            container = self.recording.data[begin:end]
+        else:
+            container = self.recording.data[begin:end, channels]
         return container
 
     def get_frequency(self):

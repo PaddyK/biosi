@@ -284,3 +284,78 @@ class TrialTest(ModelTest):
             assert trial.samples == 10, 'Start does not match. Start should' + \
                     'be {} but is {} for kin rec'.format(5, trial.samples)
 
+    def test_get_data(self):
+        control_emg = np.column_stack((
+                np.tile(
+                    np.concatenate((
+                        np.arange(0., 1., 0.1),
+                        np.arange(1., 0., -0.1)
+                        )),
+                    2
+                    ),
+                np.tile(
+                    np.concatenate((
+                        np.arange(10),
+                        np.arange(10, 0, -1)
+                        )),
+                    2
+                    ),
+                np.tile(
+                    np.concatenate((
+                        np.arange(0.0, 0.1, 0.01),
+                        np.arange(0.1, 0.0, -0.01)
+                        )),
+                    2
+                    ),
+                np.tile(
+                    np.concatenate((
+                        np.arange(0.5, 1.5, 0.1),
+                        np.arange(1.5, 0.5, -0.1)
+                        )),
+                    2
+                    ),
+                ))
+        control_kin = np.column_stack((
+                np.sum(np.mean(control_emg.reshape(-1, 4, 4), axis=1), axis=1),
+                np.prod(np.mean(control_emg.reshape(-1, 4, 4), axis=1), axis=1),
+                np.square(np.sum(np.mean(control_emg.reshape(-1, 4, 4), axis=1), axis=1))
+                ))
+        trials = ['trial0', 'trial1', 'trial2', 'trial3', 'trial4']
+        for tid in trials:
+            trial = self.experiment.get_trial(
+                    session='session1',
+                    recording='emg_recording1',
+                    identifier=tid
+                    )
+            data = trial.get_data()
+            assert data.shape == control_emg.shape, ('EMG trial {} ' + \
+                    'has not matching shape. Shape of data: {}, shape ' + \
+                    'of control: {}').format(tid, data.shape, control_emg.shape)
+            assert np.mean(np.equal(data.data, control_emg)) == 1, 'EMG trial {} ' + \
+                    'has not matching elements'.format(tid)
+            data = trial.get_data(channels=['musculus lattisimus', 'brachoradialis'])
+            assert np.mean(np.equal(data.data, control_emg[:,0:2])) == 1, 'slicing' + \
+                    'columns errorenous for emg trial {}'.format(tid)
+            data = trial.get_data(begin=0.4, end=1.2)
+            assert np.mean(np.equal(data.data, control_emg[8:24])) == 1, \
+                    'Returned values for time slicing wrong for emg ' + \
+                    'trial {}'.format(tid)
+
+            trial = self.experiment.get_trial(
+                    session='session1',
+                    recording='kin_recording1',
+                    identifier=tid
+                    )
+            data = trial.get_data()
+            assert data.shape == control_kin.shape, 'EMG trial {} ' + \
+                    'has not matching shape'.format(tid)
+            assert np.mean(np.equal(data.data, control_kin)) == 1, 'KIN trial {} ' + \
+                    'has not matching elements'.format(tid)
+            data = trial.get_data(channels=['Pos-X', 'Pos-Y'])
+            assert np.mean(np.equal(data.data, control_kin[:,0:2])) == 1, 'slicing' + \
+                    'columns errorenous for kin trial {}'.format(tid)
+            data = trial.get_data(begin=0.4, end=1.2)
+            assert np.mean(np.equal(data.data, control_kin[2:6])) == 1, \
+                    'Returned values for time slicing wrong for emg ' + \
+                    'trial {}'.format(tid)
+
