@@ -700,17 +700,13 @@ class Experiment(DataHoldingElement):
                 recording = self.sessions[session].get_recording(identifier)
         return recording
 
-    def get_trial(self, identifier, session, recording = None):
+    def get_trial(self, identifier, session, recording):
         """ Retrieves a trial
 
             Args:
                 identifier (string): Identifier of the trial (name given)
                 session (string): Identifier of the session trial belongs to
-                recording (string, optional): Identifier of recording trial belongs to
-
-            Note:
-                session is mandatory, since trials might have duplicate names across
-                sessions.
+                recording (string): Identifier of recording trial belongs to
 
             Returns:
                 Trial object if successful
@@ -722,7 +718,7 @@ class Experiment(DataHoldingElement):
         trial = None
         if session not in self.sessions:
             raise IndexError('Experiment has no session with identifier %s' % (session))
-        elif recoding is None:
+        elif recording is None:
             for rc in self.sessions[session].recordings.iteritems():
                 if identifier in rc.trials:
                     trial = rc.get_trial(identifier)

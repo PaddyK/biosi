@@ -195,7 +195,7 @@ class ModelTest(object):
                     ),
                 ))
         recording1 = model.Recording(session1, modality1, data=arr,
-                identifier='emg_recording')
+                identifier='emg_recording1')
 
         arr2 = np.column_stack((
                 np.sum(np.mean(arr.reshape(-1, 4, 4), axis=1), axis=1),
@@ -203,7 +203,7 @@ class ModelTest(object):
                 np.square(np.sum(np.mean(arr.reshape(-1, 4, 4), axis=1), axis=1))
                 ))
         recording2 = model.Recording(session1, modality2, data=arr2,
-                identifier='kin_recording')
+                identifier='kin_recording1')
         for i in range(5):
             model.Trial(recording1, i * 2, 2)
             model.Trial(recording2, i * 2, 2)
@@ -211,14 +211,14 @@ class ModelTest(object):
         session2 = model.Session(cls.experiment, setup1, s2, 'session2')
         arr = np.add(arr, np.random.randn(*arr.shape))
         recording1 = model.Recording(session2, modality1, data=arr,
-                identifier='emg_recording')
+                identifier='emg_recording2')
         arr2 = np.column_stack((
             np.sin(np.mean(np.sum(arr.reshape(-1, 4, 4), axis=1))),
             np.cos(np.mean(np.sum(arr.reshape(-1, 4, 4), axis=1))),
             np.tan(np.mean(np.sum(arr.reshape(-1, 4, 4), axis=1)))
             ))
         recording2 = model.Recording(session2, modality2, data=arr2,
-                identifier='kin_recording')
+                identifier='kin_recording2')
         for i in range(5):
             model.Trial(recording1, i * 2, 2)
             model.Trial(recording2, i * 2, 2)
@@ -232,3 +232,13 @@ class ExperimentTest(ModelTest):
         recording = self.experiment.get_recording('emg_recording', 'session1')
         assert recording.identifier == 'emg_recording'
 
+    def test_get_trial(self):
+        trials = ['trial0', 'trial1', 'trial2', 'trial3', 'trial4']
+        for trial in trials:
+            t = self.experiment.get_trial(trial, 'session1', 'emg_recording1')
+            assert t.identifier == trial
+
+
+class TrialTest(ModelTest):
+    def test_start(self):
+        recording = self.experiment.get_recording('emg_recording', 'session1')
