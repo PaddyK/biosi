@@ -1307,32 +1307,18 @@ class Session(DataHoldingElement):
 
         return data, class_labels
 
-    def get_data(self, **kwargs):
-        """ Returns the data of all recordings and trials associated with one session.
-            Only the concatenated data of the trials is returned. Channels not contained
-            in trials are skipped.
-            If `begin` and `end` are specified only data of this time interval is
-            returned from recording.
-            For modality set (being required for more than one modality in setup) only
-            data of recordings with this modality are returned
+    def get_data(self, modality=None):
+        """ Returns trials of all recordings associated with ``modality``
+            defined for this session.
 
             Args:
-                modality (string): Identifier of an modality. Required for more than one
-                    modality present in session's setup.
-                begin (float): Start point of time interval in seconds
-                end (float): End point of time interval in seconds
-
-            Note:
-                `begin` and `end` operate on all recordints (with `modality`)
-                concatenated in the order in which they were added during experiment
-                setup.
+                modality (string, optional): Identifier of an modality. Required
+                    for more than one modality present in session's setup.
 
             Returns:
-                pandas.DataFrame
+                List of model.model.DataContainer
         """
-        begin = kwargs['begin'] if 'begin' in kwargs.keys() else None
-        end = kwargs['end'] if 'end' in kwargs.keys() else None
-        modality = kwargs['modality'] if 'modality' in kwargs.keys() else None
+        trials = []
 
         if (len(self.setup.modalities) > 1) and (modality is None):
             raise ValueError((
@@ -1340,52 +1326,19 @@ class Session(DataHoldingElement):
                 '{s} but modality argument was not defined'
                 ).format(a=self.setup.identifier, s=self.identifier)
             )
+        elif (len(self.setup.modalities) == 1) and (modality is None):
+            modality = self.setup.modalities.popitem()[1]
 
         df = None
         begin_pass = None
         end_pass = None
         stop = 0
-        begin = kwargs['begin'] if 'begin' in kwargs.keys() else None
-        end = kwargs['end'] if 'end' in kwargs.keys() else None
 
         for idx in self._recording_order:
-            if (self.recordings[idx].modality == modality) or (modality is None):
-                offset = stop # Offset has to be set here to ensure its set
-                              # even if continue clause is executed!
-                stop = self.recordings[idx].duration + offset
-
-                if begin is not None:
-                    if begin > stop:
-                        # Skip all Recordings for which end point of recording is smaler
-                        # than start point of interval. i.e. are not contained in interval
-                        continue
-                    elif (begin < stop) and (begin > offset):
-                        begin_pass = begin - offset
-                    else:
-                        begin_pass = None
-
-                if end is not None:
-                    if end < offset:
-                        # If endpoint of time interval is smaller than beginning of new
-                        # interval stop retrieving data
-                        break
-                    elif (end > offset) and (end < stop):
-                        end_pass = end - offset
-                    else:
-                        end_pass = None
-
-                tmp = self.recordings[idx].get_data(begin=begin_pass, end=end_pass)
-
-                if df is None:
-                    df = tmp
-                else:
-                    df = pd.concat([df, tmp])
-
-        df['sessions'] = self.identifier
-        df.set_index('sessions', inplace = True, append = True)
-        df = df.reorder_levels(['sessions', 'recordings', 'trials', 'channels'])
-
-        return df
+            if (self.recordings[idx].modality.identifier != modality.identifier):
+                continue
+            trials.extend(self.recordings[idx].get_data())
+        return trials
 
     def get_frequency(self, modality):
         """ Returns frequency of setup
