@@ -154,3 +154,66 @@ class SamplingDecoratorTest(AbstractDataDecoratorTest):
         assert ret.shape[0] == 10, 'First dimension errorenous, expected ' + \
                 '{} got {}'.format(10, ret.shape[0])
         self.logger.debug(ret)
+
+    def test_iterator_down(self):
+        decorator_down = datadecorators.SamplingDecorator(
+                frequency=5,
+                data_holding_element=self.experiment,
+                as_iterator=True
+                )
+        counter = 0
+        for trial in decorator_down.get_data(**{'modality': 'emg'}):
+            assert trial.data.shape[0] == 10, 'Wrong number of samples, ' + \
+                    'expected 10 got {} by sr of {}'.format(trial.data.shape[0],
+                            trial.frequency)
+                    # Ten: 200 elements, sr of 20, trial length 2s -> 40 samples
+                    # downsampling factor 4 --> 10
+            counter += 1
+        assert counter == 10, 'wrong number of interations returned: {}'.format(counter)
+
+    def test_iterator_up(self):
+        decorator_down = datadecorators.SamplingDecorator(
+                frequency=40,
+                data_holding_element=self.experiment,
+                as_iterator=True
+                )
+        counter = 0
+        for trial in decorator_down.get_data(**{'modality': 'emg'}):
+            assert trial.data.shape[0] == 80, 'Wrong number of samples, ' + \
+                    'expected 80 got {} by sr of {}'.format(trial.data.shape[0],
+                            trial.frequency)
+                    # Ten: 200 elements, sr of 20, trial length 2s -> 40 samples
+                    # downsampling factor 4 --> 10
+            counter += 1
+        assert counter == 10, 'wrong number of interations returned: {}'.format(counter)
+
+    def test_return_down(self):
+        decorator_down = datadecorators.SamplingDecorator(
+                frequency=5,
+                data_holding_element=self.experiment,
+                as_iterator=False
+                )
+        trials = decorator_down.get_data(**{'modality': 'emg'})
+        assert len(trials) == 10, 'wrong number of interations returned: {}'.format(counter)
+        for trial in trials:
+            assert trial.data.shape[0] == 10, 'Wrong number of samples, ' + \
+                    'expected 10 got {} by sr of {}'.format(trial.data.shape[0],
+                            trial.frequency)
+                    # Ten: 200 elements, sr of 20, trial length 2s -> 40 samples
+                    # downsampling factor 4 --> 10
+
+    def test_return_up(self):
+        decorator_down = datadecorators.SamplingDecorator(
+                frequency=40,
+                data_holding_element=self.experiment,
+                as_iterator=False
+                )
+        trials = decorator_down.get_data(**{'modality': 'emg'})
+        assert len(trials) == 10, 'wrong number of interations returned: {}'.format(counter)
+        for trial in trials:
+            assert trial.data.shape[0] == 80, 'Wrong number of samples, ' + \
+                    'expected 80 got {} by sr of {}'.format(trial.data.shape[0],
+                            trial.frequency)
+                    # Ten: 200 elements, sr of 20, trial length 2s -> 40 samples
+                    # downsampling factor 4 --> 10
+

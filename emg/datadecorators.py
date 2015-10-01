@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.join(
     )))
 from model.model import DataHoldingElement
 from model.model import DataContainer
+import logging
 
 class AbstractDataDecorator(DataHoldingElement):
     """ Abstract base class for all concrete decorators
@@ -105,16 +106,16 @@ class SamplingDecorator(AbstractDataDecorator):
                 container
         """
         for container in data_list:
-            factor, rest = divmod(self.element.frequency, self._frequency)
+            factor, rest = divmod(container.frequency, self._frequency)
             if factor == 0:
-                contaner.data = self._upsample(
-                        self.element.frequency,
+                container.data = self._upsample(
+                        container.frequency,
                         container
                         )
             else:
                 container.data = self._downsample(
-                        self.element.frequency,
-                        remainder
+                        container.frequency,
+                        container
                         )
             yield container
 
@@ -129,20 +130,20 @@ class SamplingDecorator(AbstractDataDecorator):
                 List of containers
         """
         for container in data_list:
-            factor, rest = divmod(self.element.frequency, self._frequency)
+            factor, rest = divmod(container.frequency, self._frequency)
             if factor == 0:
-                contaner.data = self._upsample(
-                        self.element.frequency,
+                container.data = self._upsample(
+                        container.frequency,
                         container
                         )
             else:
                 container.data = self._downsample(
-                        self.element.frequency,
-                        remainder
+                        container.frequency,
+                        container
                         )
         return data_list
 
-    def get_data(**kwargs):
+    def get_data(self, **kwargs):
         """ Sample data up or down depending on the frequency passed to this
             function.
 
@@ -162,7 +163,7 @@ class SamplingDecorator(AbstractDataDecorator):
                         type(self._frequency)
                         )
                     )
-        data_list = self._element.get_data(*kwargs)
+        data_list = self._element.get_data(**kwargs)
 
         if self._is_iterator:
             return self._iterate(data_list)
