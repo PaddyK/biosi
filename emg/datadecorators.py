@@ -54,53 +54,44 @@ class AbstractDataDecorator(DataHoldingElement):
 
 
 class SamplingDecorator(AbstractDataDecorator):
-    def calculate_factor(self, recording):
-        """ Calculates samling factor
+    def __init__(self, frequency, data_holding_element, as_iterator):
+        super(SamplingDecorator, self).__init__(data_holding_element, as_iterator)
+        self._frequency = frequency
 
-            Args:
-                recording (model.model.Recording): Recording for which data
-                    stored by ``self.element`` should be downsampled to
-        """
-        sr = recording.modality.frequency
-
-    def _downsample(self, f_from, f_to, container):
+    def _downsample(self, f_from, container):
         """ Samples signal down by taking the mean
 
             Args:
                 f_from (int): Sampling-Rate of the data decorator gets from
                     its ``DataHoldingElement``
-                f_to (int): Sampling-Rate data from ``DataHoldingElement``
-                    should be brought to
                 container (model.model.DataContainer): Container holding data
                     to decorate
 
             Raises:
                 AssertionError if ``f_from`` is not a multiple from ``f_to``
         """
-        factor, remainder = divmod(f_from, f_to)
+        factor, remainder = divmod(f_from, self._frequency)
         assert remainder == 0, 'SamplingDecorator._downsample cannot ' + \
                 'sample signals to same frequencies. Frequency of the two ' + \
                 'signals are not multiple of each other'
-        return np.mean(np.reshape(-1, factor, contaner.data.shape[1]), axis=1)
+        return np.mean(container.data.reshape(-1, factor, container.data.shape[1]), axis=1)
 
-    def _upsample(self, f_from, f_to, container):
+    def _upsample(self, f_from, container):
         """ Samples signal up by repeating elements
 
             Args:
                 f_from (int): Sampling-Rate of the data decorator gets from
                     its ``DataHoldingElement``
-                f_to (int): Sampling-Rate data from ``DataHoldingElement``
-                    should be brought to
                 container (model.model.DataContainer): Container holding data
                     to decorate
 
             Raises:
                 AssertionError if ``f_to`` is not a multiple from ``f_from``
         """
-        factor, remainder = divmod(f_to, f_from)
+        factor, remainder = divmod(self._frequency, f_from)
         assert remainder == 0, 'SamplingDecorator._upsample: SamplingRates are ' + \
             'note multiple of each other. SamplingRates were {} and {}'.format(
-                    f_to, f_from)
+                    self._frequency, f_from)
         return np.repeat(container.data, factor, axis=0)
 
     def _iterate(self, data_list):
@@ -114,17 +105,15 @@ class SamplingDecorator(AbstractDataDecorator):
                 container
         """
         for container in data_list:
-            factor, rest = divmod(self.element.frequency, frequency)
+            factor, rest = divmod(self.element.frequency, self._frequency)
             if factor == 0:
                 contaner.data = self._upsample(
                         self.element.frequency,
-                        frequency,
                         container
                         )
             else:
                 container.data = self._downsample(
                         self.element.frequency,
-                        factor,
                         remainder
                         )
             yield container
@@ -140,22 +129,20 @@ class SamplingDecorator(AbstractDataDecorator):
                 List of containers
         """
         for container in data_list:
-            factor, rest = divmod(self.element.frequency, frequency)
+            factor, rest = divmod(self.element.frequency, self._frequency)
             if factor == 0:
                 contaner.data = self._upsample(
                         self.element.frequency,
-                        frequency,
                         container
                         )
             else:
                 container.data = self._downsample(
                         self.element.frequency,
-                        factor,
                         remainder
                         )
         return data_list
 
-    def get_data(frequency, **kwargs):
+    def get_data(**kwargs):
         """ Sample data up or down depending on the frequency passed to this
             function.
 
@@ -169,10 +156,10 @@ class SamplingDecorator(AbstractDataDecorator):
             Raises:
                 TypeError if frequency is not int
         """
-        if type(frequency) is not int:
+        if type(self._frequency) is not int:
             raise TypeError('SamplingDecorator.get_data expects ' + \
                     '``frequency`` to be integer, {} given instead'.format(
-                        type(frequency)
+                        type(self._frequency)
                         )
                     )
         data_list = self._element.get_data(*kwargs)
@@ -468,8 +455,11 @@ class PadzeroDecorator(AbstractDataDecorator):
                         )
             else:
                 contaner.data = np.concatenate(
-                        axis=0,
-                        (container.data, np.zeros((to_pad, container.num_channels)))
+                        (
+                            container.data,
+                            np.zeros((to_pad, container.num_channels))
+                        ),
+                        axis=0
                         )
         return datalist
 
