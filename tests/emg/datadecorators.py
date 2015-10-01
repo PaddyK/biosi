@@ -217,3 +217,34 @@ class SamplingDecoratorTest(AbstractDataDecoratorTest):
                     # Ten: 200 elements, sr of 20, trial length 2s -> 40 samples
                     # downsampling factor 4 --> 10
 
+
+class WindowDecoratorTest(AbstractDataDecoratorTest):
+    def test_iterate(self):
+        decorator = datadecorators.WindowDecorator(
+                windowsize=0.5,
+                stride=0.5,
+                data_holding_element=self.experiment,
+                as_iterator=True
+                )
+        counter = 0
+        for window in decorator.get_data(**{'modality':'emg'}):
+            assert window.shape[0] == 10, 'Expected 10 samples ' + \
+                    'got {}'.format(window.shape[0])
+            counter += 1
+        assert counter == 40, 'Wrong number of windows, expected 40 ' + \
+                'but got {}'.format(counter)
+
+    def test_return(self):
+        decorator = datadecorators.WindowDecorator(
+                windowsize=0.5,
+                stride=0.5,
+                data_holding_element=self.experiment,
+                as_iterator=False
+                )
+        windows = decorator.get_data(**{'modality':'emg'})
+        assert len(windows) == 40, 'Wrong number of windows, expected 40 ' + \
+                'but got {}'.format(len(windows))
+        for window in windows:
+            assert window.shape[0] == 10, 'Expected 10 samples ' + \
+                    'got {}'.format(window.shape[0])
+
