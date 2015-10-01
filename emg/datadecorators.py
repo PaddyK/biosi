@@ -49,6 +49,9 @@ class AbstractDataDecorator(DataHoldingElement):
     def _return(self):
         pass
 
+    def get_data(self, kwargs):
+        pass
+
 
 class SamplingDecorator(AbstractDataDecorator):
     def calculate_factor(self, recording):
