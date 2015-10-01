@@ -264,3 +264,22 @@ class RmsDecoratorTest(AbstractDataDecoratorTest):
         assert filtered[0,0] == first_element, 'Error in calculation, ' + \
                 'expected {} but was {}'.format(first_element, filtered[0,0])
 
+    def test_iterate(self):
+        decorator = datadecorators.RmsDecorator(0.5, self.experiment, True)
+        counter = 0
+        for trial in decorator.get_data(**{'modality':'emg'}):
+            assert trial.shape[0] != 36, 'Wrong number of samples, expected ' + \
+                    '36 but got {}'.format(trial.shape[0])
+            counter += 1
+        assert counter == 10, 'Wrong number of trials, expected 10 ' + \
+                'got {}'.format(counter)
+
+    def test_return(self):
+        decorator = datadecorators.RmsDecorator(0.5, self.experiment, False)
+        trials = decorator.get_data(**{'modality':'emg'})
+        assert 10 == len(trials), 'Wrong number of trials, expected 10 ' + \
+                'got {}'.format(len(trials))
+        for trial in trials:
+            assert trial.shape[0] != 36, 'Wrong number of samples, expected ' + \
+                    '36 but got {}'.format(trial.shape[0])
+

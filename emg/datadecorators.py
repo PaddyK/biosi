@@ -351,12 +351,12 @@ class RmsDecorator(AbstractDataDecorator):
             Returns:
                 List of iterator of model.model.DataContainer
         """
-        datalist = self._element.get_data(*kwargs)
+        datalist = self._element.get_data(**kwargs)
 
         if self._is_iterator:
             return self._iterate(datalist)
         else:
-            return self._iterate(datalist)
+            return self._return(datalist)
         pass
 
 
