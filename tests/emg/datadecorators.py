@@ -248,3 +248,19 @@ class WindowDecoratorTest(AbstractDataDecoratorTest):
             assert window.shape[0] == 10, 'Expected 10 samples ' + \
                     'got {}'.format(window.shape[0])
 
+
+class RmsDecoratorTest(AbstractDataDecoratorTest):
+    def test_rms(self):
+        decorator = datadecorators.RmsDecorator(0.5, None, False)
+        container = model.DataContainer.from_array(np.arange(120).reshape(20,6), 10)
+        filtered = decorator._rms(5, container)
+        assert filtered.shape[0] == container.shape[0] - 4, 'Wrong number of ' + \
+                'time steps. Expected {} got {}'.format(container.shape[0] - 4,
+                        filtered.shape[0])
+        assert filtered.shape[1] == container.shape[1], 'Wrong number of ' + \
+                'channels. got {} expected {}'.format(container.shape[1],
+                        filtered.shape[1])
+        first_element = np.sqrt(np.mean(np.square(np.array([0,6,12,18,24]))))
+        assert filtered[0,0] == first_element, 'Error in calculation, ' + \
+                'expected {} but was {}'.format(first_element, filtered[0,0])
+

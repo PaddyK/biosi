@@ -265,6 +265,14 @@ class WindowDecorator(AbstractDataDecorator):
 
 
 class RmsDecorator(AbstractDataDecorator):
+    def __init__(self, windowsize, data_holding_element, as_iterator=False):
+        """
+            Args:
+                windowsize (float): Size of window for filtering in seconds.
+        """
+        super(RmsDecorator, self).__init__(data_holding_element, as_iterator)
+        self._windowsize = windowsize
+
     def _rms(self, windowsize, container):
         """ Applies Root-Mean-Square filter to data
 
@@ -281,8 +289,8 @@ class RmsDecorator(AbstractDataDecorator):
                 numpy.ndarray
         """
         values = container.data
-        sum_of_squares = np.sum(np.square(values[:windowsize]), axis=1)
-        filtered = np.sqrt(sum_of_squares)
+        sum_of_squares = np.square(values[:windowsize])
+        filtered = np.sqrt(np.mean(sum_of_squares, axis=0))
 
         for i in range(windowsize, values.shape[0]):
             # To make filtering more performant, subtract first element of
@@ -295,40 +303,41 @@ class RmsDecorator(AbstractDataDecorator):
                     np.square(values[i - windowsize, :])
                     )
             sum_of_squares = np.add(sum_of_squares, np.square(values[i, :]))
-            filtered = np.row_stack((filtered, np.sqrt(sum_of_squares)))
+            filtered = np.row_stack((
+                filtered,
+                np.sqrt(np.mean(sum_of_squares, axis=0))
+            ))
         return filtered
 
-    def _iterate(self, windowsize, datalist):
+    def _iterate(self, datalist):
         """ Yields data containers whose data has been filtered
 
             Args:
-                windowsize (float): Size of windows in seconds
                 datalist (iterable): Yielding model.model.DataContainer
 
             Yields:
                 model.model.DataContainer
         """
         for container in datalist:
-            filtered = self._rms(int(windowsize * container.frequency), container)
+            filtered = self._rms(int(self._windowsize * container.frequency), container)
             container.data = filtered
             yield container
 
-    def _return(self, windowsize, datalist):
+    def _return(self, datalist):
         """ Returns List of data containers whose data has been filtered
 
             Args:
-                windowsize (float): Size of windows in seconds
                 datalist (iterable): Yielding model.model.DataContainer
 
             Returns:
                 List of model.model.DataContainer
         """
         for container in datalist:
-            filtered = self._rms(int(windowsize * container.frequency), container)
+            filtered = self._rms(int(self._windowsize * container.frequency), container)
             container.data = filtered
         return datalist
 
-    def get_data(self, windowsize, **kwargs):
+    def get_data(self, **kwargs):
         """ Returns iterator or list of model.model.DataContainer depending
             on attribute ``is_iterator``.
 
@@ -345,9 +354,9 @@ class RmsDecorator(AbstractDataDecorator):
         datalist = self._element.get_data(*kwargs)
 
         if self._is_iterator:
-            return self._iterate(windowsize, datalist)
+            return self._iterate(datalist)
         else:
-            return self._iterate(windowsize, datalist)
+            return self._iterate(datalist)
         pass
 
 
