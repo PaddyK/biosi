@@ -368,7 +368,7 @@ class ArrayDecorator(AbstractDataDecorator):
     def __init__(self, iterator):
         """ Initializes object
         """
-        super(ArrayDecorator, self).__init__(self, iterator, False)
+        super(ArrayDecorator, self).__init__(iterator, False)
 
     def _iterate(self):
         raise NotImplementedError('Method _iterate not implemented ' + \
@@ -390,7 +390,7 @@ class ArrayDecorator(AbstractDataDecorator):
                 array = container.data[np.newaxis, :, :]
             else:
                 array = np.concatenate(
-                        (array, contaner.data[np.newaxis, :, :]),
+                        (array, container.data[np.newaxis, :, :]),
                         axis=0
                         )
         return array
@@ -408,7 +408,7 @@ class ArrayDecorator(AbstractDataDecorator):
             Returns:
                 np.ndarray
         """
-        datalist = self._element.get_data()
+        datalist = self._element.get_data(**kwargs)
         return self._return(datalist)
 
 
@@ -420,8 +420,8 @@ class PadzeroDecorator(AbstractDataDecorator):
         decorators.
     """
     def __init__(self, data_holding_element, up_front=False):
-        super(AbstractDataDecorator, super).__init__(data_holding_element, False)
-        self.up_front = front
+        super(PadzeroDecorator, self).__init__(data_holding_element, False)
+        self.up_front = up_front
 
     def _iterate(self):
         raise NotImplementedError('Function ``iterate`` not implemented for ' + \
@@ -442,12 +442,15 @@ class PadzeroDecorator(AbstractDataDecorator):
             if to_pad == 0:
                 continue
             if self.up_front:
-                contaner.data = np.concatenate(
-                        (container.data, np.zeros((to_pad, container.num_channels))),
+                container.data = np.concatenate(
+                        (
+                            np.zeros((to_pad, container.num_channels)),
+                            container.data
+                        ),
                         axis=0
                         )
             else:
-                contaner.data = np.concatenate(
+                container.data = np.concatenate(
                         (
                             container.data,
                             np.zeros((to_pad, container.num_channels))
@@ -463,7 +466,7 @@ class PadzeroDecorator(AbstractDataDecorator):
         datalist = self._element.get_data(*kwargs)
         max_dur = 0
 
-        if type(datalist) == generator:
+        if type(datalist) != list:
             tmp = [container for container in datalist]
             datalist = tmp
 

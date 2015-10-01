@@ -283,3 +283,38 @@ class RmsDecoratorTest(AbstractDataDecoratorTest):
             assert trial.shape[0] != 36, 'Wrong number of samples, expected ' + \
                     '36 but got {}'.format(trial.shape[0])
 
+
+class ArrayDecoratorTest(AbstractDataDecoratorTest):
+    def test_return(self):
+        decorator = datadecorators.ArrayDecorator(self.experiment)
+        array = decorator.get_data(**{'modality':'emg'})
+        assert array.shape[0] == 10, 'First axis wrong, 10 != {}'.format(array.shape[0])
+        assert array.shape[1] == 40, 'Second axis wrong, 40 != {}'.format(array.shape[0])
+        assert array.shape[2] == 4, 'THird axis wrong, 4 != {}'.format(array.shape[0])
+
+
+class PadzeroDecoratorTest(AbstractDataDecoratorTest):
+    def test_return(self):
+        class Dummy(object):
+            def __init__(self):
+                self.data = []
+                for i in range(2, 12):
+                    self.data.append(
+                            model.DataContainer.from_array(
+                                np.arange(i * 5).reshape(-1, 5),
+                                5
+                                )
+                            )
+
+            def get_data(self, modality=None):
+                return self.data
+
+
+        dummy = Dummy()
+        decorator = datadecorators.PadzeroDecorator(dummy, True)
+        trials = decorator.get_data(**{'modality':'emg'})
+        assert len(trials) == 10, 'Wrong number of trials returned: {}'.format(len(trials))
+        for trial in trials:
+            assert trial.shape[0] == 11, 'Wrong first dim 11 != {}'.format(trial.shape[0])
+            self.logger.debug(trial.data)
+
