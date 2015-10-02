@@ -4,8 +4,7 @@ import online
 import sources
 from threading import Thread
 from threading import currentThread
-from nanomsg import PUB
-from nanomsg import Socket
+from messaging import Publisher
 from Queue import Queue, Empty
 import logging
 
@@ -26,8 +25,9 @@ class AbstractPublisher(Thread):
         super(AbstractPublisher, self).__init__(name=name)
         self._queue = Queue()
         self._url = url
-        self._topic = topic + '|'
+        self._topic = topic
         self._abort = abort
+        self._publisher = Publisher(url, topic)
 
     @property
     def queue(self):
@@ -63,29 +63,26 @@ class AbstractPublisher(Thread):
             Runs as long as new data is available. If no new data for 5 Seconds
             received socket will be shut down
         """
-        with Socket(PUB) as pub_socket:
-            pub_socket.bind(self.url)
+        while True:
+            try:
+                sample = self.queue.get(timeout=10)
+                message = self._topic + sample
+                self._publisher.publish(message)
+                self.queue.task_done()
+                logging.debug('PUBLISHER: {}'.format(self.queue.qsize()))
+            except Empty as e:
+                logging.info('No new data available - terminating publisher')
+                self._cleanup()
+                self._abort.set()
+                break
 
-            while True:
-                try:
-                    sample = self.queue.get(timeout=10)
-                    message = self._topic + sample
-                    pub_socket.send(message)
-                    self.queue.task_done()
-                    logging.debug('PUBLISHER: {}'.format(self.queue.qsize()))
-                except Empty as e:
-                    logging.info('No new data available - terminating publisher')
+            if self._abort is not None:
+                if self._abort.is_set():
+                    logging.info('{} - Abort event is set. Exit...'.format(
+                            currentThread().getName()
+                            ))
                     self._cleanup()
-                    self._abort.set()
                     break
-
-                if self._abort is not None:
-                    if self._abort.is_set():
-                        logging.info('{} - Abort event is set. Exit...'.format(
-                                currentThread().getName()
-                                ))
-                        self._cleanup()
-                        break
 
 
 class EmgPublisher(AbstractPublisher):
@@ -122,6 +119,7 @@ class EmgPublisher(AbstractPublisher):
                 is the numeric port.
         """
         super(EmgPublisher, self).__init__('emg', url, name, abort=abort)
+
 
 class KinPublisher(AbstractPublisher):
     """ Publisher for kinematic data

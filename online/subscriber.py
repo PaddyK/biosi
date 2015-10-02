@@ -3,10 +3,7 @@
 import online
 from threading import currentThread
 from threading import Thread
-from nanomsg import SUB
-from nanomsg import SUB_SUBSCRIBE
-from nanomsg import Socket
-from nanomsg import NanoMsgAPIError
+from messaging import Subscriber
 #from nanomsg import EBADF, ENOTSUP, EFSM, EAGAIN, EINTER, ETIMEDOUT, ETERM
 from Queue import Queue
 import json
@@ -34,7 +31,6 @@ def array_iterator(msgclass, subscriber):
         message = subscriber.queue.get()
         parsed = msgclass.deserialize(message)
         subscriber.queue.task_done()
-#        print 'SUBSCRIBER - GET: {}'.format(subscriber.queue.qsize())
         yield parsed
 
 
@@ -53,9 +49,10 @@ class AbstractSubscriber(Thread):
         """
         super(AbstractSubscriber, self).__init__(name=name)
         self._url = url
-        self._topic = topic + '|' # Momentarily used as separator <topic>|<body>
+        self._topic = topic
         self._qeueu = Queue()
         self._abort = abort
+        self._subscriber = Subscriber()
 
     @property
     def url(self):
@@ -94,29 +91,26 @@ class AbstractSubscriber(Thread):
     def run(self):
         """ Starts Thread
         """
+        while True:
+            try:
+                message = self._subscriber.receive()
+                self.queue.put(message[len(self.topic):])
+                logging.debug('SUBSCRIBER: {}'.format(self.queue.qsize()))
+            except NanoMsgAPIError as e:
+                logging.info('Error during receiving of data in ' + \
+                        'AbstractSubscriber Error was : {}'.format(e.message))
+                self._cleanup()
+                self._abort.set()
+                break
 
-        with Socket(SUB) as sub_socket:
-            sub_socket.connect(self.url)
-            sub_socket.set_string_option(SUB, SUB_SUBSCRIBE, self.topic)
-            while True:
-                try:
-                    message = sub_socket.recv()
-                    self.queue.put(message[len(self.topic):])
-                    logging.debug('SUBSCRIBER: {}'.format(self.queue.qsize()))
-                except NanoMsgAPIError as e:
-                    logging.info('Error during receiving of data in ' + \
-                            'AbstractSubscriber Error was : {}'.format(e.message))
+            if self._abort is not None:
+                if self._abort.is_set():
+                    logging.info('{} - Abort event is set. Exit...'.format(
+                            currentThread().getName()
+                            ))
                     self._cleanup()
-                    self._abort.set()
                     break
 
-                if self._abort is not None:
-                    if self._abort.is_set():
-                        logging.info('{} - Abort event is set. Exit...'.format(
-                                currentThread().getName()
-                                ))
-                        self._cleanup()
-                        break
 
 class EmgSubscriber(AbstractSubscriber):
     """ Subscriber for EMG data
