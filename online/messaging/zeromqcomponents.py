@@ -5,9 +5,14 @@ from zmq import Context
 from zmq import PUB
 from zmq import SUB
 from zmq import SUBSCRIBE
-from messaging import HiddenComponent
-from messaging import HiddenPublisher
-from messaging import HiddenSubscriber
+from zmq import RCVTIMEO
+from zmq import SNDTIMEO
+from . import HiddenComponent
+from . import HiddenPublisher
+from . import HiddenSubscriber
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 
 class ZmqPublisher(HiddenPublisher):
     """ Publisher class publishing messages to a certain topic to an url
@@ -28,6 +33,7 @@ class ZmqPublisher(HiddenPublisher):
         self._context = Context()
         self._socket = self._context.socket(PUB)
         self._socket.bind(url)
+        self._logger = logging.getLogger('ZeromqPublisher')
 
     def publish(self, message):
         """ Publishes message
@@ -36,6 +42,13 @@ class ZmqPublisher(HiddenPublisher):
                 message (String): Message to publish
         """
         self._socket.send_multipart([self.topic, message])
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        self._socket.close()
+        self._context.term()
 
 
 class ZmqSubscriber(HiddenSubscriber):
@@ -56,8 +69,10 @@ class ZmqSubscriber(HiddenSubscriber):
         super(ZmqSubscriber, self).__init__(url)
         self._context = Context()
         self._socket = self._context.socket(SUB)
+        self._socket.setsockopt(SUBSCRIBE, topic)
+        self._socket.setsockopt(RCVTIMEO, 500) # Wait 500ms for message to arrive
         self._socket.connect(url)
-        self._socket.setsockopt(SUBSCRIBE, self._topic)
+        self._logger = logging.getLogger('ZeromqSubscriber')
 
     def receive(self):
         """ Receives a message
@@ -67,4 +82,11 @@ class ZmqSubscriber(HiddenSubscriber):
         """
         topic, message = self._socket.recv_multipart()
         return message
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        self._socket.close()
+        self._context.term()
 

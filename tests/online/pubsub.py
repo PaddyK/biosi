@@ -13,19 +13,22 @@ from Queue import Queue
 import threading
 import logging
 import time
+logging.basicConfig(level=logging.DEBUG)
+IP = 'tcp://192.168.178.27:5655'
+
 
 class TestPubSub(object):
     def setup_emg(self, url, e):
         publisher = online.publisher.EmgPublisher(url, abort=e)
-        source = online.sources.FileSource(publisher, 4000, 'emg_data', abort=e)
+        source = FileSource(publisher, 4000, 'emg_data', abort=e)
         subscriber = online.subscriber.EmgSubscriber(url, abort=e)
-        return source, publisher, subscriber
+        return source, publisher, subscriber, e
 
     def setup_kin(self, url, e):
         publisher = online.publisher.KinPublisher(url, abort=e)
-        source = online.sources.FileSource(publisher, 500, 'kin_data', abort=e)
+        source = FileSource(publisher, 500, 'kin_data', abort=e)
         subscriber = online.subscriber.KinSubscriber(url, abort=e)
-        return source, publisher, subscriber
+        return source, publisher, subscriber, e
 
     def test_communication(self, source, publisher, subscriber, e):
         print 'start source'
@@ -38,25 +41,33 @@ class TestPubSub(object):
         count = 0
         for arrmsg in online.subscriber.array_iterator(ArrayMessage, subscriber):
             if count > 10:
+                logging.debug('setting event...')
                 e.set()
                 break
             print arrmsg.data.shape
             time.sleep(0.5)
             count += 1
+        source.join()
+        print 'source died'
+        publisher.join()
+        print 'publisher died'
+        subscriber.join()
+        print 'subscriber died'
 
     def test_emg_inproc(self):
         # Dereference returned tuple into positional arguments
         e = threading.Event()
         try:
-            self.test_communication(*self.setup_emg('inproc://test'), e=e)
+            self.test_communication(*self.setup_emg('inproc://test', e=e))
         except Exception as ex:
             e.set()
+            logging.error(ex.message)
             raise ex
 
     def test_emg_tcp(self):
         e = threading.Event()
         try:
-            self.test_communication(*self.setup_emg('tcp://192.168.0.16:5555'), e=e)
+            self.test_communication(*self.setup_emg(IP, e=e))
         except Exception as ex:
             e.set()
             raise ex
@@ -65,7 +76,7 @@ class TestPubSub(object):
         e = threading.Event()
         # Dereference returned tuple into positional arguments
         try:
-            self.test_communication(*self.setup_kin('inproc://test'), e=e)
+            self.test_communication(*self.setup_kin('inproc://test', e=e))
         except Exception as ex:
             e.set()
             raise ex
@@ -73,7 +84,7 @@ class TestPubSub(object):
     def test_kin_tcp(self):
         e = threading.Event()
         try:
-            self.test_communication(*self.setup_kin('tcp://192.168.0.16:5555'), e=e)
+            self.test_communication(*self.setup_kin(IP), e=e)
         except Exception as ex:
             e.set()
             raise ex
@@ -105,7 +116,7 @@ class TestPubSub(object):
     def test_together_tcp(self):
         e = threading.Event()
         try:
-            self.test_together('tcp://192.168.0.16:5555', 'tcp://192.168.0.16:5556', e)
+            self.test_together(IP, IP[:-1] + '6', e)
         except Exception as ex:
             e.set()
             raise ex

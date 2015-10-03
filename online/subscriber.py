@@ -9,6 +9,7 @@ from Queue import Queue
 import json
 import matplotlib.pyplot as plt
 import logging
+logging.basicConfig(level=logging.DEBUG)
 
 #error_codes = {
 #        EBADF: 'The provided socket is invalid.',
@@ -52,7 +53,6 @@ class AbstractSubscriber(Thread):
         self._topic = topic
         self._qeueu = Queue()
         self._abort = abort
-        self._subscriber = Subscriber()
 
     @property
     def url(self):
@@ -91,25 +91,26 @@ class AbstractSubscriber(Thread):
     def run(self):
         """ Starts Thread
         """
-        while True:
-            try:
-                message = self._subscriber.receive()
-                self.queue.put(message[len(self.topic):])
-                logging.debug('SUBSCRIBER: {}'.format(self.queue.qsize()))
-            except NanoMsgAPIError as e:
-                logging.info('Error during receiving of data in ' + \
-                        'AbstractSubscriber Error was : {}'.format(e.message))
-                self._cleanup()
-                self._abort.set()
-                break
-
-            if self._abort is not None:
-                if self._abort.is_set():
-                    logging.info('{} - Abort event is set. Exit...'.format(
-                            currentThread().getName()
-                            ))
+        with Subscriber(self._url, self._topic) as subscriber:
+            while True:
+                try:
+                    message = subscriber.receive()
+                    self.queue.put(message[len(self.topic):])
+                except Exception as e:
+                    logging.info('Error during receiving of data in ' + \
+                            'AbstractSubscriber Error was : {}'.format(e.message))
                     self._cleanup()
+                    if self._abort is not None:
+                        self._abort.set()
                     break
+
+                if self._abort is not None:
+                    if self._abort.is_set():
+                        logging.info('{} - Abort event is set. Exit...'.format(
+                                currentThread().getName()
+                                ))
+                        self._cleanup()
+                        break
 
 
 class EmgSubscriber(AbstractSubscriber):

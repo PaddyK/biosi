@@ -1,12 +1,12 @@
 """ Module contains publisher classes for different data sources
 """
 import online
-import sources
 from threading import Thread
 from threading import currentThread
 from messaging import Publisher
 from Queue import Queue, Empty
 import logging
+logging.basicConfig(level=logging.DEBUG)
 
 
 class AbstractPublisher(Thread):
@@ -27,7 +27,6 @@ class AbstractPublisher(Thread):
         self._url = url
         self._topic = topic
         self._abort = abort
-        self._publisher = Publisher(url, topic)
 
     @property
     def queue(self):
@@ -63,26 +62,26 @@ class AbstractPublisher(Thread):
             Runs as long as new data is available. If no new data for 5 Seconds
             received socket will be shut down
         """
-        while True:
-            try:
-                sample = self.queue.get(timeout=10)
-                message = self._topic + sample
-                self._publisher.publish(message)
-                self.queue.task_done()
-                logging.debug('PUBLISHER: {}'.format(self.queue.qsize()))
-            except Empty as e:
-                logging.info('No new data available - terminating publisher')
-                self._cleanup()
-                self._abort.set()
-                break
-
-            if self._abort is not None:
-                if self._abort.is_set():
-                    logging.info('{} - Abort event is set. Exit...'.format(
-                            currentThread().getName()
-                            ))
+        with Publisher(self._url, self._topic) as publisher:
+            while True:
+                try:
+                    sample = self.queue.get(timeout=10)
+                    message = self._topic + sample
+                    publisher.publish(message)
+                    self.queue.task_done()
+                except Exception as e:
                     self._cleanup()
+                    if self._abort is not None:
+                        self._abort.set()
                     break
+
+                if self._abort is not None:
+                    if self._abort.is_set():
+                        logging.info('{} - Abort event is set. Exit...'.format(
+                                currentThread().getName()
+                                ))
+                        self._cleanup()
+                        break
 
 
 class EmgPublisher(AbstractPublisher):

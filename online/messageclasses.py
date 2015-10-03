@@ -4,6 +4,9 @@
 import numpy as np
 import time
 import struct
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 
 class ArrayMessage(object):
     """ Represents an array that is going to be send over the wire
@@ -18,6 +21,7 @@ class ArrayMessage(object):
     """ Duration the array represented by this message is representing
     """
     def __init__(self, data, timestamp=None, sr=None):
+        self._logger = logging.getLogger('ArrayMessageLogger')
         self._data = data
         self._samplingrate = None
         if timestamp is None:
@@ -69,17 +73,26 @@ class ArrayMessage(object):
                 sr,
                 self.data.shape[0]
                 )
-        return header + self.data.tostring()
+        message = header + self.data.tostring()
+        return message
 
     @classmethod
     def deserialize(cls, message):
         """ Initializes object from a message
         """
+        logger = logging.getLogger('ArrayMessageLogger')
         headerlength = cls.get_headerlength()
         header = message[:headerlength]
         strdata = message[headerlength:]
         timestamp, duration, sr, nrows = struct.unpack(cls.header_format, header)
-        data = np.fromstring(strdata, dtype='float64').reshape(nrows, -1)
+
+        try:
+            data = np.fromstring(strdata, dtype='float64').reshape(nrows, -1)
+        except Exception as e:
+            logger.error('Unexpected error while deserializing array. Error was: ' + \
+                    '{}'.format(e.message))
+            raise e
         obj = cls(data, timestamp, sr)
         obj.duration = duration
         return obj
+

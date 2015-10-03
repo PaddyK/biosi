@@ -6,9 +6,11 @@ from nanomsg import SUB
 from nanomsg import SUB_SUBSCRIBE
 from nanomsg import Socket
 from nanomsg import NanoMsgAPIError
-from messaging import HiddenComponent
-from messaging import HiddenPublisher
-from messaging import HiddenSubscriber
+from . import HiddenComponent
+from . import HiddenPublisher
+from . import HiddenSubscriber
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 
 class NanomsgPublisher(HiddenPublisher):
@@ -28,7 +30,9 @@ class NanomsgPublisher(HiddenPublisher):
         """
         super(NanomsgPublisher, self).__init__(topic)
         self._socket = Socket(PUB)
+        self._socket.send_timeout = 1 # Wait 1ms for sending
         self._socket.bind(url)
+        self._logger = logging.getLogger('NanomsgPublisher')
 
     def publish(self, message):
         """ Publishes message
@@ -36,7 +40,13 @@ class NanomsgPublisher(HiddenPublisher):
             Args:
                 message (String): Message to publish
         """
-        self._socket.send('{}|{}').format(self._topic, message)
+        self._socket.send('{}|{}'.format(self._topic, message))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._socket.close()
 
 
 class NanomsgSubscriber(HiddenSubscriber):
@@ -56,8 +66,10 @@ class NanomsgSubscriber(HiddenSubscriber):
         """
         super(NanomsgSubscriber, self).__init__(topic)
         self._socket = Socket(SUB)
+        self._socket.recv_timeout = 500 # Wait 500ms for receiving msgs
         self._socket.connect(url)
-        self._socket.set_string_option(SUB, SUB_SUBSCRIBE, topic)
+        self._socket.set_string_option(SUB, SUB_SUBSCRIBE, topic + '|')
+        self._logger = logging.getLogger('NanomsgSubscriber')
 
     def receive(self):
         """ Receives a message
@@ -66,4 +78,11 @@ class NanomsgSubscriber(HiddenSubscriber):
                 String
         """
         message = self._socket.recv()
-        return message
+        return message[len(self.topic) + 1:]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._socket.close()
+
