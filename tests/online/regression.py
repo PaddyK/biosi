@@ -17,7 +17,8 @@ import model.knowledgeBase as kb
 import online.regression
 import online.subscriber
 import online.publisher
-import online.sources
+import online.sources.sources
+import data.wayeeggal as wayeeggal
 from online.messageclasses import ArrayMessage
 import threading
 
@@ -206,13 +207,13 @@ class TestLinearRegression(object):
     def test_learn_online(self):
         e = threading.Event()
         try:
-            urlemg = 'tcp://192.168.0.16:5555'
+            urlemg = 'tcp://192.168.0.20:5555'
             emgp = online.publisher.EmgPublisher(urlemg, abort=e)
             emgs = online.sources.FileSource(emgp, 4000, 'emg_data', abort=e)
             emgsub = online.subscriber.EmgSubscriber(urlemg, abort=e)
             emgiter = online.subscriber.array_iterator(ArrayMessage, emgsub)
 
-            urlkin = 'tcp://192.168.0.16:5556'
+            urlkin = 'tcp://192.168.0.20:5556'
             kinp = online.publisher.KinPublisher(urlkin, abort=e)
             kins = online.sources.FileSource(kinp, 500, 'kin_data', abort=e)
             kinsub = online.subscriber.KinSubscriber(urlkin, abort=e)
@@ -249,7 +250,7 @@ class TestLinearRegression(object):
                 Z = Z.flatten().reshape(1, -1)
                 X = X.flatten().reshape(1, -1)
                 model.train(X,Z)
-                if count % 50 == 0:
+                if count % 1000 == 0:
                     print '{}\t\t{}'.format(count, model.loss(X, Z))
                 count += 1
             e.set()

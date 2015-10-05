@@ -18,7 +18,7 @@ sys.path.insert(
             os.path.pardir,
             os.path.pardir
         ))
-import emg.data
+import data.wayeeggal as wayeeggal
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -109,7 +109,7 @@ class FileSource(AbstractSource):
         self._data = None
         try:
             with open(self._file, 'rb') as fh:
-                self._data = emg.data.read_session(self._file)[modality].values
+                self._data = wayeeggal.read_session(self._file)[modality].values
         except Exception as e:
             print 'Error while opening file {}. Error was {}'.format(
                     self._file, e.message

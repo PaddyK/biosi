@@ -6,7 +6,6 @@ import warnings
 
 def predict_report(inpt, output, target, plot=False):
     fig, axs = plt.subplots(target.shape[1], 1, squeeze=False, figsize=(16, 9))
-
     for i in range(target.shape[1]):
         x, y, z = inpt[:, i], output[:, i], target[:, i]
         bottom, top = min(y.min(), z.min()), max(y.max(), z.max())
