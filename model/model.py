@@ -442,6 +442,7 @@ class Event(object):
             str += ' duration {}s'.format(self.duration)
         return str
 
+
 class DataHoldingElement(object):
     def __getitem__(self, key):
         """ Returns data over time. Start, Stop, Step in seconds
@@ -1182,6 +1183,43 @@ class Session(DataHoldingElement):
         """
         return self._identifier
 
+    def add_events(self, events):
+        """ Convenience function to add multiple events to recordings and
+            trials at once.
+
+            Args:
+                events (Dictionary like): Dictionary or pandas.core.DataFrame
+                    dictionary must use trial name as key and map to a 2D list
+                    of the form ``[[<event name>, <start>, <duration>], [...]]``.
+                    DataFrame must have trial identifier as column index.
+                    columns must be in order ``<event name>``, ``<start>``,
+                    ``<stop>``
+
+            Note:
+                start of each event must be relative to the **beginning of the
+                trial** it belongs to.
+        """
+        for recording in self._recordings.itervalues():
+            recording.add_events(trials)
+
+    def add_trials(self, trials):
+        """ Convenience function to add multiple trials at once.
+
+            Args:
+                trials (Arraylike): Two dimensional list, dataframe or numpy
+                    array containing start, stop (or duration) and optional
+                    identifier of trial.
+
+            Note:
+                trials must have the following structure:
+                    (start, duration)
+                optional are a third field containing trial's identifier.
+                When using DataFrame, duration can be replaced by time trial
+                ends. This columns must then be named `stop`.
+        """
+        for recording in self._recordings.itervalues():
+            recording.add_trials(trials)
+
     def get_all_data(self):
         """ Returns all data from all recordings belonging to session
 
@@ -1612,7 +1650,7 @@ class Recording(DataHoldingElement):
                     yield record
             elif type(toplevel) is pd.DataFrame:
                 sliced = toplevel.loc[toplevel.iloc[:, 0] == key]
-                sliced = sliced.drop_duplicates()
+                #sliced = sliced.drop_duplicates()
                 for i in range(sliced.shape[0]):
                     yield sliced.iloc[i, 1:].values.tolist()
 
@@ -1624,7 +1662,7 @@ class Recording(DataHoldingElement):
         """ Convenience function to add multiple trials at once.
 
             Args:
-                trials (Arraylike): Two dimensional list, dataframe of numpy
+                trials (Arraylike): Two dimensional list, dataframe or numpy
                     array containing start, stop (or duration) and optional
                     identifier of trial.
 
@@ -1926,6 +1964,18 @@ class Recording(DataHoldingElement):
     @property
     def duration(self):
         """ Returns duartion (sum of duarion of trials) of recording in seconds
+
+            Returns:
+                float
+        """
+        duration = 0
+        for trial in self.trials.itervalues():
+            duration += trial.duration
+        return duration
+
+    @property
+    def own_duration(self):
+        """ Returns duration of the recording itself.
 
             Returns:
                 float

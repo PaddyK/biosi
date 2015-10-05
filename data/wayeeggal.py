@@ -93,3 +93,36 @@ def read_meta_file(path):
 
     return df
 
+def get_trial_times(meta, session, rec_dur):
+    meta_session = meta.loc[meta.loc[:, 'Run'] == session, :]
+    meta_session.reset_index(inplace=True)
+    start_times = meta_session.loc[:, 'StartTime']
+    data = start_times.values
+    copy = data.copy()
+    data[:-1] = data[1:]
+    data[-1] = rec_dur
+    times = pd.DataFrame(np.column_stack((copy, data)))
+    times.columns = ['start', 'stop']
+    return times
+
+def get_event_times(session, meta, event, start, dur=None):
+    times = ['Lift', start]
+    if dur is not None:
+        times.append(dur)
+    m = meta.loc[meta.loc[:, 'Run'] == session, :]
+    m.reset_index(inplace=True)
+    ret = m.loc[:, times]
+    print ret
+    ret = pd.concat([
+        ret,
+        pd.DataFrame([event for i in range(ret.shape[0])], columns=['Event'])
+        ], axis=1)
+    for i in range(ret.shape[0]):
+        ret['Lift'][i] = 'Trial{}'.format(i)
+    print ret
+    print times
+    print ret.columns
+#    ret.loc[:, ['Lift', 'Event', start, dur]]
+    ret = ret.reindex_axis(['Lift', 'Event', start, dur], axis=1)
+    return ret
+
