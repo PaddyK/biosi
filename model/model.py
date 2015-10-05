@@ -105,6 +105,9 @@ import pandas as pd
 import sys
 import cPickle as pkl
 import warnings
+import logging
+from math import isnan
+logging.basicConfig(level=logging.DEBUG)
 
 class DataContainer(object):
     """ Wrapper for a pandas.core.DataFrame to support additional
@@ -222,6 +225,15 @@ class DataContainer(object):
         """
         return self._frequency
 
+    @frequency.setter
+    def frequency(self, frequency):
+        """ Sets frequency attribute
+
+            Args:
+                frequency (int): new Sampling Rate of data
+        """
+        self._frequency = frequency
+
     def __getitem__(self, slice):
         """ Returns slice along first and second dimension. First dimension
             must be a numeric slice object. Second dimension must be a list
@@ -262,8 +274,10 @@ class DataContainer(object):
             start = 0
             stop = int(self.duration * self.frequency)
         else:
-            start = int(slice.start * self.frequency)
-            stop = int(slice.stop * self.frequency)
+            start = int(slice.start * self.frequency + 0.001) # Add this constant
+            stop = int(slice.stop * self.frequency + 0.001) # Bc python seems to
+            # be numerically unstable here and sometimes subtracts one element
+            # leading to the whole rest not working correctly
 
         assert start >= 0, 'model.model.DataContainer.__getitem__: ' + \
                 'negative value for start of slice encountered. Must be positive'
@@ -417,6 +431,8 @@ class Event(object):
 
     @property
     def duration(self):
+        if isnan(self._duration):
+            return None
         return self._duration
 
     @property
@@ -495,7 +511,7 @@ class Experiment(DataHoldingElement):
     def subjects(self):
         return self._subjects
 
-    def get_data(self, modality, sessions=None):
+    def get_data(self, modality, sessions=None, channels=None):
         """ Returns all trials of a specific modality from all recordings of
             all sessions of, if argument ``sessions`` is set, only from a
             selection.
@@ -517,7 +533,7 @@ class Experiment(DataHoldingElement):
             session = self.sessions[s]
             if modality not in session.setup.modalities.keys():
                 continue
-            trials.extend(session.get_data(modality=modality))
+            trials.extend(session.get_data(modality=modality, channels=channels))
         return trials
 
     def get_data_by_labels(self, sessions=None, recordings=None, labels=None, as_list=True,
@@ -1200,7 +1216,7 @@ class Session(DataHoldingElement):
                 trial** it belongs to.
         """
         for recording in self._recordings.itervalues():
-            recording.add_events(trials)
+            recording.add_events(events)
 
     def add_trials(self, trials):
         """ Convenience function to add multiple trials at once.
@@ -1277,7 +1293,7 @@ class Session(DataHoldingElement):
                     labels = np.concatenate([labels, l])
         return sequences, labels
 
-    def get_data(self, modality=None):
+    def get_data(self, modality=None, channels=None):
         """ Returns trials of all recordings associated with ``modality``
             defined for this session.
 
@@ -1307,7 +1323,7 @@ class Session(DataHoldingElement):
         for idx in self._recording_order:
             if (self.recordings[idx].modality.identifier != modality):
                 continue
-            trials.extend(self.recordings[idx].get_data())
+            trials.extend(self.recordings[idx].get_data(channels=channels))
         return trials
 
     def get_frequency(self, modality):
@@ -1686,7 +1702,7 @@ class Recording(DataHoldingElement):
                     record = trials.loc[i, :].values.tolist()
                     if 'stop' in trials.columns:
                         # if column stop exists calculate duration of trial
-                        record[1] = record[2] - record[1]
+                        record[1] = record[1] - record[0]
                     yield record
             else:
                 raise AttributeError('Unsupported type for argument trials ' + \
@@ -1701,9 +1717,9 @@ class Recording(DataHoldingElement):
                 raise ArgumnentError('Wrong number of arguments given for ' + \
                         'constructing trial in model.model.Recording.' + \
                         'add_trials. Expected 2 or three, got {}'.format(len(rec)))
-            Trial(self, record[0], record[1], record[2])
+            Trial(self, rec[0], rec[1], rec[2])
 
-    def get_event(self, from_=None, to=None):
+    def get_events(self, from_=None, to=None):
         """ Returns events either for whole recording or for a specific time interval
 
             Note:
@@ -1761,14 +1777,14 @@ class Recording(DataHoldingElement):
             else:
                 to_pass = None
 
-            tmp = self.trials[trial].get_event(from_=from_pass, to=to_pass)
+            tmp = self.trials[trial].get_events(from_=from_pass, to=to_pass)
             for e in tmp:
                 e.start = e.start + offset
                 ret.append(e)
 
         return ret
 
-    def get_data(self, begin=None, end=None):
+    def get_data(self, begin=None, end=None, channels=None):
         """ Returns the **relevant** data of a recording object. As a List of
             DataContainer objects.
             In especially, yields only the data specified in the trials belonging to the
@@ -1834,7 +1850,11 @@ class Recording(DataHoldingElement):
                 else:
                     end_pass = None
 
-            return_list.append(self.trials[idx].get_data(begin=begin_pass, end=end_pass))
+            return_list.append(self.trials[idx].get_data(
+                begin=begin_pass,
+                end=end_pass,
+                channels=channels
+                ))
         return return_list
 
     def _label_to_data_pandas(self, trials, labels):
@@ -2227,7 +2247,7 @@ class Trial(DataHoldingElement):
         """
         self._events.append(Event(name, start, duration))
 
-    def get_event(self, from_=None, to=None):
+    def get_events(self, from_=None, to=None):
         """ Returns all events contained in the given interval. If no interval borders
             are specified, they are set to beginning/end of trial. Thus all events defined
             for trial are returned.
@@ -2259,7 +2279,7 @@ class Trial(DataHoldingElement):
         for e in self._events:
             if e.start < 0 :
                 continue
-            elif (e.start > from_) and (t < to):
+            elif (e.start > from_) and (e.start < to):
                 # Substract offset of trial
                 ret.append(e)
             elif e.start  > self.start + self.duration:

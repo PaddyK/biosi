@@ -23,19 +23,15 @@ def predict_report(inpt, output, target, plot=False):
     if plot:
         plt.show()
 
-def visualize_modality(model, start, stop, modality=None):
+def visualize_modality(element, start, stop, modality=None):
     """ Creates a visualization of the modality signals contained in model
 
         Args:
-            model (model.Experiment, model.Session, model.Recording, model.Trial): A data
+            recording (model.Recording, model.Trial): A data
                 carrying entity from module model.model.
             start (float): Start time in seconds
             stop (float): Stop time in seconds
             modality (String, optional): Must be set if more than one modality specified
-
-        Note:
-            Works for model.Experiment only in the case of all setups specifying the same
-            frequency.
 
         Raises:
             ValueError: If start is larger than duration
@@ -43,20 +39,22 @@ def visualize_modality(model, start, stop, modality=None):
         Warnings:
             If stop is larger than duration of recording
     """
-    data = model.get_data(modality=modality, from_=start, to=stop)
+    container = element.get_data(begin=start, end=stop)
+    # Data is a list of DataContainer!
+    data = np.row_stack([c.data for c in container])
     fig, axes = plt.subplots(nrows = data.shape[1], figsize = (16, data.shape[1] * 2.5))
     fig.tight_layout()
-    f = model.get_frequency(modality=modality)
+    f = element.get_frequency()
 
     fontdict = {
-        'fontsize': 16,
+        'fontsize': 20,
         'fontweight' : 'bold',
         'verticalalignment': 'baseline',
         'horizontalalignment': 'center'
     }
 
-    minimum = data.values.min()
-    maximum = data.values.max()
+    minimum = data.min()
+    maximum = data.max()
 
     for i in range(data.shape[1]):
         xvals = np.arange(
@@ -65,16 +63,31 @@ def visualize_modality(model, start, stop, modality=None):
                 dtype = 'float') / f
         axes[i].plot(
             xvals,
-            data.iloc[:, i]
+            data[:, i]
         )
-        axes[i].set_title(data.columns.values[i], fontdict = fontdict)
+        axes[i].set_title(container[0].columns.values[i], fontdict = fontdict)
         axes[i].set_ylim([minimum, maximum])
 
-    markers = model.get_marker(modality=modality, from_=start, to=stop)
-    for t, l in markers:
+    events = element.get_events(from_=start, to=stop)
+    for event in events:
         for axis in axes:
-            axis.axvline(t, color='r')
-            axis.text(t, maximum, l, color='r', verticalalignment='top')
+            axis.axvline(event.start, color='r')
+            if event.duration is not None:
+                axis.text(
+                        event.start,
+                        maximum,
+                        event.name + ' - Start',
+                        color='r',
+                        verticalalignment='top'
+                        )
+                axis.axvline(event.start + event.duration, color='violet')
+                axis.text(
+                        event.start + event.duration,
+                        maximum,
+                        event.name + ' - End',
+                        color='violet',
+                        verticalalignment='top'
+                        )
 
     plt.subplots_adjust(hspace = 0.5)
 #    plt.show()

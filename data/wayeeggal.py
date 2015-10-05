@@ -51,11 +51,26 @@ def read_session(path):
     ret['eeg_data'].columns = header
     ret['eeg_sr'] = mat['hs'][0][0][4][0][0][2][0][0]
 
+    kin_cols = [
+            'Px1 - position x sensor 1',
+            'Px2 - position x sensor 2',
+            'Px3 - position x sensor 3',
+            'Px4 - position x sensor 4',
+            'Py1 - position y sensor 1',
+            'Py2 - position y sensor 2',
+            'Py3 - position y sensor 3',
+            'Py4 - position y sensor 4',
+            'Pz1 - position z sensor 1',
+            'Pz2 - position z sensor 2',
+            'Pz3 - position z sensor 3',
+            'Pz4 - position z sensor 4'
+            ]
     header = []
     for h in mat['hs'][0][0][5][0][0][0][0]:
         header.append(h[0])
     ret['kin_data'] = pd.DataFrame(mat['hs'][0][0][5][0][0][1])
     ret['kin_data'].columns = header
+    ret['kin_data'] = ret['kin_data'].loc[:, kin_cols]
     ret['kin_sr'] = mat['hs'][0][0][5][0][0][2][0][0]
 
     header = []
@@ -112,16 +127,12 @@ def get_event_times(session, meta, event, start, dur=None):
     m = meta.loc[meta.loc[:, 'Run'] == session, :]
     m.reset_index(inplace=True)
     ret = m.loc[:, times]
-    print ret
     ret = pd.concat([
         ret,
         pd.DataFrame([event for i in range(ret.shape[0])], columns=['Event'])
         ], axis=1)
     for i in range(ret.shape[0]):
-        ret['Lift'][i] = 'Trial{}'.format(i)
-    print ret
-    print times
-    print ret.columns
+        ret['Lift'][i] = 'trial{}'.format(i)
 #    ret.loc[:, ['Lift', 'Event', start, dur]]
     ret = ret.reindex_axis(['Lift', 'Event', start, dur], axis=1)
     return ret

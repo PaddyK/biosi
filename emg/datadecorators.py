@@ -55,11 +55,11 @@ class AbstractDataDecorator(DataHoldingElement):
 
 
 class SamplingDecorator(AbstractDataDecorator):
-    def __init__(self, frequency, data_holding_element, as_iterator):
+    def __init__(self, frequency, data_holding_element, as_iterator=False):
         super(SamplingDecorator, self).__init__(data_holding_element, as_iterator)
         self._frequency = frequency
 
-    def _downsample(self, f_from, container):
+    def _downsample(self, container):
         """ Samples signal down by taking the mean
 
             Args:
@@ -71,13 +71,25 @@ class SamplingDecorator(AbstractDataDecorator):
             Raises:
                 AssertionError if ``f_from`` is not a multiple from ``f_to``
         """
-        factor, remainder = divmod(f_from, self._frequency)
+        factor, remainder = divmod(container.frequency, self._frequency)
         assert remainder == 0, 'SamplingDecorator._downsample cannot ' + \
                 'sample signals to same frequencies. Frequency of the two ' + \
                 'signals are not multiple of each other'
-        return np.mean(container.data.reshape(-1, factor, container.data.shape[1]), axis=1)
+        ret = None
+        rows, rest = divmod(container.shape[0], factor)
+        if rest != 0:
+            ret = np.mean(
+                    container.data[:-rest].reshape(-1, factor, container.shape[1])
+                    ,axis=1
+                    )
+        else:
+            ret = np.mean(
+                    container.data.reshape(-1, factor, container.shape[1]),
+                    axis=1
+                    )
+        return ret
 
-    def _upsample(self, f_from, container):
+    def _upsample(self, container):
         """ Samples signal up by repeating elements
 
             Args:
@@ -89,7 +101,7 @@ class SamplingDecorator(AbstractDataDecorator):
             Raises:
                 AssertionError if ``f_to`` is not a multiple from ``f_from``
         """
-        factor, remainder = divmod(self._frequency, f_from)
+        factor, remainder = divmod(self._frequency, container.frequency)
         assert remainder == 0, 'SamplingDecorator._upsample: SamplingRates are ' + \
             'note multiple of each other. SamplingRates were {} and {}'.format(
                     self._frequency, f_from)
@@ -108,15 +120,10 @@ class SamplingDecorator(AbstractDataDecorator):
         for container in data_list:
             factor, rest = divmod(container.frequency, self._frequency)
             if factor == 0:
-                container.data = self._upsample(
-                        container.frequency,
-                        container
-                        )
+                container.data = self._upsample(container)
             else:
-                container.data = self._downsample(
-                        container.frequency,
-                        container
-                        )
+                container.data = self._downsample(container)
+            container.frequency = self._frequency
             yield container
 
     def _return(self, data_list):
@@ -132,15 +139,10 @@ class SamplingDecorator(AbstractDataDecorator):
         for container in data_list:
             factor, rest = divmod(container.frequency, self._frequency)
             if factor == 0:
-                container.data = self._upsample(
-                        container.frequency,
-                        container
-                        )
+                container.data = self._upsample(container)
             else:
-                container.data = self._downsample(
-                        container.frequency,
-                        container
-                        )
+                container.data = self._downsample(container)
+            container.frequency = self._frequency
         return data_list
 
     def get_data(self, **kwargs):
@@ -175,8 +177,8 @@ class WindowDecorator(AbstractDataDecorator):
     def __init__(self, windowsize, data_holding_element, stride=None, as_iterator=False):
         """
             Args:
-                windowsize (int): Size of window in timesteps
-                stride (int): Size of stride in timesteps
+                windowsize (float): Size of window in seconds
+                stride (float): Size of stride in seconds
         """
         super(WindowDecorator, self).__init__(data_holding_element, as_iterator)
         self._windowsize = windowsize
@@ -412,6 +414,55 @@ class ArrayDecorator(AbstractDataDecorator):
         return self._return(datalist)
 
 
+class ArrayDecorator2D(AbstractDataDecorator):
+    """ Represents end point of decorator stack and returns a 2D Array.
+        Using iterator Decorator is pointless with this endpoint, since all
+        DataContainer will be used to create the array.
+    """
+    def __init__(self, iterator):
+        """ Initializes object
+        """
+        super(ArrayDecorator2D, self).__init__(iterator, False)
+
+    def _iterate(self):
+        raise NotImplementedError('Method _iterate not implemented ' + \
+                'for ArrayDecorator')
+
+    def _return(self, datalist):
+        """ Creates 2d array and returns it
+
+            Args:
+                datalist (Iterable): Iterable yielding elements of type
+                    model.model.DataContainer
+
+            Returns:
+                np.ndarray
+        """
+        array = None
+        for container in datalist:
+            if array is None:
+                array = container.data
+            else:
+                array = np.row_stack((array, container.data))
+        return array
+
+    def get_data(self, **kwargs):
+        """ Returns 2D array where first axis is number of trials, second
+            axis is time and third dimension is number of channels
+
+            Note:
+                Data stored in DataContainer needs to have the same first
+                dimension (same duration).
+                This can be achieved using either ``PadzeroDecorator`` or
+                ``WindowDecorator``.
+
+            Returns:
+                np.ndarray
+        """
+        datalist = self._element.get_data(**kwargs)
+        return self._return(datalist)
+
+
 class PadzeroDecorator(AbstractDataDecorator):
     """ Paddes data with zeros s.t. they all have the same length i.e. same
         duration.
@@ -475,4 +526,53 @@ class PadzeroDecorator(AbstractDataDecorator):
                 max_dur = container.samples
 
         return self._return(datalist, max_dur)
+
+
+class RectificationDecorator(AbstractDataDecorator):
+    """ Rectifies data by taking absolute value
+    """
+    def __init__(self, data_holding_element, as_iterator=False):
+        super(RectificationDecorator, self).__init__(data_holding_element, as_iterator)
+
+    def _iterate(self, elements):
+        """ Yields rettified data
+
+            Yields:
+                DataContainer
+        """
+        for element in elements:
+            element.data = np.abs(element.data)
+            yield element
+
+    def _return(self, elements):
+        """ Returns List of rectified data
+
+            Args:
+                elements (Iterable): Iterable object yielding model.DataContainer
+
+            Returns:
+                List of model.DataContainer
+        """
+        ret = []
+        for element in elements:
+            element.data = np.abs(element.data)
+            ret.append(element)
+        return ret
+
+    def get_data(self, **kwargs):
+        """ Rectifies data. Returns list or iterator depending on
+            attribute ``is_iterator``
+
+            Args:
+                kwargs (Dictionary): arguments for other methods
+
+            Returns:
+                Iterator or List
+        """
+        dataelement = self._element.get_data(**kwargs)
+
+        if self._is_iterator:
+            return self._iterate(dataelement)
+        else:
+            return self._return(dataelement)
 
