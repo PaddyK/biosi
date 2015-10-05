@@ -1,6 +1,9 @@
 """ This module contains routines to load data from the WAY-EEG-GAL dataset.
     More information on the dataset can be found on http://www.nature.com/articles/sdata201447
 """
+import scipy.io
+import numpy as np
+import pandas as pd
 
 
 def read_session(path):
