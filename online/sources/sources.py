@@ -101,9 +101,9 @@ class FileSource(AbstractSource):
         currently from WAY-GAAL experiment thing a session
     """
 
-    def __init__(self, publisher, samplingrate, modality, abort=None, name='FileSource'):
+    def __init__(self, publisher, samplingrate, modality, path='data/P1/HS_P1_S1.mat', abort=None, name='FileSource'):
         super(FileSource, self).__init__(publisher, samplingrate, name, abort=abort)
-        self._file = 'data/P1/HS_P1_S1.mat'
+        self._file = path
         """ Path to pickled numpy ndarray
         """
         self._data = None
