@@ -21,6 +21,12 @@ import logging
 
 class AbstractDataDecorator(DataHoldingElement):
     """ Abstract base class for all concrete decorators
+
+        Attributes:
+            element (DataHoldingElement): Element inheriting from
+                ``DataHoldingElement`` or providing function ``get_data``
+            is_iterator (bool): Indicates whether decorator is a generator
+                or returns a list.
     """
 
     def __init__(self, data_holding_element, as_iterator):
@@ -55,7 +61,23 @@ class AbstractDataDecorator(DataHoldingElement):
 
 
 class SamplingDecorator(AbstractDataDecorator):
+    """ Samples data up or down.
+
+        Attributes:
+            element (DataHoldingElement): Element inheriting from
+                ``DataHoldingElement`` or providing function ``get_data``
+            is_iterator (bool): Indicates whether decorator is a generator
+                or returns a list.
+            frequency (int): Frequency to which data should be adopted
+    """
     def __init__(self, frequency, data_holding_element, as_iterator=False):
+        """ Initializes object.
+            
+            Args:
+                frequency (int): Target frequency for data
+                data_holding_element (DataHoldingElement): Data source
+                as_iterator (bool): Whether to act as decorator
+        """
         super(SamplingDecorator, self).__init__(data_holding_element, as_iterator)
         self._frequency = frequency
 
@@ -174,10 +196,22 @@ class SamplingDecorator(AbstractDataDecorator):
 
 
 class WindowDecorator(AbstractDataDecorator):
+    """ Windowfies each trial.
+
+        Attributes:
+            element (DataHoldingElement): Element inheriting from
+                ``DataHoldingElement`` or providing function ``get_data``
+            is_iterator (bool): Indicates whether decorator is a generator
+                or returns a list.
+            windowsize (float): Duration of window in seconds
+            stride (float): Time between consecutive windows in seconds
+    """
     def __init__(self, windowsize, data_holding_element, stride=None, as_iterator=False):
         """
             Args:
                 windowsize (float): Size of window in seconds
+                data_holding_element (DataHoldingElement): Data source
+                as_iterator (bool): Whether to act as decorator
                 stride (float): Size of stride in seconds
         """
         super(WindowDecorator, self).__init__(data_holding_element, as_iterator)
@@ -267,9 +301,21 @@ class WindowDecorator(AbstractDataDecorator):
 
 
 class RmsDecorator(AbstractDataDecorator):
+    """ Performs Root-Mean-Square filtering.
+
+        Attributes:
+            element (DataHoldingElement): Element inheriting from
+                ``DataHoldingElement`` or providing function ``get_data``
+            is_iterator (bool): Indicates whether decorator is a generator
+                or returns a list.
+            windowsize (float): Duration of window in seconds
+    """
     def __init__(self, windowsize, data_holding_element, as_iterator=False):
-        """
+        """ Initializes object
+
             Args:
+                data_holding_element (DataHoldingElement): Data source
+                as_iterator (bool): Whether to act as decorator
                 windowsize (float): Size of window for filtering in seconds.
         """
         super(RmsDecorator, self).__init__(data_holding_element, as_iterator)
@@ -366,13 +412,24 @@ class ArrayDecorator3D(AbstractDataDecorator):
     """ Represents end point of decorator stack and returns a 3D Array.
         Using iterator Decorator is pointless with this endpoint, since all
         DataContainer will be used to create the array.
+
+        Attributes:
+            element (DataHoldingElement): Element inheriting from
+                ``DataHoldingElement`` or providing function ``get_data``
+            is_iterator (bool): Indicates whether decorator is a generator
+                or returns a list.
     """
     def __init__(self, iterator):
         """ Initializes object
+
+            Args:
+                data_holding_element (DataHoldingElement): Data source
         """
         super(ArrayDecorator3D, self).__init__(iterator, False)
 
     def _iterate(self):
+        """ Not implemented for this Class
+        """
         raise NotImplementedError('Method _iterate not implemented ' + \
                 'for ArrayDecorator')
 
@@ -418,13 +475,25 @@ class ArrayDecorator2D(AbstractDataDecorator):
     """ Represents end point of decorator stack and returns a 2D Array.
         Using iterator Decorator is pointless with this endpoint, since all
         DataContainer will be used to create the array.
+
+        Attributes:
+            element (DataHoldingElement): Element inheriting from
+                ``DataHoldingElement`` or providing function ``get_data``
+            is_iterator (bool): Indicates whether decorator is a generator
+                or returns a list.
+
     """
     def __init__(self, iterator):
         """ Initializes object
+
+            Args:
+                data_holding_element (DataHoldingElement): Data source
         """
         super(ArrayDecorator2D, self).__init__(iterator, False)
 
     def _iterate(self):
+        """ Not implemented for this Class
+        """
         raise NotImplementedError('Method _iterate not implemented ' + \
                 'for ArrayDecorator')
 
@@ -469,8 +538,24 @@ class PadzeroDecorator(AbstractDataDecorator):
         For this, all DataContainers have to be known. Therefore it does
         not make sense to use this decorator in context of iterable
         decorators.
+
+        Attributes:
+            element (DataHoldingElement): Element inheriting from
+                ``DataHoldingElement`` or providing function ``get_data``
+            is_iterator (bool): Indicates whether decorator is a generator
+                or returns a list.
+            up_front (boolean): Whether to pad from front or back
+
     """
     def __init__(self, data_holding_element, up_front=False):
+        """ Initializes object
+            Args:
+                data_holding_element (model.model.DataHoldingElement): Any
+                    instance whose class inhertis from
+                    model.model.DataHoldingElement or provides same functions
+                    and return values as defined in this class.
+                up_front (boolean): Whether to pad from front or back
+        """
         super(PadzeroDecorator, self).__init__(data_holding_element, False)
         self.up_front = up_front
 
@@ -530,8 +615,23 @@ class PadzeroDecorator(AbstractDataDecorator):
 
 class RectificationDecorator(AbstractDataDecorator):
     """ Rectifies data by taking absolute value
+
+        Attributes:
+            element (DataHoldingElement): Element inheriting from
+                ``DataHoldingElement`` or providing function ``get_data``
+            is_iterator (bool): Indicates whether decorator is a generator
+                or returns a list.
     """
     def __init__(self, data_holding_element, as_iterator=False):
+        """ Initializes object
+            Args:
+                data_holding_element (model.model.DataHoldingElement): Any
+                    instance whose class inhertis from
+                    model.model.DataHoldingElement or provides same functions
+                    and return values as defined in this class.
+
+                as_iterator (boolean): If true object acts like an interator
+        """
         super(RectificationDecorator, self).__init__(data_holding_element, as_iterator)
 
     def _iterate(self, elements):

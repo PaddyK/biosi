@@ -44,9 +44,18 @@ class ZmqPublisher(HiddenPublisher):
         self._socket.send_multipart([self.topic, message])
 
     def __enter__(self):
+        """ Statement used for the `` with ... as ...:`` returns
+            the object to use in the ``with`` block
+
+            Returns:
+                ZmqPublisher
+        """
         return self
 
     def __exit__(self, exc_type, exc_value, exc_tb):
+        """ Executed when leaving ``with`` block, regardless whether
+            because of an exception or normal program flow
+        """
         self._socket.close()
         self._context.term()
 
@@ -84,9 +93,18 @@ class ZmqSubscriber(HiddenSubscriber):
         return message
 
     def __enter__(self):
+        """ Statement used for the `` with ... as ...:`` returns
+            the object to use in the ``with`` block
+
+            Returns:
+                ZmqSubscriber
+        """
         return self
 
     def __exit__(self, exc_type, exc_value, exc_tb):
+        """ Executed when leaving ``with`` block, regardless whether
+            because of an exception or normal program flow
+        """
         self._socket.close()
         self._context.term()
 

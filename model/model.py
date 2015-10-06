@@ -110,7 +110,12 @@ logging.basicConfig(level=logging.DEBUG)
 
 class DataContainer(object):
     """ Wrapper for a pandas.core.DataFrame to support additional
-        functionality
+        functionality.
+
+        Attributes:
+            dataframe (pandas.DataFrame): Holds data
+            frequency (int): Samplingrate of data
+            events (List): List of events associated with data
     """
 
     def __init__(self, dataframe, frequency):
@@ -424,22 +429,44 @@ class Event(object):
     """
 
     def __init__(self, name, start, duration=None):
+        """ Initializes object
+            
+            Args:
+                name (String): Name of event
+                start (float): Start time of event in miliseconds
+                duration (float, optional): Duration of event
+        """
         self._name = name
         self._start = start
         self._duration = duration
 
     @property
     def duration(self):
+        """ Returns duration of event
+
+            Returns:
+                float
+        """
         if isnan(self._duration):
             return None
         return self._duration
 
     @property
     def name(self):
+        """ Returns name of event
+
+            Returns:
+                String
+        """
         return self._name
 
     @property
     def start(self):
+        """ Returns start point of event
+
+            Returns:
+                float
+        """
         return self._start
 
     @start.setter
@@ -459,6 +486,8 @@ class Event(object):
 
 
 class DataHoldingElement(object):
+    """ Base class for Decorator Pattern
+    """
     def __getitem__(self, key):
         """ Returns data over time. Start, Stop, Step in seconds
         """
@@ -487,22 +516,38 @@ class Experiment(DataHoldingElement):
     """
 
     def __init__(self):
+        """ Initializes object
+        """
         self._setups = {}
         self._sessions = {}
         self._subjects = {}
-
         self._session_order = []
 
     @property
     def setups(self):
+        """ Returns setups of experiment
+
+            Returns:
+                dict
+        """
         return self._setups
 
     @property
     def sessions(self):
+        """ Return sessions of experiment
+
+            Returns:
+                dict
+        """
         return self._sessions
 
     @property
     def subjects(self):
+        """ Returns subjects of experiment
+
+            Returns:
+                dict
+        """
         return self._subjects
 
     def get_data(self, modality, sessions=None, channels=None):
@@ -742,18 +787,43 @@ class Subject(object):
 
     @property
     def identifier(self):
+        """ Returns identifier of subject
+
+            Returns:
+                String
+        """
         return self._identifier
 
     def to_string(self):
+        """ Returns String representation of object
+
+            Returns:
+                String
+        """
         return self.identifier
 
 
 class Setup(object):
     """ Represents a setup for an session. Specifies the amount and
         grouping of sensors of different recording systems.
+
+        Args:
+            identifier (String): Unique identifier of setup
+            modalities (dict): Dictionary of registered Modalities
+            experiment (Experiment): Experiment object setup is associated
+                with
+            features (int): Number of features i.e. channels
+            modality_order (List): List of Identifier of modalities in the order
+                they were added to the setup
     """
 
-    def __init__(self, experiment, identifier = None):
+    def __init__(self, experiment, identifier=None):
+        """ Initialies object
+
+            Args:
+                experiment (Experiment): Experiment setup belongs to
+                identifier (String): Unique identifier of setup
+        """
         self._identifier = identifier
         self._modalities = {}
         self._experiment = experiment
@@ -765,7 +835,7 @@ class Setup(object):
 
         self._experiment.put_setup(self)
 
-    def get_frequency(self, modality = None):
+    def get_frequency(self, modality=None):
         """ Returns the frequency of a specified modality.
 
             Args:
@@ -800,27 +870,57 @@ class Setup(object):
 
     @property
     def identifier(self):
+        """ Returns unique identifier
+
+            Returns:
+                String
+        """
         return self._identifier
 
     @property
     def modalities(self):
+        """ Returns registered modalities.
+
+            Returns:
+                dict
+        """
         return self._modalities
 
     @property
     def features(self):
+        """ Returns number of features i.e. channels
+
+            Returns:
+                int
+        """
         return self._features
 
     @features.setter
     def features(self, features):
+        """ Sets number of features i.e. channels represented by setup
+
+            Args:
+                features (int): Number of features
+        """
         self._features = features
 
     def get_channel_order(self):
+        """ Returns order of channels
+
+            Returns:
+                List
+        """
         order = []
         for idx in self._modality_order:
             order.extend(self.modalities[idx].channel_order)
         return order
 
     def put_modality(self, modality):
+        """ Adds Modality to setup
+
+            Args:
+                modality (Modality): Modality going to be registered for setup
+        """
         if modality.identifier not in self.modalities:
             self.modalities[modality.identifier] = modality
             self._modality_order.append(modality.identifier)
@@ -831,6 +931,11 @@ class Setup(object):
             ))
 
     def to_string(self):
+        """ Returns string representation of object.
+
+            Returns:
+                String
+        """
         return (
             'Setup %s: %d modalities' %
             (self.identifier, len(self.modalities))
@@ -838,6 +943,12 @@ class Setup(object):
         return string
 
     def recursive_to_string(self):
+        """ Returns string representation of object and all objects (Channels)
+            belonging to it.
+
+            Returns:
+                String
+        """
         string = self.to_string() +'\n'
         for m in self.modalities.itervalues():
             tmp = m.recursive_to_string().replace('\n', '\n\t')
@@ -976,18 +1087,22 @@ class Modality(object):
 class Channel(object):
     """ Represents a channel i.e. sensor.
 
-        Args:
-            modality (Modality): Modality this channel belongs to
-            identifier (string, optional): Identifier for this channel. If not set a
-                generic one will be used. It is strongly recommended to use a identifier
-                here.
-
         Attributes:
             modality (Modality): Modality this channel belongs to
-            identifier (string): Identifier for this channel
+            identifier (string): Identifier for this channel. If not set a
+                generic one will be used. It is strongly recommended to use a 
+                identifier here.
     """
 
-    def __init__(self, modality, identifier = None):
+    def __init__(self, modality, identifier=None):
+        """ Initializes object.
+
+            Attributes:
+                modality (Modality): Modality this channel belongs to
+                identifier (string): Identifier for this channel. If not set a
+                    generic one will be used. It is strongly recommended to use a 
+                    identifier here.
+        """
         self._modality = modality
         self._identifier = identifier
 
@@ -998,22 +1113,25 @@ class Channel(object):
 
     @property
     def identifier(self):
+        """ Returns unique identifier
+
+            Returns:
+                String
+        """
         return self._identifier
 
     def to_string(self):
+        """ Returns string representation of object
+
+            Returns:
+                String
+        """
         return 'Channel: ' + self.identifier
 
 
 class Session(DataHoldingElement):
     """ Implements a session of an experiment. A session is defined by the subject
         participating, the used setup and the time it takes place.
-
-        Args:
-            experiment (Experiment): Experiment session belongs to
-            setup (Setup): The setup used for this session
-            subject (Subject): The subject participating in this session
-            identifier (string, optional): Identifier of the session. If no identifier is
-                provided a generic one will be used.
 
         Attributes:
             experiment (Experiment): Experiment session belongs to
@@ -1028,7 +1146,16 @@ class Session(DataHoldingElement):
                 a session
     """
 
-    def __init__(self, experiment, setup, subject, identifier = None):
+    def __init__(self, experiment, setup, subject, identifier=None):
+        """ Initializes object.
+
+            Args:
+                experiment (Experiment): Experiment session belongs to
+                setup (Setup): The setup used for this session
+                subject (Subject): The subject participating in this session
+                identifier (string, optional): Identifier of the session. If no identifier is
+                    provided a generic one will be used.
+        """
         self._identifier = identifier
         self._subject = subject
         self._setup = setup
@@ -1235,6 +1362,17 @@ class Session(DataHoldingElement):
         return ret
 
     def get_recording(self, identifier):
+        """ Returns one recording.
+
+            Args:
+                identifier (String): unique identifier of recording
+
+            Returns:
+                Recording
+
+            Raises:
+                IndexError if no recording found for ``identifier``
+        """
         if identifier not in self.recordings:
             raise IndexError(
                 'No recording with identifier %s in session %s' %
@@ -1268,6 +1406,11 @@ class Session(DataHoldingElement):
             self.put_recording(rc)
 
     def to_string(self):
+        """ Returns string representation of object.
+
+            Returns:
+                String
+        """
         string = (
             'session %s: Subject %s, Setting %s, %d recordings' %
             (
@@ -1291,41 +1434,42 @@ class Recording(DataHoldingElement):
     """ Represents one recording of a session. May contain multiply trials, i.e. performed
         tasks.
 
-        Args:
-            session (session): The session in which recording was recorded
-            modality (model.model.Modality): Modality recording is associated
-                with. Set if multiple modalities (e.g. eeg, emg) are used
-            location (string, optional): Path to a file containing the record. If this
-                parameter is set and no data is given, data will be retrieved from file.
-            data (pandas.DataFrame, optional): DataFrame with channels of this recording.
-            identifier (string, optional): Identifier of one instance
-
-        Note:
-            Either ``data`` or ``location`` has to be set. If both are set, ``location``
-            is ignored, data is not read from file.
-
         Attributes:
             session (session): The session in which recording was recorded
             location (string, optional): Path to a file containing the record. If this
                 parameter is set and no data is given, data will be retrieved from file.
             data (pandas.DataFrame, optional): DataFrame with channels of this recording.
-            duration (float): duration of recording in data in seconds
             samples (int): Number of samples in this recording. The sum of all sample
                 counts of trials being part of this recording
             trials (Dictionary): Trials included in this recording.
             identifier (string): Identifier of one specific instance
-            features (int): Number of features in data set
             trial_order (List): Stores order in which trials were added
-            modality (String): Modality recording is associated with
+            modality (Modality): Modality recording is associated with
             events (List): Sorted list of Events.
                 in seconds. Second element is label. List is sorted after time
-
-        Raises:
-            ValueError: Raised if both, location and data are not set
     """
 
-    def __init__(self, session, modality, location = None, data = None,
-            identifier = None):
+    def __init__(self, session, modality, location=None, data=None,
+            identifier=None):
+        """ Initializes object.
+
+            Args:
+                session (session): The session in which recording was recorded
+                modality (model.model.Modality): Modality recording is associated
+                    with. Set if multiple modalities (e.g. eeg, emg) are used
+                location (string, optional): Path to a file containing the record. If this
+                    parameter is set and no data is given, data will be retrieved from file.
+                data (pandas.DataFrame, optional): DataFrame with channels of this recording.
+                identifier (string, optional): Identifier of one instance
+
+            Note:
+                Either ``data`` or ``location`` has to be set. If both are set, ``location``
+                is ignored, data is not read from file.
+
+            Raises:
+                ValueError: Raised if both, location and data are not set
+        """
+
         self._session = session
         self._location = location
         self._samples = 0
@@ -1813,6 +1957,11 @@ class Recording(DataHoldingElement):
             raise IndexError('Trial with name ' + trial.identifier + ' already member of recording')
 
     def to_string(self):
+        """ Returns string representation of object.
+
+            Returns:
+                String
+        """
         string = (
             'Recording %s: %ds duration, %d samples, %d Trials' %
             (
@@ -1825,6 +1974,11 @@ class Recording(DataHoldingElement):
         return string
 
     def recursive_to_string(self):
+        """ Returns String representation of object and subsequent ones
+
+            Returns:
+                String
+        """
         string = self.to_string() + '\n'
         for t in self._trial_order:
             ts = self.trials[t].to_string().replace('\n','\n\t')
@@ -1854,7 +2008,7 @@ class Trial(DataHoldingElement):
                 of the recording.
     """
 
-    def __init__(self, recording, start, duration, identifier=None, label = None):
+    def __init__(self, recording, start, duration, identifier=None, label=None):
         """ Initializes Object
 
             Args:
@@ -2044,6 +2198,11 @@ class Trial(DataHoldingElement):
         self.recording.data[self.start:self.start + self.duration] = data
 
     def to_string(self):
+        """ Returns string representation of object.
+
+            Returns:
+                String
+        """
         string = 'Trial {}: {}s duration, {} samples, label {}'.format(
             self.identifier, self.duration, self.samples, self.label
             )

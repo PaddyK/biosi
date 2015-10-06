@@ -93,6 +93,9 @@ class EmgPublisher(AbstractPublisher):
 
             Args:
                 url (String): Url of local ressource to bind to.
+                name (String): Name of thread
+                abort (threading.Event): Used for singalling thread to
+                    stop execution
 
             Examples:
                 >>> url = 'inproc://<identifier>'
@@ -125,7 +128,36 @@ class KinPublisher(AbstractPublisher):
     """
 
     def __init__(self, url, name='KinPublisher', abort=None):
-        """ Initiates object
+        """ Initializes Object
+
+            Args:
+                url (String): Url of local ressource to bind to.
+                name (String): Name of thread
+                abort (threading.Event): Used for singalling thread to
+                    stop execution
+
+            Examples:
+                >>> url = 'inproc://<identifier>'
+                Used for within procss communication (within a single process).
+                `<identifier>` may be an arbitrary sequence of characters
+
+                >>> url = 'ipc://<rel-path>     # relative path POSIX
+                >>> url = 'ipc:///<abs-path>    # absolute path POSIX
+                >>> url = 'ipc://<identifier>  # Windows format
+                Used for interprocess communication. On POSIX-compliant systems
+                `<path>` is a relative (indicated by two preceeding slashes) or
+                absolute (three preceeding slashes) path to a file.
+                On windows named pipes are used. Here `<identifier>` can be any
+                sequence of characters.
+                Adress `ipc://test` would refer to pipe `\\.\pipe\test`
+
+                >>> url = 'tcp://<interface>;<address>:<port>'
+                When using `bind`, `<interface> **must** be ommitted. When
+                using `connect`, `<interface>` **can** be specified (depending
+                on OS, for UNIX e.g. `eth0`). If not specified OS will select
+                it itself.
+                `<address>` can be an IPv4, IPv6 address or DNS name, `<port>`
+                is the numeric port.
         """
         super(KinPublisher, self).__init__('kin', url, name, abort=abort)
 

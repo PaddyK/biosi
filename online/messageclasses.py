@@ -21,6 +21,17 @@ class ArrayMessage(object):
     """ Duration the array represented by this message is representing
     """
     def __init__(self, data, timestamp=None, sr=None):
+        """ Initializes object
+        
+            Args:
+                data (numpy.ndarray): Data for Message
+                timestamp (long): Timestamp data was created in ms
+                sr (int): Sampling-rate of data
+
+            Note:
+                If ``timestamp`` is not given, time when message is
+                created is used
+        """
         self._logger = logging.getLogger('ArrayMessageLogger')
         self._data = data
         self._samplingrate = None

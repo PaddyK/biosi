@@ -43,9 +43,18 @@ class NanomsgPublisher(HiddenPublisher):
         self._socket.send('{}|{}'.format(self._topic, message))
 
     def __enter__(self):
+        """ Statement used for the `` with ... as ...:`` returns
+            the object to use in the ``with`` block
+
+            Returns:
+                NanomsgPublisher
+        """
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        """ Executed when leaving ``with`` block, regardless whether
+            because of an exception or normal program flow
+        """
         self._socket.close()
 
 
@@ -81,8 +90,17 @@ class NanomsgSubscriber(HiddenSubscriber):
         return message[len(self.topic) + 1:]
 
     def __enter__(self):
+        """ Statement used for the `` with ... as ...:`` returns
+            the object to use in the ``with`` block
+
+            Returns:
+                NanomsgSubscriber
+        """
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        """ Executed when leaving ``with`` block, regardless whether
+            because of an exception or normal program flow
+        """
         self._socket.close()
 
