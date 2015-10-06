@@ -362,7 +362,7 @@ class RmsDecorator(AbstractDataDecorator):
         pass
 
 
-class ArrayDecorator(AbstractDataDecorator):
+class ArrayDecorator3D(AbstractDataDecorator):
     """ Represents end point of decorator stack and returns a 3D Array.
         Using iterator Decorator is pointless with this endpoint, since all
         DataContainer will be used to create the array.
@@ -370,7 +370,7 @@ class ArrayDecorator(AbstractDataDecorator):
     def __init__(self, iterator):
         """ Initializes object
         """
-        super(ArrayDecorator, self).__init__(iterator, False)
+        super(ArrayDecorator3D, self).__init__(iterator, False)
 
     def _iterate(self):
         raise NotImplementedError('Method _iterate not implemented ' + \
