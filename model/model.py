@@ -1,4 +1,3 @@
-#!/bin/bash
 """ This module implements the model (along the lines of the MVC pattern) for EMG
     projects.
     With model the class model defining the different components an EMG experiment is
@@ -463,12 +462,7 @@ class DataHoldingElement(object):
     def __getitem__(self, key):
         """ Returns data over time. Start, Stop, Step in seconds
         """
-        pass
-
-    def aslist(**kwargs):
-        """ Returns all trials contained as list
-        """
-        pass
+        raise NotImplementedError('__getitem__ not implemented for DataHoldingElement')
 
     def get_data(**kwargs):
         """ Returns result of Decorator operation.
@@ -536,8 +530,7 @@ class Experiment(DataHoldingElement):
             trials.extend(session.get_data(modality=modality, channels=channels))
         return trials
 
-    def get_data_by_labels(self, sessions=None, recordings=None, labels=None, as_list=True,
-            pandas=True):
+    def get_data_by_labels(self, labels, sessions=None, recordings=None):
         """ Returns data of all trials with the labels specified in ''labels''.
             Returned DataFrame does not have an MultiIndex
 
@@ -545,20 +538,15 @@ class Experiment(DataHoldingElement):
                 sessions (list, optional): List of session Ids
                 labels (list, optional): List with class labels
                 recordings (list, optional): List of identifiers of recordings
-                as_list (boolean, optional): Wether to return labels and
-                    sequence as lists
-                pandas (boolean, optional): Whether to return data as
-                    pandas.core.frame.DataFrame or as numpy.ndarray
 
             Returns:
-                sequences, List, Pandas data frame or numpy ndarray
-                labels, List, Pandas data frame or numpy ndarray
+                Labels, DataContainer
         """
         if sessions is None:
             sessions = self._session_order
 
-        sequences = None
-        labels = None
+        sequences = []
+        labels = []
         for session in sessions:
             if session in self._session_order:
                 d, l = self.sessions[session].get_data_by_labels(
@@ -567,18 +555,8 @@ class Experiment(DataHoldingElement):
                         as_list=as_list,
                         pandas=pandas
                         )
-                if sequences is None:
-                    sequences = d
-                    labels = l
-                elif as_list:
-                    sequences.extend(d)
-                    labels.extend(l)
-                elif pandas:
-                    sequences = pd.concat([sequences, d])
-                    labels = pd.concat([labels, l])
-                else:
-                    sequences = np.concatenate([sequences, d])
-                    labels = np.concatenate([labels, l])
+                sequences.extend(d)
+                labels.extend(l)
         return sequences, labels
 
     def get_frequency(self, setup=None, modality=None):
@@ -621,26 +599,6 @@ class Experiment(DataHoldingElement):
 
         return f
 
-    def get_int_labels(self):
-        """ Returns a list of labels for all relevant data points.
-
-            Returns:
-                labels (List): List of integers
-                mapping (Dictionary): Mapping label (string) to integer
-        """
-        labels = self.get_labels()
-        ilabels = []
-        mapping = {}
-        count = 0
-        for lbl in labels:
-            if lbl in mapping:
-                ilabels.append(mapping[lbl])
-            else:
-                mapping[lbl] = count
-                count = count + 1
-                ilabels.append(count)
-        return ilabels, mapping
-
     def get_labels(self):
         """ Returns a list of labels for all relevant data points.
 
@@ -652,76 +610,6 @@ class Experiment(DataHoldingElement):
             labels.extend(self.sessions[t].get_labels())
 
         return labels
-
-    def get_event(self, modality, sessions=None, from_=None, to=None):
-        """ Returns all event in an specific interval from one/multiple/all
-            sessions of this experiment.
-            If event to multiple sessions are returned an offset is added to the time of each
-            event according to the order in which each sessions is listed in `sessions`.
-            It is assumed, that data of sessions are retrieved in the same order.
-
-            Args:
-                modality (String): Identifier of an modality. Only events of recordings
-                    with this modality are returned
-                sessions (List): List of Strings. If set events for specified recordings
-                    are returned, else events of all recordings are returned.
-                from_ (float): Start point from which on events should be retrieved
-                to (float): End point of event retrieval
-
-            Note:
-                `from_` and `to` operate over the accumulated length of specified recordings.
-                So if events from all recordings should be selected, but `from_` and `to`
-                are very small recordings will be excluded.
-
-            Returns:
-                events (List): List of tuples containing obejcts of type Event
-        """
-        duration = 0
-        recordings = None
-
-        if sessions is None:
-            sessions = self._session_order
-
-        if from_ is None:
-            from_ = 0
-        elif from_ < 0:
-            raise IndexError('Start point of time interval out of bounds')
-
-        if to is None:
-            to = duration
-        elif to < 0:
-            raise IndexError('End point of time interval out of bounds')
-
-        ret = []
-        offset = 0
-        to_pass = 0
-        for s in sessions:
-            to_pass = 0
-            from_pass = 0
-            s_dur = self.sessions[s].get_duration(modality=modality)
-            if from_ > offset + s_dur:
-                # Start point of interval larget than duration of first n recocdings
-                # exclude recording and continue
-                continue
-            elif (from_ > offset) and (from_ < offset + s_dur):
-                # If start point of interval lies within nth recording start retrieving
-                # from this point. Convert to relative start of recording
-                from_pass = from_ - offset
-
-            if to < offset:
-                # If accumulated duration of all recordings is larger than end point
-                # of time interval stop retrieving events
-                break
-            elif (to > offset) and (to < offset + s_dur):
-                # If end of time interval lies within one recording retrieve only
-                # events until relative point of time in recording
-                to_pass = to - offset
-
-            events = self.sessions[s].get_event(from_=from_pass, to=to_pass)
-            for e in events:
-                ret.append(Event.new_time(e, e.start + offset))
-            offset = s_dur + offset
-        return ret
 
     def get_recording(self, identifier, session):
         """ Returns specified recording if it exists
@@ -1205,7 +1093,7 @@ class Session(DataHoldingElement):
 
             Args:
                 events (Dictionary like): Dictionary or pandas.core.DataFrame
-                    dictionary must use trial name as key and map to a 2D list
+
                     of the form ``[[<event name>, <start>, <duration>], [...]]``.
                     DataFrame must have trial identifier as column index.
                     columns must be in order ``<event name>``, ``<start>``,
@@ -1240,38 +1128,29 @@ class Session(DataHoldingElement):
         """ Returns all data from all recordings belonging to session
 
             Returns:
-                pandas.core.DataFrame
+                DataContainer
         """
-        df = None
+        df = []
         for idx in self._recording_order:
-            if df is None:
-                df = self.recordings[idx].get_all_data()
-            else:
-                df = pd.concat([df, self.recordings[idx].get_all_data()])
+            df.append(self.recordings[idx].get_all_data())
         return df
 
-    def get_data_by_labels(self, recordings=None, labels=None, as_list=True,
-            pandas=True):
+    def get_data_by_labels(self, labels, recordings=None):
         """ Returns data of all trials with the labels specified in ''labels''.
             Returned DataFrame does not have an MultiIndex
 
             Args:
                 labels (list, optional): List with class labels
                 recordings (list, optional): List of identifiers of recordings
-                as_list (boolean, optional): Wether to return labels and
-                    sequence as lists
-                pandas (boolean, optional): Whether to return data as
-                    pandas.core.frame.DataFrame or as numpy.ndarray
 
             Returns:
-                sequences, List, Pandas data frame or numpy ndarray
-                labels, List, Pandas data frame or numpy ndarray
+                DataContainer, Labels
         """
         if recordings is None:
             recordings = self._recording_order
 
-        sequences = None
-        labels = None
+        sequences = []
+        labels = []
         for recording in recordings:
             if recording in self._recording_order:
                 d, l = self.recordings[recording].get_data_by_labels(
@@ -1279,18 +1158,8 @@ class Session(DataHoldingElement):
                         as_list=as_list,
                         pandas=pandas
                         )
-                if sequences is None:
-                    sequences = d
-                    labels = l
-                elif as_list:
-                    sequences.extend(d)
-                    labels.extend(l)
-                elif pandas:
-                    sequences = pd.concat([sequences, d])
-                    labels = pd.concat([labels, l])
-                else:
-                    sequences = np.concatenate([sequences, d])
-                    labels = np.concatenate([labels, l])
+                sequences.extend(d)
+                labels.extend(l)
         return sequences, labels
 
     def get_data(self, modality=None, channels=None):
@@ -1345,84 +1214,6 @@ class Session(DataHoldingElement):
             labels.extend(self.recordings[t].get_labels())
 
         return labels
-
-    def get_event(self, recordings=None, from_=None, to=None):
-        """ Returns all events in an specific interval from one/multiple/all
-            recordings of this session.
-            If multiple recordings are returned an offset is added to the time of each
-            event according to the order in which each recording is listed in `recordings`.
-            It is assumed, that data of recordings are retrieved in the same order.
-
-            Args:
-                recordings (List): List of Strings. If set events for specified recordings
-                    are returned, else events of all recordings are returned.
-                from_ (float): Start point from which on events should be retrieved
-                to (float): End point of event retrieval
-
-            Note:
-                `from_` and `to` operate over the accumulated length of specified recordings.
-                So if event from all recordings should be selected, but `from_` and `to`
-                are very small recordings will be excluded.
-
-            Returns:
-                events (List): List of tuples containing objects of type Event
-        """
-        duration = 0
-        if recordings is None:
-            recordings = self._recording_order
-
-        for rec in recordings:
-            if rec in self._recording_order:
-                duration = duration + self.recordings[rec].duration
-            else:
-                raise IndexError(
-                    'No recording with identifier %s in session %s' %
-                    (rec, self.identifier)
-                )
-
-        if from_ is None:
-            from_ = 0
-        elif (from_ < 0) and (from_ >= duration):
-            raise IndexError('Start point of time interval out of bounds')
-
-        if to is None:
-            to = duration
-        elif (to < 0) or (to > duration):
-            raise IndexError('End point of time interval out of bounds')
-
-        ret = []
-        offset = 0
-        to_pass = 0
-        for rec in recordings:
-            to_pass = 0
-            from_pass = 0
-            rec_dur = self.recordings[rec].duration
-            if from_ > offset + rec_dur:
-                # Start point of interval larget than duration of first n recocdings
-                # exclude recording and continue
-                continue
-            elif (from_ > offset) and (from_ < offset + rec_dur):
-                # If start point of interval lies within nth recording start retrieving
-                # from this point. Convert to relative start of recording
-                from_pass = from_ - offset
-
-            if to < offset:
-                # If accumulated duration of all recordings is larger than end point
-                # of time interval stop retrieving event
-                break
-            elif (to > offset) and (to < offset + rec_dur):
-                # If end of time interval lies within one recording retrieve only
-                # event until relative point of time in recording
-                to_pass = to - offset
-
-            events = self.recordings[rec].get_event(from_=from_pass, to=to_pass)
-
-            for e in events:
-                ret.append(Event.new_time(e, e.start + offset))
-
-            offset = offset + rec_dur
-
-        return ret
 
     def get_recordings(self, modality):
         """ Returns all recordings belonging to a specific modality
@@ -1857,87 +1648,15 @@ class Recording(DataHoldingElement):
                 ))
         return return_list
 
-    def _label_to_data_pandas(self, trials, labels):
-        """ Given a list of trials and a list of labels returns one DataFrame
-            containing all the data of trials and one DataFrame with a label
-            for each channel in the trial's DataFrame.
-
-            I.e. The first axis of the returned DataFrames is the same.
-
-            Args:
-                trials (List): List of model.model.Trials
-                labels (List): List of labels (strings). One label for each trial
-
-            Returns:
-                pd_trials (pandas.core.frame.DataFrame)
-                pd_labels (pandas.core.frame.DataFrame)
-        """
-        pd_trials = trials[0]
-        pd_labels = pd.DataFrame(
-                [labels[0] for i in range(trials[0].shape[0])]
-                )
-        for i in range(1, len(trials)):
-            pd_trials = pd.concat([pd_trials, trials[i]])
-            pd_labels = pd.concat([
-                pd_labels,
-                pd.DataFrame(
-                    [labels[i] for j in range(trials[i].shape[0])]
-                    )
-                ])
-        return pd_trials, pd_labels
-
-    def _label_to_data_numpy(self, trials, labels):
-        """ Given a list of trials and a list of labels returns one ndarray
-            containing all the data of trials and one ndarray with a label
-            for each channel in the trial's ndarray.
-
-            I.e. The first axis of the returned ndarrays is the same.
-
-            Args:
-                trials (List): List of model.model.Trials
-                labels (List): List of labels (strings). One label for each trial
-
-            Returns:
-                np_trials (numpy.ndarray)
-                np_labels (numpy.ndarray)
-        """
-        np_trials = trials[0]
-        np_labels = np.array(
-                [labels[0] for i in range(trials[0].shape[0])]
-                )
-        for i in range(1, len(trials)):
-            np_trials = np.row_stack([np_trials, trials[i]])
-            lst = [labels[i] for j in range(trials[i].shape[0])]
-            a = np.array(lst)
-            np_labels = np.concatenate([np_labels, a])
-        return np_trials, np_labels
-
-    def get_data_by_labels(self, labels=None, as_list=True, pandas=True):
+    def get_data_by_labels(self, labels=None):
         """ Returns data of all trials with the labels specified in ''labels''.
-            Returned DataFrame does not have an MultiIndex
 
             Args:
                 labels (list, optional): List with class labels. If not set
                     data to all labels is returned
-                as_list (boolean, optional): Return trials in list (List of
-                    array like) and labels as list (list of strings)
-                pandas (boolean, optional): Return trials and data as
-                    pandas.core.frame.DataFrame or as numpy.ndarray
-
-            Note:
-                If `as_list=False` trials are stacked to one big DataFrame/array.
-                Labels are also returned as one big DataFrame/Array and repeated
-                as often as trial has channels.
-                So the first dimension of `labels` and `data is the same.
-
-                If `as_list=True` trials are in one list (as DataFrame or array
-                depending on argument `pandas`. Labels are also returned as list
-                **but not replicated**. So its only a list of strings **and not**
-                a list of DataFrames/arrays.
 
             Returns:
-                data (List/array like)
-                labels (List/array like)
+                DataContainer, String
         """
         if labels is None:
             labels = self.get_labels()
@@ -1947,7 +1666,7 @@ class Recording(DataHoldingElement):
 
         for idx in self._trial_order:
             if self.trials[idx].Label in labels:
-                trials.append(self.trials[idx].get_data(pandas=pandas))
+                trials.append(self.trials[idx].get_data())
                 ret_labels.append(self.trials[idx].Label)
 
         for lbl in ret_labels:
@@ -1957,11 +1676,6 @@ class Recording(DataHoldingElement):
                     (str(lbl), str(self.identifier))
                 )
 
-        if not as_list:
-            if pandas:
-                trials, ret_labels = self._label_to_data_pandas(trials, ret_labels)
-            else:
-                trials, ret_labels = self._label_to_data_numpy(trials, ret_labels)
         return trials, ret_labels
 
     def get_labels(self):
@@ -2027,7 +1741,7 @@ class Recording(DataHoldingElement):
             the respective dimensionality.
 
             Args:
-                data (pandas.DataFrame): Data to update trials with
+                data (numpy.ndarray): Data to update trials with
 
             Note:
                 This is not a setter be design. If data is set using setter it seems like
@@ -2036,21 +1750,10 @@ class Recording(DataHoldingElement):
                 accessing data though this classes properties, the updated data is
                 returned, though.
         """
-        if data.shape[0] != self.samples:
-            raise ValueError(
-                'Dimension missmatch while trying to set data for recording {}. ' + \
-                'Expected data of form ({},{}), instead got {}'.format(
-                    self.identifier,
-                    self.channels,
-                    self.features,
-                    data.shape
-                )
-            )
-        else:
-            for idnt in self._trial_order:
-                start = int(self.trials[idnt].start * self.frequency)
-                end = start + int(self.trials[idnt].duration * self.frequency)
-                self.trials[idnt].set_data(data[start : end])
+        for idnt in self._trial_order:
+            start = int(self.trials[idnt].start * self.frequency)
+            end = start + int(self.trials[idnt].duration * self.frequency)
+            self.trials[idnt].set_data(data[start : end])
 
     def get_all_data(self):
         """ In contrast to the Data propery, this function will return the whole DataFrame
@@ -2064,14 +1767,12 @@ class Recording(DataHoldingElement):
         return self._data
 
     def set_all_data(self, data):
-        if (data.shape[0] == self.channels) and (data.shape[1] == self.features):
-            self._data = data
-        else:
-            raise ValueError((
-                'Shape missmatch replacing data in recording ' + self.identifier + '. ' +
-                '\nExpected shape(' + self.channels + ',' + self.features + ', got ' +
-                'shape' + str(data.shape)
-            ))
+        """ Sets all data of the recording anew.
+
+            Args:
+                data (numpy.ndarray): Array with the same shape as original data
+        """
+        self._data[:] = data
 
     def get_trial(self, identifier):
         """ Returns the trial specified by identifier.
@@ -2333,7 +2034,7 @@ class Trial(DataHoldingElement):
         """ Sets the channels in reference.data this trial is referencing.
 
             Args:
-                data (pandas.DataFrame): New data
+                data (numpy.ndarray): New data
 
             Note:
                 This is not a property by purpose. When using a property here, Python seems
@@ -2439,18 +2140,6 @@ class DataController(object):
                     )
 
         return arr
-
-    def read_from_file_and_pickle(self, source, target, debug = False):
-        """ Reads EMG data from file and creates a numpy array and pickles it to target
-
-            Args:
-                source (String): Path to data file
-                target (String): Path to pickle file
-        """
-        arr = self.read_data_from_text(path = source, asNumpy = True, debug = debug)
-
-        with open(target, 'wb') as f:
-            pkl.dump(arr, f)
 
     def read_pickled_data(self, source):
         """ Reads EMG data from a pickled numpy ndarray

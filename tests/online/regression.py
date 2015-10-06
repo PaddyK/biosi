@@ -250,7 +250,7 @@ class TestLinearRegression(object):
                 Z = Z.flatten().reshape(1, -1)
                 X = X.flatten().reshape(1, -1)
                 model.train(X,Z)
-                if count % 1000 == 0:
+                if count % 100 == 0:
                     print '{}\t\t{}'.format(count, model.loss(X, Z))
                 count += 1
             e.set()
