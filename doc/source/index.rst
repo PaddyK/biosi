@@ -9,11 +9,13 @@ Welcome to EMG-Visualization-Project's documentation!
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
     
    intro
    materials
    taxonomy
+   implementation
+   swe
    modules
 
 Indices and tables

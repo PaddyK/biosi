@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.join(
     )))
 from model.model import DataHoldingElement
 from model.model import DataContainer
+from online.messageclasses import ArrayMessage
 import logging
 
 class AbstractDataDecorator(DataHoldingElement):
@@ -676,3 +677,35 @@ class RectificationDecorator(AbstractDataDecorator):
         else:
             return self._return(dataelement)
 
+
+class SubscriberDecorator(AbstractDataDecorator):
+    """ Wraps an subscriber from package ``online.subscriber`` to use data received
+        by subscriber with Decorators
+
+        Attributes:
+            subscriber (online.subscriber.Subscriber): Subscriber yielding data
+    """
+
+    def __init__(self, subscriber):
+        """ Initializes object
+            Args:
+                subscriber (online.subscriber.Subscriber): Subscriber yielding data
+        """
+        super(PadzeroDecorator, self).__init__(None, True)
+        self._subscriber = subscriber 
+
+    def get_data(self):
+        """ Returns a generator yielding DataContainer obtained from subscriber
+
+            Returns:
+                Generator
+        """
+        while True:
+            message = self._subscriber.queue.get()
+            parsed = ArrayMessage.deserialize(message)
+            self._subscriber.queue.task_done()
+            yield DataContainer.from_array(
+                parsed.data,
+                int(parsed.data.shape[0] / ArrayMessage.duration)
+            )
+    

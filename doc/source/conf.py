@@ -19,7 +19,7 @@ import os
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(0, '/home/patrick/GitHub/interdisciplinary_project/')
+sys.path.insert(0, '/home/patrick/interdisciplinary_project/')
 
 # -- General configuration ------------------------------------------------
 
@@ -38,8 +38,16 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'rst2pdf.pdfbuilder'
 ]
+pdf_documents = [('index', u'rst2pdf', u'Sample rst2pdf doc', u'Your Name'),]
+
+   # index - master document
+   # rst2pdf - name of the generated pdf
+   # Sample rst2pdf doc - title of the pdf
+   # Your Name - author name in the pdf
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -109,7 +117,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+html_theme = 'alabaster'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

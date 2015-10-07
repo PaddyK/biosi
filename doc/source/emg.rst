@@ -1,13 +1,6 @@
 emg package
 ===========
 
-Subpackages
------------
-
-.. toctree::
-
-    emg.breze
-
 Submodules
 ----------
 
@@ -15,6 +8,14 @@ emg.data module
 ---------------
 
 .. automodule:: emg.data
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+emg.datadecorators module
+-------------------------
+
+.. automodule:: emg.datadecorators
     :members:
     :undoc-members:
     :show-inheritance:

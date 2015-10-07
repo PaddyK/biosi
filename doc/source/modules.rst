@@ -1,11 +1,10 @@
-.
-=
+API
+===
 
 .. toctree::
    :maxdepth: 4
 
+   data
    emg
    model
-   setup
-   test
-   unittests
+   online

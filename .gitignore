@@ -57,11 +57,12 @@ docs/_build/
 target/
 
 # Custom stuff
-data/
+*.mat
+*.pkl
+*.csv
 
 *.swp
 .ipynb_checkpoints
-__init__.py
 *.xmind
 *~
 *.txt

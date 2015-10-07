@@ -50,17 +50,17 @@ class CdaqSource(AbstractSource):
 
     def _setup_channels(self):
         """ Setup channels to be channels measuring voltage """
-        for channel in self._channels:
-            pydaq.DAQmxCreateAIVoltageChan(
-                    self._task_handle,
-                    channel,    # Channel, <channel_name>/ai<channel_num> e.g. emg/ai0
-                    '',
-                    pydaq.DAQmx_Val_RSE,
-                    -10.0,  # Max value
-                    10.0,   # Min Value
-                    pydaq.DAQmx_Val_Volts, # Unit to measure
-                    None
-                    )
+        pydaq.DAQmxCreateAIVoltageChan(
+                self._task_handle,
+                ','.join(channels),    # Channel, <channel_name>/ai<channel_num> e.g. emg/ai0
+                '',
+                pydaq.DAQmx_Val_RSE,
+                -10.0,  # Max value
+                10.0,   # Min Value
+                pydaq.DAQmx_Val_Volts, # Unit to measure
+                None
+                )
+
     def _setup_sampling(self, num_samples):
         """ Setup how, then and often measurements hould be taken """
         pydaq.DAQmxCfgSampClkTiming(
